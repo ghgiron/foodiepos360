@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary": "#ffffff",
+                    "secondary-container": "#fd761a",
+                    "on-tertiary-fixed-variant": "#005049",
+                    "surface-variant": "#e0e3e5",
+                    "secondary-fixed-dim": "#ffb690",
+                    "inverse-surface": "#2d3133",
+                    "on-tertiary": "#ffffff",
+                    "secondary": "#9d4300",
+                    "primary": "#000000",
+                    "inverse-on-surface": "#eff1f3",
+                    "on-error": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed-variant": "#783200",
+                    "surface-dim": "#d8dadc",
+                    "surface-bright": "#f7f9fb",
+                    "on-background": "#191c1e",
+                    "background": "#f7f9fb",
+                    "error": "#ba1a1a",
+                    "outline": "#76777d",
+                    "on-tertiary-fixed": "#00201d",
+                    "primary-fixed-dim": "#bec6e0",
+                    "surface-container-high": "#e6e8ea",
+                    "outline-variant": "#c6c6cd",
+                    "on-tertiary-container": "#0c9488",
+                    "surface-tint": "#565e74",
+                    "on-surface-variant": "#45464d",
+                    "on-error-container": "#93000a",
+                    "on-primary-fixed": "#131b2e",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed": "#ffdbca",
+                    "surface-container": "#eceef0",
+                    "on-surface": "#191c1e",
+                    "error-container": "#ffdad6",
+                    "tertiary-fixed-dim": "#6bd8cb",
+                    "surface-container-low": "#f2f4f6",
+                    "primary-fixed": "#dae2fd",
+                    "primary-container": "#131b2e",
+                    "tertiary-fixed": "#89f5e7",
+                    "tertiary": "#000000",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-secondary-fixed": "#341100",
+                    "on-secondary-container": "#5c2400",
+                    "on-primary-container": "#7c839b",
+                    "tertiary-container": "#00201d",
+                    "inverse-primary": "#bec6e0",
+                    "surface": "#f7f9fb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface flex min-h-screen">
+<!-- SideNavBar (The Blueprint) -->
+<aside class="h-screen w-64 hidden md:flex flex-col sticky left-0 bg-[#f7f9fb] dark:bg-slate-900 py-8 px-4 gap-2 z-50">
+<div class="mb-8 px-2">
+<h1 class="text-xl font-manrope font-black text-[#0f172a] dark:text-white">Foodie POS</h1>
+<p class="text-xs font-manrope font-semibold tracking-wide text-slate-500 uppercase">The Digital Maitre'd</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-manrope text-sm font-semibold tracking-wide">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-manrope text-sm font-semibold tracking-wide">Pedidos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined">skillet</span>
+<span class="font-manrope text-sm font-semibold tracking-wide">Cocina</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#fd761a] font-bold border-r-4 border-[#fd761a] bg-gradient-to-r from-orange-50 to-transparent transition-all duration-200" href="#">
+<span class="material-symbols-outlined">local_bar</span>
+<span class="font-manrope text-sm font-semibold tracking-wide">Bar</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-manrope text-sm font-semibold tracking-wide">Inventario</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all duration-200" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="font-manrope text-sm font-semibold tracking-wide">Recetas</span>
+</a>
+</nav>
+<button class="mt-auto mx-2 bg-secondary text-white py-4 rounded-xl font-headline font-bold flex items-center justify-center gap-2 hover:scale-95 transition-transform duration-200">
+<span class="material-symbols-outlined">add</span>
+            New Order
+        </button>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col min-w-0 bg-surface">
+<!-- TopAppBar (The Anchor) -->
+<header class="flex justify-between items-center w-full px-6 sticky top-0 z-50 bg-[#f7f9fb] dark:bg-slate-900 h-16">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container border-none rounded-full text-sm focus:ring-2 focus:ring-secondary/20 focus:outline-none transition-all" placeholder="Buscar comandas..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex gap-4">
+<button class="text-slate-500 hover:bg-[#e6e8ea] dark:hover:bg-slate-800 p-2 rounded-full transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full"></span>
+</button>
+<button class="text-slate-500 hover:bg-[#e6e8ea] dark:hover:bg-slate-800 p-2 rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="Professional chef portrait in clean white uniform with confident expression in a high-end restaurant kitchen setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBoW48wraGdkuJBh0CBp4-mVXgvH_J50gUmDFfy2AUIrHwAtdnAbdHHFwqGIDnmhweJXWYMz9apFvzQR7b_cRWAf-Kn26lhmBX60RRfGvBOot4A3l8GZ_oCRZZuvNQyv_kgz-XwvNXXXEgD2V1BZF9pSVyelrA-dJEBfC3GkQLMWWrej2eN_m3z5dyiws5Xmua2TVcQZ-_JDgEkWqM9VJtus78Ju5MMYT-OkO4qgDZgAHSqg5BhZ-BZaNlGozgCuPGVWImGmIkSsZU"/>
+</div>
+</div>
+</header>
+<!-- Kitchen Dashboard Content -->
+<div class="p-6 md:p-8 space-y-8 flex-1 overflow-y-auto no-scrollbar">
+<!-- Hero Metrics: Intentional Asymmetry -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+<div class="lg:col-span-8 bg-surface-container-lowest p-8 rounded-[2rem] flex flex-col justify-between relative overflow-hidden">
+<div class="relative z-10">
+<span class="font-label text-[0.75rem] uppercase tracking-widest text-on-secondary-container bg-secondary-fixed px-3 py-1 rounded-full">Estado del Bar</span>
+<h2 class="font-headline text-[3.5rem] font-extrabold leading-none mt-4 text-primary tracking-tighter">14 Comandas Activas</h2>
+<p class="font-body text-on-primary-container mt-2 max-w-md">Tiempo promedio de respuesta actual: <span class="text-secondary font-bold">8.5 min</span></p>
+</div>
+<!-- Decorative Heat Gradient -->
+<div class="absolute right-0 top-0 w-1/3 h-full bg-gradient-to-l from-orange-100/50 to-transparent pointer-events-none"></div>
+<div class="mt-12 flex gap-4">
+<button class="bg-primary text-white px-6 py-3 rounded-xl font-headline font-bold flex items-center gap-2 hover:scale-95 transition-transform">
+<span class="material-symbols-outlined">timer</span>
+                            Optimizar Flujo
+                        </button>
+<button class="bg-surface-container-high text-on-surface px-6 py-3 rounded-xl font-headline font-bold hover:bg-slate-200 transition-colors">
+                            Ver Reportes
+                        </button>
+</div>
+</div>
+<div class="lg:col-span-4 grid grid-rows-2 gap-6">
+<div class="bg-secondary text-on-primary p-6 rounded-[2rem] flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">local_bar</span>
+<span class="text-xs font-bold bg-white/20 px-2 py-1 rounded">PRIORIDAD ALTA</span>
+</div>
+<div>
+<p class="text-sm font-medium opacity-80">Tragos en espera</p>
+<p class="text-3xl font-black font-manrope">08</p>
+</div>
+</div>
+<div class="bg-on-tertiary-container text-white p-6 rounded-[2rem] flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">set_meal</span>
+<span class="text-xs font-bold bg-white/10 px-2 py-1 rounded">ESTACIÓN SUSHI</span>
+</div>
+<div>
+<p class="text-sm font-medium opacity-80">Nigiris &amp; Rolls</p>
+<p class="text-3xl font-black font-manrope">12</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Order Cards Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+<!-- Order Card 1: Critical (Orange) -->
+<article class="bg-surface-container-lowest rounded-[1.5rem] p-6 space-y-4 flex flex-col relative">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-xs font-label uppercase tracking-widest text-slate-400">Mesa 12 • Comanda #842</span>
+<h3 class="text-xl font-headline font-bold text-on-surface">Rush Hour Order</h3>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-secondary font-black text-lg">12:45</span>
+<span class="text-[10px] font-bold text-secondary uppercase tracking-tighter">Retrasado</span>
+</div>
+</div>
+<!-- Wait Time Heat Indicator -->
+<div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-tertiary-container to-secondary-container w-[92%]"></div>
+</div>
+<div class="space-y-3 flex-1">
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary font-bold">2</span>
+<span class="font-medium text-slate-700">Margarita de Hibisco</span>
+</div>
+<span class="material-symbols-outlined text-slate-300">check_circle</span>
+</div>
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-lg bg-tertiary/10 flex items-center justify-center text-on-tertiary-container font-bold">1</span>
+<span class="font-medium text-slate-700">Omakase Platter (12 pcs)</span>
+</div>
+<span class="material-symbols-outlined text-slate-300">radio_button_unchecked</span>
+</div>
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-lg bg-tertiary/10 flex items-center justify-center text-on-tertiary-container font-bold">2</span>
+<span class="font-medium text-slate-700">Sake Nigiri Special</span>
+</div>
+<span class="material-symbols-outlined text-slate-300">radio_button_unchecked</span>
+</div>
+</div>
+<button class="w-full bg-secondary text-white py-3 rounded-xl font-bold hover:scale-95 transition-all">
+                        Marcar como Servido
+                    </button>
+</article>
+<!-- Order Card 2: Fresh (Teal) -->
+<article class="bg-surface-container-lowest rounded-[1.5rem] p-6 space-y-4 flex flex-col relative border-t-4 border-on-tertiary-container">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-xs font-label uppercase tracking-widest text-slate-400">Barra 04 • Comanda #845</span>
+<h3 class="text-xl font-headline font-bold text-on-surface">Solo Dining</h3>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-on-tertiary-container font-black text-lg">03:20</span>
+<span class="text-[10px] font-bold text-on-tertiary-container uppercase tracking-tighter">En Tiempo</span>
+</div>
+</div>
+<div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-on-tertiary-container w-[30%]"></div>
+</div>
+<div class="space-y-3 flex-1">
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary font-bold">1</span>
+<span class="font-medium text-slate-700">Old Fashioned Ahumado</span>
+</div>
+<span class="material-symbols-outlined text-slate-300">radio_button_unchecked</span>
+</div>
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-lg bg-tertiary/10 flex items-center justify-center text-on-tertiary-container font-bold">1</span>
+<span class="font-medium text-slate-700">California Roll Spicy</span>
+</div>
+<span class="material-symbols-outlined text-slate-300">radio_button_unchecked</span>
+</div>
+</div>
+<button class="w-full bg-on-tertiary-container text-white py-3 rounded-xl font-bold hover:scale-95 transition-all">
+                        Marcar como Servido
+                    </button>
+</article>
+<!-- Order Card 3: New -->
+<article class="bg-surface-container-lowest rounded-[1.5rem] p-6 space-y-4 flex flex-col relative border-t-4 border-slate-200">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-xs font-label uppercase tracking-widest text-slate-400">Mesa 08 • Comanda #846</span>
+<h3 class="text-xl font-headline font-bold text-on-surface">Drinks Only</h3>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-slate-400 font-black text-lg">01:10</span>
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Nuevo</span>
+</div>
+</div>
+<div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-slate-200 w-[10%]"></div>
+</div>
+<div class="space-y-3 flex-1">
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary font-bold">4</span>
+<span class="font-medium text-slate-700">Copa Albariño</span>
+</div>
+<span class="material-symbols-outlined text-slate-300">radio_button_unchecked</span>
+</div>
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary font-bold">2</span>
+<span class="font-medium text-slate-700">Tónica Premium</span>
+</div>
+<span class="material-symbols-outlined text-slate-300">radio_button_unchecked</span>
+</div>
+</div>
+<button class="w-full bg-surface-container-high text-on-surface py-3 rounded-xl font-bold hover:scale-95 transition-all">
+                        Marcar como Servido
+                    </button>
+</article>
+<!-- Order Card 4: Sushi Special -->
+<article class="bg-surface-container-lowest rounded-[1.5rem] p-6 space-y-4 flex flex-col relative border-t-4 border-on-tertiary-container shadow-sm">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-xs font-label uppercase tracking-widest text-slate-400">Mesa 22 • Comanda #841</span>
+<h3 class="text-xl font-headline font-bold text-on-surface">Premium Experience</h3>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-secondary font-black text-lg">08:15</span>
+<span class="text-[10px] font-bold text-secondary uppercase tracking-tighter">Atención</span>
+</div>
+</div>
+<div class="h-1.5 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-on-tertiary-container to-secondary w-[75%]"></div>
+</div>
+<div class="space-y-3 flex-1">
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-lg bg-tertiary/10 flex items-center justify-center text-on-tertiary-container font-bold">3</span>
+<span class="font-medium text-slate-700">Ebi Tempura Roll</span>
+</div>
+<span class="material-symbols-outlined text-on-tertiary-container" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-3">
+<span class="w-8 h-8 rounded-lg bg-tertiary/10 flex items-center justify-center text-on-tertiary-container font-bold">1</span>
+<span class="font-medium text-slate-700">Sashimi Moriawase (24)</span>
+</div>
+<span class="material-symbols-outlined text-slate-300">radio_button_unchecked</span>
+</div>
+<div class="flex items-center justify-between group italic text-secondary">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined">warning</span>
+<span class="font-medium">Sin Wasabi por favor</span>
+</div>
+</div>
+</div>
+<button class="w-full bg-on-tertiary-container text-white py-3 rounded-xl font-bold hover:scale-95 transition-all">
+                        Marcar como Servido
+                    </button>
+</article>
+</section>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only Blueprint) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 md:hidden bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-3xl">
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-4 py-2" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-inter text-[10px] font-bold uppercase tracking-widest mt-1">Inicio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-4 py-2" href="#">
+<span class="material-symbols-outlined">receipt</span>
+<span class="font-inter text-[10px] font-bold uppercase tracking-widest mt-1">Pedidos</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-[#fd761a]/10 text-[#fd761a] rounded-xl px-4 py-2 scale-95" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">restaurant</span>
+<span class="font-inter text-[10px] font-bold uppercase tracking-widest mt-1">Cocina</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-4 py-2" href="#">
+<span class="material-symbols-outlined">package_2</span>
+<span class="font-inter text-[10px] font-bold uppercase tracking-widest mt-1">Stock</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 px-4 py-2" href="#">
+<span class="material-symbols-outlined">more_horiz</span>
+<span class="font-inter text-[10px] font-bold uppercase tracking-widest mt-1">Más</span>
+</a>
+</nav>
+<!-- Visual Floating Notification (Atmospheric) -->
+<div class="fixed top-20 right-8 z-[60] bg-surface-container-lowest p-4 rounded-2xl shadow-[0_0_32px_rgba(0,0,0,0.06)] border border-white/20 backdrop-blur-md flex items-center gap-4 max-w-xs transition-all animate-pulse">
+<div class="w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">emergency</span>
+</div>
+<div>
+<p class="font-headline font-bold text-sm">Nueva orden de barra!</p>
+<p class="text-xs text-slate-500">Mesa 15 • 3 Cocteles</p>
+</div>
+</div>
+</body></html>

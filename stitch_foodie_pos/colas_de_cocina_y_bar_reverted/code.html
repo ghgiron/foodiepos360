@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>The Culinary Architect - Kitchen Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-tint": "#006c49",
+                        "inverse-surface": "#263143",
+                        "surface-variant": "#d8e3fb",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#bbcabf",
+                        "on-secondary": "#ffffff",
+                        "surface-dim": "#cfdaf2",
+                        "surface-container-low": "#f0f3ff",
+                        "tertiary-fixed": "#ffdad7",
+                        "inverse-primary": "#4edea3",
+                        "primary-fixed": "#6ffbbe",
+                        "primary": "#006c49",
+                        "on-secondary-fixed-variant": "#3a485c",
+                        "on-primary-fixed-variant": "#005236",
+                        "on-background": "#111c2d",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#e7eeff",
+                        "secondary-container": "#d5e3fd",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed": "#0d1c2f",
+                        "on-tertiary-container": "#711419",
+                        "tertiary": "#a43a3a",
+                        "outline": "#6c7a71",
+                        "on-tertiary-fixed": "#410005",
+                        "secondary-fixed-dim": "#b9c7e0",
+                        "secondary": "#515f74",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#57657b",
+                        "primary-container": "#10b981",
+                        "on-tertiary-fixed-variant": "#842225",
+                        "surface-container-highest": "#d8e3fb",
+                        "on-error": "#ffffff",
+                        "background": "#f9f9ff",
+                        "tertiary-container": "#fc7c78",
+                        "on-surface-variant": "#3c4a42",
+                        "surface": "#f9f9ff",
+                        "surface-container-high": "#dee8ff",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed": "#002113",
+                        "primary-fixed-dim": "#4edea3",
+                        "surface-bright": "#f9f9ff",
+                        "secondary-fixed": "#d5e3fd",
+                        "tertiary-fixed-dim": "#ffb3af",
+                        "inverse-on-surface": "#ecf1ff",
+                        "on-primary-container": "#00422b",
+                        "on-surface": "#111c2d",
+                        "on-error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- Sidebar Navigation -->
+<aside class="hidden md:flex flex-col h-screen py-8 bg-surface-container text-sm font-medium h-full w-64 fixed left-0 top-0">
+<div class="px-8 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white shadow-lg">
+<span class="material-symbols-outlined" data-icon="restaurant">restaurant</span>
+</div>
+<div>
+<h1 class="font-headline font-extrabold text-primary text-lg leading-tight">The Architect</h1>
+<p class="text-[10px] text-secondary font-bold uppercase tracking-widest">Main Kitchen</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center text-slate-500 hover:text-primary transition-all px-8 py-3 translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center text-slate-500 hover:text-primary transition-all px-8 py-3 translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="restaurant_menu">restaurant_menu</span>
+<span>Orders</span>
+</a>
+<a class="flex items-center bg-white text-primary rounded-l-full ml-4 pl-4 py-3 shadow-sm translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="skillet" style="font-variation-settings: 'FILL' 1;">skillet</span>
+<span class="font-bold">Kitchen</span>
+</a>
+<a class="flex items-center text-slate-500 hover:text-primary transition-all px-8 py-3 translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="inventory_2">inventory_2</span>
+<span>Inventory</span>
+</a>
+<a class="flex items-center text-slate-500 hover:text-primary transition-all px-8 py-3 translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="menu_book">menu_book</span>
+<span>Recipes</span>
+</a>
+</nav>
+<div class="mt-auto px-8 space-y-4 pt-6">
+<a class="flex items-center text-slate-500 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="help">help</span>
+<span>Support</span>
+</a>
+<a class="flex items-center text-slate-500 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="logout">logout</span>
+<span>Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="md:ml-64 min-h-screen pb-24 md:pb-8">
+<!-- Top App Bar -->
+<header class="flex justify-between items-center w-full px-8 py-4 bg-surface sticky top-0 z-40">
+<div class="flex items-center gap-4">
+<h2 class="text-2xl font-black text-primary tracking-tight font-headline">Colas de Cocina</h2>
+<div class="flex gap-2 ml-4">
+<span class="px-3 py-1 rounded-full bg-primary-container text-on-primary-container text-xs font-bold uppercase tracking-wider">Activo</span>
+<span class="px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-bold uppercase tracking-wider">Normal</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden lg:flex items-center bg-surface-container-low rounded-full px-4 py-2 w-64">
+<span class="material-symbols-outlined text-slate-400 mr-2" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full" placeholder="Buscar pedido..." type="text"/>
+</div>
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary">
+<img alt="Manager Profile" class="w-full h-full object-cover" data-alt="professional portrait of a head chef in a white uniform with a serious yet focused expression in a kitchen setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCix-oJtqj4zkDCXOniuAYX2pdqnUsBIxsljCkf69R3FUkAfS3LDUjhqo1XLqqJIW_gkTtcvLaVU77ee3D9I_8RXGq9wQoZwoPSiHie1S9MQszsl5LtWC6vWvvZGaeJtfCrhccjki9uletgNyb7bR7cdjrF6jhknv_rkXG7zzoMy4wxUTOnOyUee1cuM_WSi-P_kbV5bxF44g13sVsAxxLkWBCcuLHjoI_Bqx-HK0_FcpFMTMDTO8gDijgMNbHNlGJmKb6F6opNcrI"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Kitchen Vitals Bento Grid -->
+<div class="px-8 py-6">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<!-- Stat Card: Time -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 flex flex-col justify-between h-32">
+<div class="flex justify-between items-start">
+<p class="text-xs font-bold text-secondary uppercase tracking-widest">Tiempo Promedio</p>
+<span class="material-symbols-outlined text-primary" data-icon="timer">timer</span>
+</div>
+<div class="flex items-baseline gap-2">
+<h3 class="text-4xl font-headline font-extrabold text-on-surface">14.2</h3>
+<span class="text-sm font-medium text-secondary">minutos</span>
+</div>
+</div>
+<!-- Stat Card: Tickets -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 flex flex-col justify-between h-32">
+<div class="flex justify-between items-start">
+<p class="text-xs font-bold text-secondary uppercase tracking-widest">Tickets Pendientes</p>
+<span class="material-symbols-outlined text-tertiary" data-icon="confirmation_number">confirmation_number</span>
+</div>
+<div class="flex items-baseline gap-2">
+<h3 class="text-4xl font-headline font-extrabold text-on-surface">18</h3>
+<span class="text-xs font-bold text-tertiary-container bg-tertiary-container/10 px-2 py-0.5 rounded">+4 urgentes</span>
+</div>
+</div>
+<!-- Stat Card: Efficiency -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 flex flex-col justify-between h-32">
+<div class="flex justify-between items-start">
+<p class="text-xs font-bold text-secondary uppercase tracking-widest">Eficiencia</p>
+<span class="material-symbols-outlined text-primary-container" data-icon="trending_up">trending_up</span>
+</div>
+<div class="flex items-baseline gap-2">
+<h3 class="text-4xl font-headline font-extrabold text-on-surface">94%</h3>
+<span class="text-sm font-medium text-primary-container">↑ 2%</span>
+</div>
+</div>
+<!-- Live Kitchen Action Card -->
+<div class="bg-primary p-6 rounded-xl flex flex-col justify-between h-32 shadow-xl shadow-primary/20">
+<div class="flex justify-between items-start">
+<p class="text-xs font-bold text-on-primary/80 uppercase tracking-widest">Estado Vital</p>
+<span class="material-symbols-outlined text-on-primary" data-icon="bolt" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-white animate-pulse"></div>
+<h3 class="text-xl font-headline font-bold text-on-primary">Cocina en Flujo</h3>
+</div>
+</div>
+</div>
+</div>
+<!-- Order Queue Section -->
+<div class="px-8 py-4">
+<div class="flex items-center justify-between mb-8">
+<h3 class="text-xl font-bold font-headline text-on-surface">Tickets en Vivo</h3>
+<div class="flex gap-2">
+<button class="px-4 py-2 rounded-full bg-white border border-outline-variant/30 text-sm font-semibold flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="filter_list">filter_list</span>
+                        Filtrar Estación
+                    </button>
+<button class="px-4 py-2 rounded-full bg-white border border-outline-variant/30 text-sm font-semibold flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="sort">sort</span>
+                        Prioridad
+                    </button>
+</div>
+</div>
+<!-- Tickets Grid (Horizontal Scroll or Grid) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+<!-- Ticket 1: Urgent -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm relative border-l-4 border-tertiary-container">
+<div class="p-5">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="text-3xl font-headline font-extrabold text-on-surface">Mesa 12</h4>
+<p class="text-[10px] text-secondary font-bold uppercase tracking-widest">ID: #8821 • 14:20</p>
+</div>
+<div class="bg-tertiary-container text-on-tertiary-container px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                                Tarde (18m)
+                            </div>
+</div>
+<div class="space-y-3 mb-6">
+<div class="flex justify-between items-center group">
+<div class="flex items-center gap-3">
+<span class="font-bold text-primary">2x</span>
+<span class="text-sm font-medium">Ribeye Term. Medio</span>
+</div>
+<span class="material-symbols-outlined text-slate-300" data-icon="check_circle">check_circle</span>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<span class="font-bold text-primary">1x</span>
+<span class="text-sm font-medium">Pasta Trufada</span>
+</div>
+<span class="material-symbols-outlined text-slate-300" data-icon="check_circle">check_circle</span>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<span class="font-bold text-primary text-opacity-40">1x</span>
+<span class="text-sm font-medium text-slate-400 line-through">Ensalada César</span>
+</div>
+<span class="material-symbols-outlined text-primary" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+</div>
+<button class="w-full py-3 bg-primary text-white rounded-full font-bold text-sm flex items-center justify-center gap-2 hover:bg-on-primary-container transition-colors">
+                            Completar Pedido
+                        </button>
+</div>
+</div>
+<!-- Ticket 2: Normal -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm relative border-l-4 border-primary">
+<div class="p-5">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="text-3xl font-headline font-extrabold text-on-surface">Barra 03</h4>
+<p class="text-[10px] text-secondary font-bold uppercase tracking-widest">ID: #8825 • 14:35</p>
+</div>
+<div class="bg-surface-container text-secondary px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                                En Proceso
+                            </div>
+</div>
+<div class="space-y-3 mb-6">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<span class="font-bold text-primary">1x</span>
+<span class="text-sm font-medium">Hamburguesa Architect</span>
+</div>
+<span class="material-symbols-outlined text-slate-300" data-icon="check_circle">check_circle</span>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<span class="font-bold text-primary">2x</span>
+<span class="text-sm font-medium">Papas Rústicas</span>
+</div>
+<span class="material-symbols-outlined text-slate-300" data-icon="check_circle">check_circle</span>
+</div>
+</div>
+<button class="w-full py-3 bg-primary text-white rounded-full font-bold text-sm flex items-center justify-center gap-2 hover:bg-on-primary-container transition-colors">
+                            Completar Pedido
+                        </button>
+</div>
+</div>
+<!-- Ticket 3: New -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm relative border-l-4 border-slate-200">
+<div class="p-5">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="text-3xl font-headline font-extrabold text-on-surface">Mesa 07</h4>
+<p class="text-[10px] text-secondary font-bold uppercase tracking-widest">ID: #8829 • 14:38</p>
+</div>
+<div class="bg-primary-fixed text-on-primary-fixed px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                                Nuevo
+                            </div>
+</div>
+<div class="space-y-3 mb-6">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<span class="font-bold text-primary">3x</span>
+<span class="text-sm font-medium">Tacos de Pescado</span>
+</div>
+<span class="material-symbols-outlined text-slate-300" data-icon="check_circle">check_circle</span>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<span class="font-bold text-primary">1x</span>
+<span class="text-sm font-medium">Ceviche Clásico</span>
+</div>
+<span class="material-symbols-outlined text-slate-300" data-icon="check_circle">check_circle</span>
+</div>
+</div>
+<button class="w-full py-3 bg-surface-container-high text-on-surface-variant rounded-full font-bold text-sm flex items-center justify-center gap-2 hover:bg-surface-container-highest transition-colors">
+                            Iniciar Preparación
+                        </button>
+</div>
+</div>
+<!-- Station Status Card -->
+<div class="bg-surface-container p-5 rounded-xl border border-dashed border-outline-variant">
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-primary" data-icon="info">info</span>
+<h4 class="font-headline font-bold text-on-surface">Resumen de Estación</h4>
+</div>
+<ul class="space-y-3 text-sm">
+<li class="flex justify-between text-secondary">
+<span>Parrilla:</span>
+<span class="font-bold text-on-surface">6 platos</span>
+</li>
+<li class="flex justify-between text-secondary">
+<span>Fríos:</span>
+<span class="font-bold text-on-surface">3 platos</span>
+</li>
+<li class="flex justify-between text-secondary">
+<span>Salsas:</span>
+<span class="font-bold text-on-surface">En stock</span>
+</li>
+</ul>
+<div class="mt-6 pt-4 border-t border-outline-variant/30">
+<p class="text-[10px] font-bold uppercase text-slate-400 tracking-tighter">Última actualización: 14:40:12</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pt-2 pb-safe bg-white/80 backdrop-blur-xl shadow-[0_-4px_20px_0_rgba(17,28,45,0.06)] rounded-t-[1.5rem]">
+<div class="flex flex-col items-center justify-center text-slate-400 py-1">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 py-1">
+<span class="material-symbols-outlined" data-icon="shopping_cart">shopping_cart</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Orders</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-surface-container text-primary rounded-2xl px-4 py-1">
+<span class="material-symbols-outlined" data-icon="countertops" style="font-variation-settings: 'FILL' 1;">countertops</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Kitchen</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 py-1">
+<span class="material-symbols-outlined" data-icon="warehouse">warehouse</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">Stock</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 py-1">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+<span class="font-label text-[10px] uppercase tracking-widest mt-1">More</span>
+</div>
+</nav>
+</body></html>

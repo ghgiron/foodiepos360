@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-variant": "#e0e3e5",
+                    "secondary-fixed-dim": "#ffb690",
+                    "on-tertiary-container": "#0c9488",
+                    "tertiary-fixed-dim": "#6bd8cb",
+                    "on-primary": "#ffffff",
+                    "on-secondary-fixed": "#341100",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "error": "#ba1a1a",
+                    "on-secondary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed-variant": "#005049",
+                    "surface-container-high": "#e6e8ea",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-fixed": "#00201d",
+                    "on-error": "#ffffff",
+                    "surface-container-low": "#f2f4f6",
+                    "primary-fixed-dim": "#bec6e0",
+                    "background": "#f7f9fb",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-surface": "#191c1e",
+                    "on-background": "#191c1e",
+                    "surface-bright": "#f7f9fb",
+                    "inverse-on-surface": "#eff1f3",
+                    "tertiary-fixed": "#89f5e7",
+                    "surface": "#f7f9fb",
+                    "error-container": "#ffdad6",
+                    "outline": "#76777d",
+                    "outline-variant": "#c6c6cd",
+                    "secondary-fixed": "#ffdbca",
+                    "tertiary-container": "#00201d",
+                    "inverse-primary": "#bec6e0",
+                    "surface-dim": "#d8dadc",
+                    "tertiary": "#000000",
+                    "surface-tint": "#565e74",
+                    "secondary-container": "#fd761a",
+                    "primary-fixed": "#dae2fd",
+                    "on-tertiary": "#ffffff",
+                    "on-surface-variant": "#45464d",
+                    "secondary": "#9d4300",
+                    "primary": "#000000",
+                    "primary-container": "#131b2e",
+                    "surface-container": "#eceef0",
+                    "on-secondary-container": "#5c2400",
+                    "on-primary-fixed": "#131b2e",
+                    "inverse-surface": "#2d3133",
+                    "on-primary-container": "#7c839b",
+                    "on-secondary-fixed-variant": "#783200"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-secondary-fixed">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#ffffff] dark:bg-[#131b2e] shadow-none flex flex-col py-8 z-50">
+<div class="px-8 mb-10">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">restaurant_menu</span>
+</div>
+<div>
+<h2 class="text-xl font-extrabold text-[#131b2e] dark:text-white leading-tight">Foodie POS</h2>
+<p class="text-[10px] uppercase tracking-[0.2em] text-[#131b2e]/50 dark:text-white/50 font-bold">The Digital Maitre'd</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-4 text-[#131b2e]/70 dark:text-white/70 px-8 py-3 hover:bg-[#f7f9fb] dark:hover:bg-[#1c253b] hover:text-[#fd761a] transition-all duration-300 ease-in-out font-medium text-sm tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-4 text-[#131b2e]/70 dark:text-white/70 px-8 py-3 hover:bg-[#f7f9fb] dark:hover:bg-[#1c253b] hover:text-[#fd761a] transition-all duration-300 ease-in-out font-medium text-sm tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span>Pedidos</span>
+</a>
+<a class="flex items-center gap-4 text-[#131b2e]/70 dark:text-white/70 px-8 py-3 hover:bg-[#f7f9fb] dark:hover:bg-[#1c253b] hover:text-[#fd761a] transition-all duration-300 ease-in-out font-medium text-sm tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="restaurant">restaurant</span>
+<span>Cocina</span>
+</a>
+<a class="flex items-center gap-4 text-[#131b2e]/70 dark:text-white/70 px-8 py-3 hover:bg-[#f7f9fb] dark:hover:bg-[#1c253b] hover:text-[#fd761a] transition-all duration-300 ease-in-out font-medium text-sm tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="local_bar">local_bar</span>
+<span>Bar</span>
+</a>
+<a class="flex items-center gap-4 text-[#131b2e]/70 dark:text-white/70 px-8 py-3 hover:bg-[#f7f9fb] dark:hover:bg-[#1c253b] hover:text-[#fd761a] transition-all duration-300 ease-in-out font-medium text-sm tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+<span>Inventario</span>
+</a>
+<a class="flex items-center gap-4 bg-[#f7f9fb] dark:bg-[#1c253b] text-[#fd761a] font-bold rounded-l-full ml-4 pl-7 py-3 transition-all duration-300 ease-in-out font-medium text-sm tracking-wide" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book" style="font-variation-settings: 'FILL' 1;">menu_book</span>
+<span>Recetas</span>
+</a>
+</nav>
+<div class="px-8 mt-auto pt-8">
+<div class="p-4 rounded-2xl bg-surface-container-low flex items-center gap-3">
+<img alt="Chef Profile" class="w-10 h-10 rounded-full bg-surface-variant object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuvTnF0qnmt5NJcesKeQBVMDAEf2VpKN0MII11GWNF80t_eNvyEwk6zvbFd5G7BHszyzeQgq6KI4ziW2S0WR8oIdxxLhlaoLgPSbT_qHq1sc0-MKsqTwwGzMMRAmG7UsibeWMnqVGPxWBrNXPleIZI5DlSX0RJrDkn4uH4xO540Z75r9I_O2sRlllTPF-sp3G-NkkeKytjtYNL6k_Xmm6DGy9yac3CEcQnCv1PeXF-4tx2UgGejIgu9k-T3hpHVO8A25kEQcr7-zE"/>
+<div class="overflow-hidden">
+<p class="text-xs font-bold truncate">Chef Profile</p>
+<p class="text-[10px] text-on-surface-variant">Admin Mode</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 min-h-screen">
+<!-- TopAppBar -->
+<header class="w-full sticky top-0 z-40 bg-[#f7f9fb] dark:bg-[#131b2e] shadow-[0_0_32px_0_rgba(25,28,30,0.06)] flex justify-between items-center px-8 py-6">
+<div>
+<h1 class="font-headline font-extrabold text-2xl tracking-tight text-[#131b2e] dark:text-white">Crear Nueva Subreceta</h1>
+<nav class="flex gap-2 text-xs font-medium text-on-surface-variant mt-1">
+<span>Recetas</span>
+<span>/</span>
+<span class="text-secondary">Nueva Subreceta</span>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2.5 bg-secondary-container text-white font-bold rounded-lg hover:brightness-110 active:scale-95 duration-200 shadow-lg shadow-secondary/20 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">save</span>
+                Guardar Subreceta
+            </button>
+<div class="flex gap-2">
+<button class="p-2 rounded-full hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="settings">settings</span>
+</button>
+</div>
+</div>
+</header>
+<div class="p-8 flex gap-8">
+<!-- Left Column: Form Sections -->
+<div class="flex-1 space-y-8 max-w-4xl">
+<!-- Section 1: Información Básica -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">info</span>
+</div>
+<h3 class="text-xl font-bold tracking-tight">Información Básica</h3>
+</div>
+<div class="grid grid-cols-1 gap-6">
+<div class="relative">
+<label class="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Nombre de la Subreceta</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-secondary/50 placeholder:text-outline-variant text-sm font-medium transition-all" placeholder="e.g., Salsa de gulupa" type="text" value="Salsa de gulupa"/>
+</div>
+<div class="relative">
+<label class="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Descripción</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-secondary/50 placeholder:text-outline-variant text-sm font-medium transition-all resize-none" placeholder="Detalles sobre la preparación o uso de esta subreceta..." rows="3"></textarea>
+</div>
+</div>
+</section>
+<!-- Section 2: Métricas de Producción -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-tertiary-container">
+<span class="material-symbols-outlined">analytics</span>
+</div>
+<h3 class="text-xl font-bold tracking-tight">Métricas de Producción</h3>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+<div>
+<label class="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Cant. Obtenida</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-secondary/50 text-sm font-medium" type="number" value="150"/>
+</div>
+<div>
+<label class="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">U. de Medida</label>
+<select class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-secondary/50 text-sm font-medium">
+<option selected="">gr</option>
+<option>ml</option>
+<option>kg</option>
+<option>lt</option>
+</select>
+</div>
+<div>
+<label class="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">A Producir</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-secondary/50 text-sm font-medium" type="number" value="1"/>
+</div>
+<div>
+<label class="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Margen Error (%)</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-secondary/50 text-sm font-medium" type="text" value="5%"/>
+</div>
+</div>
+</section>
+<!-- Section 3: Insumos e Ingredientes -->
+<section class="bg-surface-container-lowest rounded-xl p-8 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+<div class="flex justify-between items-center mb-6">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">kitchen</span>
+</div>
+<h3 class="text-xl font-bold tracking-tight">Insumos e Ingredientes</h3>
+</div>
+<button class="text-xs font-bold text-on-tertiary-container flex items-center gap-1 hover:underline">
+<span class="material-symbols-outlined text-sm">add_circle</span>
+                        Añadir Insumo
+                    </button>
+</div>
+<div class="overflow-hidden">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] uppercase tracking-widest text-on-surface-variant border-b border-outline-variant/15">
+<th class="pb-4 font-bold">Insumo</th>
+<th class="pb-4 font-bold">Cant. Estándar</th>
+<th class="pb-4 font-bold">Unidad</th>
+<th class="pb-4 font-bold">Costo Real</th>
+<th class="pb-4 font-bold">Cant. Prod.</th>
+<th class="pb-4 font-bold text-right">Costo Prod.</th>
+</tr>
+</thead>
+<tbody class="text-sm font-medium">
+<tr class="border-b border-outline-variant/10 group">
+<td class="py-4 flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></div>
+                                    panela
+                                </td>
+<td class="py-4">100,00</td>
+<td class="py-4 text-on-surface-variant">gr</td>
+<td class="py-4">$4,00</td>
+<td class="py-4 font-bold">100,00 gr</td>
+<td class="py-4 text-right">$400,00</td>
+</tr>
+<tr class="border-b border-outline-variant/10">
+<td class="py-4 flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary-fixed-dim"></div>
+                                    Licor de cafe
+                                </td>
+<td class="py-4">1,50</td>
+<td class="py-4 text-on-surface-variant">oz</td>
+<td class="py-4">$1.888,00</td>
+<td class="py-4 font-bold">1,50 oz</td>
+<td class="py-4 text-right">$2.832,00</td>
+</tr>
+<tr class="border-b border-outline-variant/10">
+<td class="py-4 flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+                                    Agua
+                                </td>
+<td class="py-4">200,00</td>
+<td class="py-4 text-on-surface-variant">ml</td>
+<td class="py-4">$0,00</td>
+<td class="py-4 font-bold">200,00 ml</td>
+<td class="py-4 text-right">$0,00</td>
+</tr>
+<tr class="border-b border-outline-variant/10">
+<td class="py-4 flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-on-tertiary-container"></div>
+                                    Gulupa
+                                </td>
+<td class="py-4">150,00</td>
+<td class="py-4 text-on-surface-variant">gr</td>
+<td class="py-4">$6,25</td>
+<td class="py-4 font-bold">150,00 gr</td>
+<td class="py-4 text-right">$937,50</td>
+</tr>
+<tr class="bg-surface-container-low/50">
+<td class="py-4 px-4 font-bold text-on-surface-variant text-right" colspan="5">Costo Total Ingredientes</td>
+<td class="py-4 px-4 text-right font-extrabold text-lg text-primary">$4.170</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+<!-- Right Column: Costing Panel -->
+<aside class="w-80 space-y-6">
+<div class="bg-[#131b2e] text-white rounded-2xl p-6 shadow-xl sticky top-28">
+<div class="flex items-center gap-2 mb-8">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">payments</span>
+<h3 class="text-lg font-bold">RESULTADOS</h3>
+</div>
+<div class="space-y-6">
+<div class="flex justify-between items-center text-sm">
+<span class="text-white/60">Costo total de insumos</span>
+<span class="font-bold">$4.170</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-white/60">Margen de error (5%)</span>
+<span class="font-bold">$208</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-white/60">Costo Operativo</span>
+<span class="font-bold">$0</span>
+</div>
+<div class="h-px bg-white/10 w-full"></div>
+<div class="flex justify-between items-center">
+<span class="text-white/60 text-sm">Costo total de producción</span>
+<span class="text-xl font-black text-secondary">$4.378</span>
+</div>
+<div class="pt-4 space-y-4">
+<div class="p-4 bg-white/5 rounded-xl border border-white/10">
+<p class="text-[10px] uppercase tracking-widest text-white/40 mb-1 font-bold">Porción y Unidad</p>
+<div class="flex items-baseline justify-between mb-2">
+<span class="text-sm text-white/80 font-medium">Costo por porción</span>
+<span class="text-lg font-bold text-white">$4.378</span>
+</div>
+<div class="flex items-baseline justify-between">
+<span class="text-sm text-white/80 font-medium">Costo por gr</span>
+<span class="text-2xl font-black text-tertiary-fixed-dim">$29,19</span>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-white/10 text-[10px] text-white/30 italic">
+                    * El costo por porción se calcula como: Costo Total Producción × Cantidad a Producir.
+                </div>
+</div>
+<!-- Visual Cue / Texture Image -->
+<div class="rounded-2xl overflow-hidden h-48 relative group cursor-crosshair">
+<img alt="Salsa de Gulupa pulp" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD21-S_yFrSiDGNqEqk37o0pM_6JtjbN85UREJi1c-NvKoknxddCWPovRF6j-JV_P-qxNzM42dF_GaCKY8leD_23JaaqffFMyPexyPTmMuX1CAhiv4fnRKfvp4QcE9G7lo9dBz8GRTaW_gVL5xx1MPNcWr3aEv5Mzhrt2l77TmMI5T7oI9sdqvK76_Pm0oXhL1am8uKj_UCFzeCumP7wuIqO-TO69dwd0eCUFbf4wpBVOuiQbd7s39ohtFk1Xnnzmwx5wDe_C529PM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-4">
+<span class="text-[10px] font-bold text-secondary uppercase tracking-widest">Inspiración de Color</span>
+<h4 class="text-white font-bold text-sm">Salsa de Gulupa Premium</h4>
+</div>
+</div>
+</aside>
+</div>
+</main>
+</body></html>

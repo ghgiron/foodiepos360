@@ -1,0 +1,277 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+:root {
+  --bg-app: #EEF2F6;           /* Gris claro para el lienzo en modo claro */
+  --bg-surface: #FFFFFF;       /* Blanco puro para tarjetas en modo claro */
+  --bg-input: #F1F5F9;         /* Gris slate claro para campos en modo claro */
+  
+  --text-primary: #0F172A;     /* Slate 900 para títulos en modo claro */
+  --text-secondary: #334155;   /* Slate 700 para cuerpo en modo claro */
+  --text-muted: #64748B;       /* Slate 500 para textos secundarios en modo claro */
+  --text-accessible: #000000;  /* Alta legibilidad contrastada */
+  
+  --accent-purple: #8F63F4;   /* Violeta Vertex para estados activos y selección */
+  --accent-pink: #FF4E88;     /* Rosa neón para 'Nuevo Pedido' y alertas críticas */
+  --accent-blue: #3B82F6;     /* Azul para Play/Iniciar */
+  --accent-yellow: #EAB308;   /* Amarillo/Ámbar para Pausa */
+  --accent-green: #10B981;    /* Verde para Listo/Check */
+
+  --color-primary: #5850EC;
+  --color-accent-pink: #FF4E88;
+  --color-purple: #8B5CF6;
+  
+  --bg-color: var(--bg-app);
+  --card-color: var(--bg-surface);
+  
+  --scrollbar-thumb: rgba(88, 80, 236, 0.3);
+  --border-glow: rgba(88, 80, 236, 0.25);
+  
+  --shadow-indigo-lg: 0 10px 15px -3px rgba(88, 80, 236, 0.25), 0 4px 6px -2px rgba(88, 80, 236, 0.1);
+  --shadow-pink-glow: 0 0 15px 5px rgba(255, 78, 136, 0.3);
+  
+  --radius-sm: 10px;
+  --radius-md: 18px;
+  --radius-lg: 30px;
+  --card-white: rgba(255, 255, 255, 0.95);
+}
+
+.dark {
+  --bg-app: #0A0B1A;           /* Azul noche ultra profundo para el lienzo */
+  --bg-surface: #111229;       /* Tarjetas, Bento Cards y paneles principales */
+  --bg-input: #171938;         /* Cajas de búsqueda y campos de texto */
+  
+  --text-primary: #FAFAFF;     /* Blanco puro de alta legibilidad para títulos */
+  --text-secondary: #C5C9DB;   /* Gris plata nítido para textos de menú y descripciones */
+  --text-muted: #7F849E;       /* Gris para deshabilitados o secundarios */
+  --text-accessible: #FFFFFF;  /* Alta legibilidad en oscuro */
+  
+  --bg-color: var(--bg-app);
+  --card-color: var(--bg-surface);
+  
+  --scrollbar-thumb: rgba(143, 99, 244, 0.3);
+  --border-glow: rgba(88, 80, 236, 0.15);
+  --card-dark: rgba(17, 18, 41, 0.95);
+}
+
+@layer base {
+  input[type="text"], input[type="number"], input[type="email"], select, textarea {
+    background-color: var(--card-color);
+    color: inherit;
+    transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s;
+  }
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+h1, h2, h3, h4, .brand-font {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+}
+
+/* Material symbols utility configuration */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Clear default template restrictions */
+#root {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  text-align: left !important;
+  border: none !important;
+  min-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Custom Scrollbars */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background-color: transparent;
+}
+
+*::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent-purple);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+/* Utility to hide scrollbars */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Receitly Design System Utility Classes */
+.transition-receitly {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-receitly {
+  min-height: 48px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-accent-pink);
+  color: white;
+  padding: 0.5rem 1.5rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-pink-glow);
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.btn-receitly:hover {
+  filter: brightness(1.08);
+}
+
+.btn-receitly:active {
+  transform: scale(0.98);
+}
+
+.btn-receitly-secondary {
+  min-height: 48px;
+  border-radius: var(--radius-lg);
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 1px solid rgba(88, 80, 236, 0.3);
+  padding: 0.5rem 1.5rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.dark .btn-receitly-secondary {
+  color: #A5B4FC;
+  border-color: rgba(165, 180, 252, 0.3);
+}
+
+.btn-receitly-secondary:hover {
+  background-color: rgba(143, 99, 244, 0.08);
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+}
+
+.btn-receitly-secondary:active {
+  transform: scale(0.98);
+}
+
+.panel-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.dark .panel-card {
+  border: 1px solid var(--border-glow);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .glass-card {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid var(--border-glow);
+}
+
+/* Stacking context fixes for active cards containing dropdowns/inputs */
+.glass-card,
+.panel-card,
+div[class*="rounded-3xl"],
+div[class*="rounded-[var(--radius-lg)]"] {
+  position: relative;
+  z-index: 10;
+}
+
+.glass-card:focus-within,
+.panel-card:focus-within,
+div[class*="rounded-3xl"]:focus-within,
+div[class*="rounded-[var(--radius-lg)]"]:focus-within {
+  z-index: 50;
+}
+
+/* Estandarización de Estados Hover y Accesibilidad (WCAG) */
+tr, button, a, [class*="hover:bg-"] {
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+              color 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+              border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Asegurar que las filas de tablas y botones interactivos en hover tengan cambios de fondo sutiles y accesibles */
+tr[class*="hover:bg-"]:hover,
+button[class*="hover:bg-"]:hover,
+div[class*="hover:bg-"]:hover {
+  background-color: rgba(88, 80, 236, 0.08) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark tr[class*="hover:bg-"]:hover,
+.dark button[class*="hover:bg-"]:hover,
+.dark div[class*="hover:bg-"]:hover {
+  background-color: rgba(143, 99, 244, 0.12) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Clases de hover con base en la paleta premium de accent-purple */
+.hover-accent-purple:hover {
+  background-color: rgba(143, 99, 244, 0.15) !important;
+  color: var(--accent-purple) !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+

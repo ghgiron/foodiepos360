@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Foodie POS - Recetario</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-surface": "#2d3133",
+                    "secondary-fixed-dim": "#ffb690",
+                    "surface-bright": "#f7f9fb",
+                    "inverse-primary": "#bec6e0",
+                    "inverse-on-surface": "#eff1f3",
+                    "surface-dim": "#d8dadc",
+                    "outline": "#76777d",
+                    "on-tertiary": "#ffffff",
+                    "surface-variant": "#e0e3e5",
+                    "on-error-container": "#93000a",
+                    "tertiary": "#000000",
+                    "surface-container-high": "#e6e8ea",
+                    "tertiary-fixed": "#89f5e7",
+                    "surface": "#f7f9fb",
+                    "primary-fixed-dim": "#bec6e0",
+                    "on-secondary-container": "#5c2400",
+                    "tertiary-container": "#00201d",
+                    "on-surface-variant": "#45464d",
+                    "secondary-container": "#fd761a",
+                    "primary-container": "#131b2e",
+                    "error": "#ba1a1a",
+                    "outline-variant": "#c6c6cd",
+                    "surface-tint": "#565e74",
+                    "secondary": "#9d4300",
+                    "background": "#f7f9fb",
+                    "primary": "#000000",
+                    "on-secondary": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container": "#eceef0",
+                    "on-tertiary-fixed": "#00201d",
+                    "on-primary-fixed-variant": "#3f465c",
+                    "on-background": "#191c1e",
+                    "on-tertiary-fixed-variant": "#005049",
+                    "on-error": "#ffffff",
+                    "on-secondary-fixed-variant": "#783200",
+                    "tertiary-fixed-dim": "#6bd8cb",
+                    "on-surface": "#191c1e",
+                    "on-primary-fixed": "#131b2e",
+                    "surface-container-highest": "#e0e3e5",
+                    "primary-fixed": "#dae2fd",
+                    "secondary-fixed": "#ffdbca",
+                    "on-tertiary-container": "#0c9488",
+                    "surface-container-low": "#f2f4f6",
+                    "on-secondary-fixed": "#341100",
+                    "on-primary": "#ffffff",
+                    "on-primary-container": "#7c839b",
+                    "error-container": "#ffdad6"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+        h1, h2, h3, .font-headline { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        /* Modified grid to support 4 columns on large screens */
+        .recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.5rem; }
+        @media (min-width: 1440px) {
+            .recipe-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+    </style>
+</head>
+<body class="text-on-background selection:bg-secondary-fixed selection:text-on-secondary-fixed">
+<!-- SideNavBar (Authority: JSON) -->
+<aside class="fixed left-0 top-0 h-screen w-72 flex flex-col p-6 z-50 overflow-y-auto bg-slate-900 dark:bg-black shadow-2xl shadow-black/40">
+<div class="mb-10">
+<h1 class="text-2xl font-black bg-gradient-to-r from-orange-500 to-orange-700 bg-clip-text text-transparent">Foodie POS</h1>
+<p class="text-slate-500 font-label text-xs tracking-widest uppercase mt-1">Digital Maitre'd</p>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="text-slate-400 hover:text-slate-100 px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium text-sm">Dashboard</span>
+</a>
+<a class="text-slate-400 hover:text-slate-100 px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="font-medium text-sm">Pedidos</span>
+</a>
+<a class="text-slate-400 hover:text-slate-100 px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">countertops</span>
+<span class="font-medium text-sm">Cocina</span>
+</a>
+<a class="text-slate-400 hover:text-slate-100 px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">local_bar</span>
+<span class="font-medium text-sm">Bar</span>
+</a>
+<a class="text-slate-400 hover:text-slate-100 px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-medium text-sm">Inventario</span>
+</a>
+<a class="bg-gradient-to-r from-orange-600 to-orange-500 text-white rounded-xl shadow-lg shadow-orange-900/20 px-4 py-3 flex items-center gap-3 translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="font-medium text-sm">Recetas</span>
+</a>
+</nav>
+<div class="mt-auto pt-6 border-t border-slate-800 space-y-2">
+<button class="w-full bg-orange-600 text-white rounded-xl py-3 font-bold text-sm shadow-lg shadow-orange-900/40 hover:bg-orange-500 transition-colors mb-6">
+                Nueva Orden
+            </button>
+<a class="text-slate-400 hover:text-slate-100 px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-medium text-sm">Ajustes</span>
+</a>
+<a class="text-slate-400 hover:text-slate-100 px-4 py-3 flex items-center gap-3 hover:bg-slate-800 transition-all duration-300" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-medium text-sm">Cerrar Sesión</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-72 min-h-screen">
+<!-- TopAppBar (Authority: JSON) -->
+<header class="flex justify-between items-center w-full h-16 px-8 sticky top-0 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl shadow-sm shadow-slate-200/50">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full text-sm focus:ring-2 focus:ring-secondary/50 placeholder:text-on-primary-container" placeholder="Buscar receta por nombre..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4 text-slate-500">
+<button class="material-symbols-outlined p-2 rounded-full hover:bg-slate-100/50 transition-colors">notifications</button>
+<button class="material-symbols-outlined p-2 rounded-full hover:bg-slate-100/50 transition-colors">history</button>
+<button class="material-symbols-outlined p-2 rounded-full hover:bg-slate-100/50 transition-colors">help_outline</button>
+</div>
+<div class="h-8 w-px bg-slate-200"></div>
+<div class="flex items-center gap-3">
+<div class="text-right">
+<p class="text-xs font-bold text-slate-900 leading-tight">Admin Chef</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest">Master Kitchen</p>
+</div>
+<img alt="Avatar del usuario administrador" class="w-10 h-10 rounded-full object-cover" data-alt="close-up portrait of a professional chef in a white uniform with a confident expression in a kitchen setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHzZCZU8Curv5FHZQoLVttYNZRBBVDOB4QRK6Fy3zaq8nzKhsfTpNNI7I7p4dTeIf6g8UGPL0KjJoeLRfo2QBG4_RqCtIci5_qTFZK2hYUeuSBKUN7s-xG_teZxvxCMmD4sPtq1QjAhD6Pkk6kpWLfN5U5hBwlcFn1-XbYyL4SZHf1w_kPzrM3SgKwSdYCtC9zW4vScSLUm7nVClDzf5FYzrdtV2h4sQeC0W7TaCf96ibiZdHBchWgK-Ia0URIhecPvuTUE7CehNI"/>
+</div>
+</div>
+</header>
+<section class="p-8">
+<!-- Stats Summary Header -->
+<div class="grid grid-cols-3 gap-6 mb-10">
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-b-4 border-primary">
+<p class="text-on-primary-container text-xs font-label tracking-widest uppercase mb-1">Total Recetas</p>
+<h2 class="text-4xl font-headline font-extrabold text-primary">124</h2>
+<p class="text-xs text-on-tertiary-fixed-variant mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">trending_up</span> +5 este mes
+                    </p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-b-4 border-secondary">
+<p class="text-on-primary-container text-xs font-label tracking-widest uppercase mb-1">Recetas con bajo margen</p>
+<h2 class="text-4xl font-headline font-extrabold text-secondary">12</h2>
+<p class="text-xs text-secondary mt-2 flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">warning</span> Requiere revisión de costos
+                    </p>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-sm border-b-4 border-on-tertiary-container">
+<p class="text-on-primary-container text-xs font-label tracking-widest uppercase mb-1">Última actualización</p>
+<h2 class="text-xl font-headline font-bold text-on-background py-2">Hoy, 10:45 AM</h2>
+<p class="text-xs text-on-primary-container mt-2">Sincronizado con inventario</p>
+</div>
+</div>
+<!-- Header & Filters Area -->
+<div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+<div>
+<h2 class="text-3xl font-headline font-black text-on-background">Recetario Digital</h2>
+<p class="text-on-primary-container">Gestión técnica de platos y costos de producción.</p>
+</div>
+<button class="bg-secondary text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-secondary/20 hover:scale-[1.02] transition-transform">
+<span class="material-symbols-outlined">add_circle</span>
+                    Nueva Receta
+                </button>
+</div>
+<!-- Filter Chips -->
+<div class="flex flex-wrap items-center gap-4 mb-8">
+<div class="flex items-center gap-2 bg-surface-container-high p-1 rounded-xl">
+<button class="px-4 py-2 bg-surface-container-lowest text-primary rounded-lg text-sm font-semibold shadow-sm">Todos</button>
+<button class="px-4 py-2 text-on-primary-container hover:text-primary transition-colors text-sm font-medium">Entradas</button>
+<button class="px-4 py-2 text-on-primary-container hover:text-primary transition-colors text-sm font-medium">Platos Fuertes</button>
+<button class="px-4 py-2 text-on-primary-container hover:text-primary transition-colors text-sm font-medium">Postres</button>
+<button class="px-4 py-2 text-on-primary-container hover:text-primary transition-colors text-sm font-medium">Bebidas</button>
+</div>
+<div class="h-6 w-px bg-slate-300"></div>
+<div class="flex items-center gap-2">
+<span class="text-xs font-label text-on-primary-container uppercase tracking-widest mr-2">Costo:</span>
+<button class="px-3 py-1.5 border border-outline-variant text-on-surface rounded-full text-xs hover:border-secondary transition-colors">$ Bajo</button>
+<button class="px-3 py-1.5 border border-outline-variant text-on-surface rounded-full text-xs hover:border-secondary transition-colors">$$ Medio</button>
+<button class="px-3 py-1.5 border border-outline-variant text-on-surface rounded-full text-xs hover:border-secondary transition-colors">$$$ Premium</button>
+</div>
+</div>
+<!-- Recipes Grid -->
+<div class="recipe-grid">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden group hover:shadow-xl transition-all duration-300 border border-surface-container">
+<div class="relative h-40">
+<img alt="Hamburguesa Pícara" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="gourmet juicy beef burger with melted cheese, caramelized onions and jalapeños on a brioche bun with dramatic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDi9TnTQjERWyX-Agf_KCBSCV_Y3K4ZdmdGwlpbpu_YhW812c0RzJQls04MmrvXiVoLQPpX1u-zMAQhaPSHubi5zofuFqntGL2zIdhv7TTbL6IjEeL5BTdDF9le6WiD4UyLFNH1tvWuf5wUzvv62Bl12Lsi4d-qpUd_fm-nv3hZMUEp7agRRiTCgD4UdLQNmWY3knwFTQ69ZImfbfO62_biIa4sXYxnBy4AVDOSfaEJSzxXkAhuLRrn7ffzIS_w4P1lo1JDqNfnKv0"/>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter text-on-surface">Plato Fuerte</div>
+<div class="absolute bottom-3 left-3 bg-secondary text-white px-2 py-0.5 rounded-lg text-[10px] font-bold">$4.50 / u</div>
+</div>
+<div class="p-4">
+<h3 class="text-lg font-headline font-bold text-on-background mb-3 truncate">Hamburguesa Pícara</h3>
+<div class="flex flex-col gap-2 mb-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 text-on-primary-container">
+<span class="material-symbols-outlined text-base">timer</span>
+<span class="text-[11px] font-medium">15 min</span>
+</div>
+<div class="flex items-center gap-1 text-on-primary-container">
+<span class="material-symbols-outlined text-base">equalizer</span>
+<span class="text-[11px] font-medium">Media</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-on-tertiary-container">
+<span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">monetization_on</span>
+<span class="text-[11px] font-bold text-on-tertiary-container">35% Margen</span>
+</div>
+</div>
+<div class="flex items-center gap-1 pt-3 border-t border-surface-container">
+<button class="flex-1 py-1.5 text-[11px] font-bold text-primary hover:bg-surface-container-low rounded-lg transition-colors">Ver Detalle</button>
+<button class="p-1.5 text-on-primary-container hover:text-secondary transition-colors"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-1.5 text-on-primary-container hover:text-error transition-colors"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden group hover:shadow-xl transition-all duration-300 border border-surface-container">
+<div class="relative h-40">
+<img alt="Sushi Roll Especial" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="vibrant sushi platter with fresh salmon rolls, avocado and spicy mayo artistic plate decoration in a modern japanese restaurant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRAh7bMeDFf55QFi42E9KBtNw07XtOTeS9H0onRybETcZxM8OA5OGqnNzmrY9to1nJMlFTYEUHmenYn3SYRtfbsUJK-PfvC0PvOjOJo5ymtQJLR938cHTbShSdZMD3xUJ0JaSBI6K-BM9WyXUKqj7gQ6GMVWMGHqDV9NcpL6fB_0V8mace4lF4lqz434nuUxxfYv7FSRXkAD8WFxSeI5_zDKbJ4Uf8c4qsp3ywoQ1biWuSEsxj6f5_6jYSeggLfHaAB2ZMk-2LQic"/>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter text-on-surface">Entrada</div>
+<div class="absolute bottom-3 left-3 bg-secondary text-white px-2 py-0.5 rounded-lg text-[10px] font-bold">$6.20 / u</div>
+</div>
+<div class="p-4">
+<h3 class="text-lg font-headline font-bold text-on-background mb-3 truncate">Sushi Roll Especial</h3>
+<div class="flex flex-col gap-2 mb-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 text-on-primary-container">
+<span class="material-symbols-outlined text-base">timer</span>
+<span class="text-[11px] font-medium">25 min</span>
+</div>
+<div class="flex items-center gap-1 text-on-primary-container">
+<span class="material-symbols-outlined text-base">equalizer</span>
+<span class="text-[11px] font-medium">Alta</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-error">
+<span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">report</span>
+<span class="text-[11px] font-bold">18% Margen</span>
+</div>
+</div>
+<div class="flex items-center gap-1 pt-3 border-t border-surface-container">
+<button class="flex-1 py-1.5 text-[11px] font-bold text-primary hover:bg-surface-container-low rounded-lg transition-colors">Ver Detalle</button>
+<button class="p-1.5 text-on-primary-container hover:text-secondary transition-colors"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-1.5 text-on-primary-container hover:text-error transition-colors"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden group hover:shadow-xl transition-all duration-300 border border-surface-container">
+<div class="relative h-40">
+<img alt="Tacos al Pastor" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="traditional mexican street tacos with marinated pork pineapple cilantro and onions on a rustic wooden plate with warm light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_cNjUfHufdJZ1sadeEt9baj6bKxn85dt1MkEalhXJW9-L8fEkvII9sPzPp0lylM8ivXOMJDCd-rsjQ_aY__iVRGpZRm4nM9JwqauibGsx4pAovrMFr5yZpxSBMnakQj22VwFjz6AAP_afrydM1Y5QHeHDeRgQ-Xa_SWi7FbrT19eWCQ-4dPBsZvSQGOjw9A78Y6ALqI9uWl7G0RWEt9mlCVrFcE0Z5cyLIeqghWTHLKusGl1QX6OWshi3WnLBAthZUvmOmxlYO5s"/>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter text-on-surface">Plato Fuerte</div>
+<div class="absolute bottom-3 left-3 bg-secondary text-white px-2 py-0.5 rounded-lg text-[10px] font-bold">$2.80 / u</div>
+</div>
+<div class="p-4">
+<h3 class="text-lg font-headline font-bold text-on-background mb-3 truncate">Tacos al Pastor</h3>
+<div class="flex flex-col gap-2 mb-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 text-on-primary-container">
+<span class="material-symbols-outlined text-base">timer</span>
+<span class="text-[11px] font-medium">10 min</span>
+</div>
+<div class="flex items-center gap-1 text-on-primary-container">
+<span class="material-symbols-outlined text-base">equalizer</span>
+<span class="text-[11px] font-medium">Baja</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-on-tertiary-container">
+<span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">monetization_on</span>
+<span class="text-[11px] font-bold text-on-tertiary-container">52% Margen</span>
+</div>
+</div>
+<div class="flex items-center gap-1 pt-3 border-t border-surface-container">
+<button class="flex-1 py-1.5 text-[11px] font-bold text-primary hover:bg-surface-container-low rounded-lg transition-colors">Ver Detalle</button>
+<button class="p-1.5 text-on-primary-container hover:text-secondary transition-colors"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-1.5 text-on-primary-container hover:text-error transition-colors"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</div>
+</div>
+<!-- Card 4 (Bebida) -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden group hover:shadow-xl transition-all duration-300 border border-surface-container">
+<div class="relative h-40">
+<img alt="Gin Tonic Botánico" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="elegant gin and tonic cocktail in a large balloon glass with fresh botanicals cucumber and peppercorns on a dark stylish bar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCP-LkIu30xgbpU1HwiE8rN-4GJ8CLNHhtNYjpZWNdPIwT7_l8TX6zndmtBQTag47rV7hXCaAlVi8r6ONJPsCI2KTthUM6W890r0EItTsSo9zLtLS6TeryP8FRzGpCBZfpRG35l7DLDfWmTcRzdvf4JEblGkIc6m91YoWV-b18dm4vapMwhYYaxUYmf8R4Ee17s7-RcGyScK7jP5Fippv6O0VEu-jGitGJ_77e0jnxlgZkeX0KIQ_QbA5sJYH7sHVZALPqqrIlmeuo"/>
+<div class="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter text-on-surface">Bebida</div>
+<div class="absolute bottom-3 left-3 bg-secondary text-white px-2 py-0.5 rounded-lg text-[10px] font-bold">$3.10 / u</div>
+</div>
+<div class="p-4">
+<h3 class="text-lg font-headline font-bold text-on-background mb-3 truncate">Gin Tonic Botánico</h3>
+<div class="flex flex-col gap-2 mb-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1 text-on-primary-container">
+<span class="material-symbols-outlined text-base">timer</span>
+<span class="text-[11px] font-medium">5 min</span>
+</div>
+<div class="flex items-center gap-1 text-on-primary-container">
+<span class="material-symbols-outlined text-base">equalizer</span>
+<span class="text-[11px] font-medium">Baja</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-on-tertiary-container">
+<span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">monetization_on</span>
+<span class="text-[11px] font-bold text-on-tertiary-container">65% Margen</span>
+</div>
+</div>
+<div class="flex items-center gap-1 pt-3 border-t border-surface-container">
+<button class="flex-1 py-1.5 text-[11px] font-bold text-primary hover:bg-surface-container-low rounded-lg transition-colors">Ver Detalle</button>
+<button class="p-1.5 text-on-primary-container hover:text-secondary transition-colors"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-1.5 text-on-primary-container hover:text-error transition-colors"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Empty State / Add More -->
+<div class="mt-12 flex flex-col items-center justify-center p-12 bg-surface-container-low rounded-3xl border-2 border-dashed border-outline-variant">
+<div class="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-3xl text-on-primary-container">restaurant_menu</span>
+</div>
+<h4 class="text-xl font-headline font-bold text-on-surface">¿Falta algún plato?</h4>
+<p class="text-on-primary-container text-center max-w-xs mb-6">Agrega una nueva receta para sincronizar automáticamente con tu inventario y calcular márgenes.</p>
+<button class="text-secondary font-bold hover:underline flex items-center gap-2">
+                    Configurar ingredientes base
+                    <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</section>
+</main>
+<!-- FAB for quick action -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform group z-50">
+<span class="material-symbols-outlined">chat_bubble</span>
+<span class="absolute right-full mr-4 bg-slate-900 text-white px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">Soporte Cocina</span>
+</button>
+</body></html>

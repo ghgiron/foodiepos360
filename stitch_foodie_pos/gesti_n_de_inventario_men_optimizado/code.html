@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Foodie POS - Gestión de Inventario</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary": "#ffffff",
+                      "on-tertiary-fixed": "#00201d",
+                      "surface": "#f7f9fb",
+                      "secondary-fixed": "#ffdbca",
+                      "inverse-primary": "#bec6e0",
+                      "secondary": "#fd761a",
+                      "on-background": "#191c1e",
+                      "error": "#ba1a1a",
+                      "surface-container-low": "#f2f4f6",
+                      "on-error": "#ffffff",
+                      "tertiary-container": "#00201d",
+                      "tertiary": "#000000",
+                      "primary-container": "#131b2e",
+                      "surface-tint": "#565e74",
+                      "outline-variant": "#c6c6cd",
+                      "outline": "#76777d",
+                      "on-error-container": "#93000a",
+                      "inverse-on-surface": "#eff1f3",
+                      "on-tertiary": "#ffffff",
+                      "surface-container": "#eceef0",
+                      "primary-fixed-dim": "#bec6e0",
+                      "primary-fixed": "#dae2fd",
+                      "surface-dim": "#d8dadc",
+                      "on-secondary-fixed-variant": "#783200",
+                      "surface-container-highest": "#e0e3e5",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed-variant": "#3f465c",
+                      "secondary-fixed-dim": "#ffb690",
+                      "secondary-container": "#fd761a",
+                      "surface-container-high": "#e6e8ea",
+                      "tertiary-fixed-dim": "#6bd8cb",
+                      "on-primary-container": "#7c839b",
+                      "on-secondary-container": "#5c2400",
+                      "on-primary-fixed": "#131b2e",
+                      "error-container": "#ffdad6",
+                      "on-secondary-fixed": "#341100",
+                      "on-tertiary-fixed-variant": "#005049",
+                      "on-tertiary-container": "#0c9488",
+                      "inverse-surface": "#2d3133",
+                      "background": "#f7f9fb",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-bright": "#f7f9fb",
+                      "tertiary-fixed": "#89f5e7",
+                      "primary": "#000000",
+                      "on-surface": "#191c1e",
+                      "surface-variant": "#e0e3e5",
+                      "on-surface-variant": "#45464d",
+                      "navy-dark": "#0f172a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Manrope"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- Main Wrapper with Sidebar -->
+<div class="flex min-h-screen">
+<!-- SideNavBar - Global Navigation - Updated to Navy Style -->
+<aside class="w-72 bg-[#0f172a] border-r border-slate-800 flex flex-col p-6 sticky top-0 h-screen overflow-y-auto no-scrollbar hidden lg:flex">
+<!-- Branding -->
+<div class="mb-10">
+<div class="flex items-center gap-3">
+<span class="text-2xl font-black tracking-tighter text-secondary" style="">Foodie POS</span>
+</div>
+<p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1" style="">Gestión Gastronómica</p>
+</div>
+<!-- Main Navigation -->
+<nav class="space-y-2 mb-8 flex-1">
+<a class="flex items-center space-x-3 p-3 text-slate-300 hover:bg-slate-800 rounded-xl transition-all font-semibold" href="#" style="">
+<span class="material-symbols-outlined text-slate-400" style="">grid_view</span>
+<span class="" style="">Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-slate-300 hover:bg-slate-800 rounded-xl transition-all font-semibold" href="#" style="">
+<span class="material-symbols-outlined text-slate-400" style="">shopping_cart</span>
+<span class="" style="">Pedidos</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-slate-300 hover:bg-slate-800 rounded-xl transition-all font-semibold" href="#" style="">
+<span class="material-symbols-outlined text-slate-400" style="">soup_kitchen</span>
+<span class="" style="">Cocina</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-slate-300 hover:bg-slate-800 rounded-xl transition-all font-semibold" href="#" style="">
+<span class="material-symbols-outlined text-slate-400" style="">local_bar</span>
+<span class="" style="">Bar</span>
+</a>
+<!-- Inventory Group (Active) -->
+<div class="space-y-1">
+<button class="flex items-center justify-between w-full p-3 text-white bg-slate-800/50 rounded-xl transition-all font-bold" href="#" style="">
+<div class="flex items-center space-x-3">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="" style="">Inventario</span>
+</div>
+<span class="material-symbols-outlined text-sm text-slate-500" style="">expand_more</span>
+</button>
+<!-- Submenu: Inventory Management -->
+<div class="ml-10 space-y-1 mt-1">
+<a class="flex items-center space-x-3 p-2 text-secondary bg-secondary/10 rounded-lg font-bold text-sm transition-colors" href="#" style="">
+<span class="" style="">Gestión de Inventario</span>
+</a>
+<a class="flex items-center space-x-3 p-2 text-slate-400 hover:text-white font-medium text-sm transition-colors" href="#" style="">
+<span class="" style="">Auditoría de Inventario</span>
+</a>
+<a class="flex items-center space-x-3 p-2 text-slate-400 hover:text-white font-medium text-sm transition-colors" href="#" style="">
+<span class="" style="">Alertas de Stock</span>
+</a>
+<a class="flex items-center space-x-3 p-2 text-slate-400 hover:text-white font-medium text-sm transition-colors" href="#" style="">
+<span class="" style="">Proveedores</span>
+</a>
+<a class="flex items-center space-x-3 p-2 text-slate-400 hover:text-white font-medium text-sm transition-colors" href="#" style="">
+<span class="" style="">Lista de precios</span>
+</a>
+</div>
+</div>
+<!-- Recetas (Active Style from Reference) -->
+<a class="flex items-center space-x-3 p-3 text-slate-300 hover:bg-slate-800 rounded-xl transition-all font-semibold" href="#" style="">
+<span class="material-symbols-outlined text-slate-400" style="">menu_book</span>
+<span class="" style="">Recetas</span>
+</a>
+</nav>
+<!-- Bottom Actions -->
+<div class="mt-auto pt-6 border-t border-slate-800 space-y-1">
+<button class="w-full flex items-center justify-center bg-secondary py-3 px-4 rounded-xl text-white font-bold mb-6 hover:brightness-110 transition-all shadow-lg shadow-orange-900/40" style="">
+    Nueva Orden
+</button>
+<a class="flex items-center space-x-3 p-3 text-slate-400 hover:text-white transition-all" href="#" style="">
+<span class="material-symbols-outlined" style="">settings</span>
+<span class="font-medium text-sm" style="">Ayuda</span>
+</a>
+<a class="flex items-center space-x-3 p-3 text-slate-400 hover:text-white transition-all" href="#" style="">
+<span class="material-symbols-outlined" style="">logout</span>
+<span class="font-medium text-sm" style="">Cerrar Sesión</span>
+</a>
+</div>
+</aside>
+<div class="flex-1 flex flex-col">
+<!-- TopBar - Search & Profile Only -->
+<header class="w-full bg-white dark:bg-slate-950 border-b border-surface-container flex justify-between items-center px-8 py-4 sticky top-0 z-40">
+<div class="flex items-center gap-4 flex-1">
+<!-- Mobile Logo (Hidden on Desktop) -->
+<span class="lg:hidden text-xl font-black text-slate-900" style="">Foodie POS</span>
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-sm" style="">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container rounded-full border-none focus:ring-2 focus:ring-secondary text-sm" placeholder="Buscar ingrediente..." type="text"/>
+</div>
+</div>
+<div class="flex items-center space-x-4 ml-4">
+<div class="bg-secondary/10 px-3 py-1 rounded-full text-[10px] font-bold text-secondary uppercase tracking-tight" style="">Modo Edición</div>
+<button class="material-symbols-outlined text-on-surface-variant p-2 hover:bg-surface-container rounded-full transition-colors" style="">notifications</button>
+<button class="material-symbols-outlined text-on-surface-variant p-2 hover:bg-surface-container rounded-full transition-colors" style="">settings</button>
+<div class="h-10 w-px bg-surface-container mx-2"></div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-primary" style="">Chef Rodrigo</p>
+<p class="text-[10px] text-outline" style="">Administrador</p>
+</div>
+<img alt="Avatar del Chef" class="w-10 h-10 rounded-full object-cover border-2 border-secondary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDoDVZ-Bw9iDXDKOcEBja4JdPSCx387vf38ukF2zorX-ivd1BTmxTrZnR1FgKuQe0oT20p5IP0uxheynOnaZi1eN1teyOfyVRsA9KHlikH_1s0ZmXiChXsffG8LzctmvCbYFnLc9QO4ry8RBhZimvE7HnxJw0tnTiNmeN_eTp38BnDejTNL91A6HkxB2YkvjNmK7CLyijI-9wSVPFDiDJLtLXOtXq2A5j9aY8sxvD5-674vZnsue7meR5MZN_8KgQSdfp0Yk1TIZCU" style=""/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="p-8 lg:p-10 space-y-8 max-w-7xl">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h1 class="text-4xl font-black text-primary tracking-tight" style="">Gestión de Inventario</h1>
+<div class="flex items-center mt-2 text-on-primary-container space-x-4">
+<div class="flex items-center">
+<span class="material-symbols-outlined text-sm mr-1" style="">calendar_today</span>
+<span class="text-sm font-medium text-outline" style="">Última fecha de control: 24 Oct 2026</span>
+</div>
+</div>
+</div>
+<div class="flex items-center space-x-3">
+<div class="bg-white rounded-xl flex items-center px-4 py-2 shadow-sm border border-surface-container">
+<span class="material-symbols-outlined text-outline mr-2" style="">date_range</span>
+<select class="bg-transparent border-none focus:ring-0 text-sm font-semibold p-0 pr-8">
+<option>Octubre 2026</option>
+<option>Septiembre 2026</option>
+</select>
+</div>
+<button class="bg-secondary text-on-primary px-6 py-3 rounded-xl font-bold flex items-center space-x-2 hover:bg-opacity-90 active:scale-95 transition-all shadow-lg shadow-orange-100" style="">
+<span class="material-symbols-outlined" style="">move_to_inbox</span>
+<span class="" style="">Ingreso</span>
+</button>
+</div>
+</div>
+<!-- KPI Grid -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-primary-container text-on-primary p-6 rounded-3xl relative overflow-hidden group">
+<div class="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-[120px]" style='font-variation-settings: "FILL" 1;'>account_balance_wallet</span>
+</div>
+<p class="text-sm font-bold text-on-primary-container tracking-wider uppercase" style="">Valor Total del Inventario</p>
+<h2 class="text-4xl font-extrabold mt-2" style="">$12,450.00</h2>
+<div class="mt-4 flex items-center text-tertiary-fixed text-xs font-bold">
+<span class="material-symbols-outlined text-xs mr-1" style="">trending_up</span>
+<span class="" style="">+4.2% respecto al mes pasado</span>
+</div>
+</div>
+<div class="bg-white p-6 rounded-3xl shadow-sm border-l-4 border-secondary">
+<p class="text-sm font-bold text-on-surface-variant tracking-wider uppercase" style="">Tasa de Desperdicio Semanal</p>
+<div class="flex items-end justify-between mt-2">
+<h2 class="text-4xl font-extrabold text-primary" style="">3.2%</h2>
+<div class="h-2 w-32 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary" style="width: 32%;"></div>
+</div>
+</div>
+<p class="text-xs text-outline mt-4 italic" style="">Meta establecida: &lt; 5%</p>
+</div>
+<div class="bg-white p-6 rounded-3xl shadow-sm border-l-4 border-on-tertiary-container">
+<p class="text-sm font-bold text-on-surface-variant tracking-wider uppercase" style="">Entradas de Hoy</p>
+<div class="flex items-center mt-2 space-x-4">
+<h2 class="text-4xl font-extrabold text-primary" style="">12</h2>
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-white bg-secondary-fixed flex items-center justify-center text-[10px] font-bold" style="">INV</div>
+<div class="w-8 h-8 rounded-full border-2 border-white bg-tertiary-fixed flex items-center justify-center text-[10px] font-bold" style="">FRU</div>
+<div class="w-8 h-8 rounded-full border-2 border-white bg-primary-fixed flex items-center justify-center text-[10px] font-bold" style="">+9</div>
+</div>
+</div>
+<p class="text-xs text-on-tertiary-container mt-4 font-bold" style="">Última entrada: Carnes selectas (hace 2h)</p>
+</div>
+</section>
+<!-- Alertas de Stock - Repositioned horizontally -->
+<section class="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-surface-container">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-lg font-bold flex items-center" style="">
+<span class="material-symbols-outlined text-secondary mr-2" style='font-variation-settings: "FILL" 1;'>error</span>
+                        Alertas de Stock
+                    </h3>
+<button class="text-xs font-bold text-secondary hover:underline" style="">Ver todas las alertas</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="p-4 rounded-2xl bg-error-container/10 border border-error/5">
+<div class="flex justify-between items-start mb-1">
+<span class="text-xs font-bold text-error uppercase tracking-tighter" style="">Crítico</span>
+<span class="text-[10px] font-medium text-outline" style="">0.5 kg restante</span>
+</div>
+<p class="font-bold text-sm text-primary" style="">Solomillo de Ternera</p>
+<button class="mt-3 text-xs font-bold text-error underline decoration-2 underline-offset-4" style="">Reordenar ahora</button>
+</div>
+<div class="p-4 rounded-2xl bg-secondary-fixed/20 border border-secondary/5">
+<div class="flex justify-between items-start mb-1">
+<span class="text-xs font-bold text-secondary-container uppercase tracking-tighter" style="">Bajo</span>
+<span class="text-[10px] font-medium text-outline" style="">2 cajas restantes</span>
+</div>
+<p class="font-bold text-sm text-primary" style="">Leche Entera 1L</p>
+<button class="mt-3 text-xs font-bold text-secondary underline decoration-2 underline-offset-4" style="">Añadir a lista</button>
+</div>
+<div class="p-4 rounded-2xl bg-secondary-fixed/20 border border-secondary/5">
+<div class="flex justify-between items-start mb-1">
+<span class="text-xs font-bold text-secondary-container uppercase tracking-tighter" style="">Bajo</span>
+<span class="text-[10px] font-medium text-outline" style="">15 unidades restantes</span>
+</div>
+<p class="font-bold text-sm text-primary" style="">Pan Brioche</p>
+<button class="mt-3 text-xs font-bold text-secondary underline decoration-2 underline-offset-4" style="">Ver proveedor</button>
+</div>
+</div>
+</section>
+<!-- Main Inventory -->
+<section class="space-y-6">
+<!-- Filters -->
+<div class="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-surface-container flex flex-wrap items-center gap-4">
+<div class="flex-1 min-w-[200px] relative">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-lg" style="">filter_list</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-low rounded-xl border-none focus:ring-2 focus:ring-secondary text-sm" placeholder="Filtrar por nombre o SKU..." type="text"/>
+</div>
+<select class="bg-surface-container-low border-none rounded-xl text-sm font-medium py-2 px-4 focus:ring-2 focus:ring-secondary min-w-[140px]">
+<option>Todas las Categorías</option>
+<option>Proteínas</option>
+<option>Vegetales</option>
+<option>Lácteos</option>
+<option>Panadería</option>
+</select>
+<select class="bg-surface-container-low border-none rounded-xl text-sm font-medium py-2 px-4 focus:ring-2 focus:ring-secondary min-w-[140px]">
+<option>Estado: Todos</option>
+<option>En Stock</option>
+<option>Bajo Stock</option>
+<option>Agotado</option>
+</select>
+<button class="bg-surface-container-high p-2 rounded-xl text-on-surface-variant hover:bg-slate-200 transition-colors" style="">
+<span class="material-symbols-outlined" style="">download</span>
+</button>
+</div>
+<!-- Inventory Table Card -->
+<div class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-surface-container overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-6 py-4 text-xs font-bold text-outline uppercase tracking-wider" style="">Items</th>
+<th class="px-6 py-4 text-xs font-bold text-outline uppercase tracking-wider" style="">Categoría</th><th class="px-6 py-4 text-xs font-bold text-outline uppercase tracking-wider" style="">Tipo</th>
+<th class="px-6 py-4 text-xs font-bold text-outline uppercase tracking-wider" style="">Existencias</th>
+<th class="px-6 py-4 text-xs font-bold text-outline uppercase tracking-wider" style="">Unidad</th>
+<th class="px-6 py-4 text-xs font-bold text-outline uppercase tracking-wider" style="">Estado</th>
+<th class="px-6 py-4 text-xs font-bold text-outline uppercase tracking-wider" style="">Último Recibido</th>
+<th class="px-6 py-4 text-xs font-bold text-outline uppercase tracking-wider text-right" style="">Acciones</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container">
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-4 font-bold text-primary" style="">Aguacate Hass</td>
+<td class="px-6 py-4" style="">
+<span class="px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant text-[10px] font-bold rounded-full" style="">VEGETALES</span>
+</td><td class="px-6 py-4 text-sm font-medium text-slate-600" style="">Ingrediente</td>
+<td class="px-6 py-4 font-mono font-bold text-lg" style="">24.5</td>
+<td class="px-6 py-4 text-sm text-outline" style="">Kg</td>
+<td class="px-6 py-4" style="">
+<div class="flex items-center text-on-tertiary-container font-semibold text-xs" style="">
+<span class="w-2 h-2 rounded-full bg-on-tertiary-container mr-2"></span>
+                                            Óptimo
+                                        </div>
+</td>
+<td class="px-6 py-4 text-sm text-outline" style="">22 Oct 2026</td>
+<td class="px-6 py-4 text-right" style="">
+<button class="p-2 text-outline hover:text-secondary transition-colors" style="">
+<span class="material-symbols-outlined text-xl" style="">edit_square</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-4 font-bold text-primary" style="">Cerveza Laboyana</td>
+<td class="px-6 py-4" style="">
+<span class="px-3 py-1 bg-secondary-fixed text-on-secondary-fixed-variant text-[10px] font-bold rounded-full" style="">CERVEZAS</span></td><td class="px-6 py-4 text-sm font-medium text-slate-600" style="">Producto único</td>
+<td class="px-6 py-4 font-mono font-bold text-lg text-secondary" style="">8</td>
+<td class="px-6 py-4 text-sm text-outline" style="">Und</td>
+<td class="px-6 py-4" style="">
+<div class="flex items-center text-secondary font-semibold text-xs" style="">
+<span class="w-2 h-2 rounded-full bg-secondary mr-2"></span>
+                                            Bajo Stock
+                                        </div>
+</td>
+<td class="px-6 py-4 text-sm text-outline" style="">24 Oct 2026</td>
+<td class="px-6 py-4 text-right" style="">
+<button class="p-2 text-outline hover:text-secondary transition-colors" style="">
+<span class="material-symbols-outlined text-xl" style="">edit_square</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-4 font-bold text-primary" style="">Tomate Cherry</td>
+<td class="px-6 py-4" style="">
+<span class="px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant text-[10px] font-bold rounded-full" style="">VEGETALES</span>
+</td><td class="px-6 py-4 text-sm font-medium text-slate-600" style="">Ingrediente</td>
+<td class="px-6 py-4 font-mono font-bold text-lg" style="">15.0</td>
+<td class="px-6 py-4 text-sm text-outline" style="">Cajas</td>
+<td class="px-6 py-4" style="">
+<div class="flex items-center text-on-tertiary-container font-semibold text-xs" style="">
+<span class="w-2 h-2 rounded-full bg-on-tertiary-container mr-2"></span>
+                                            Óptimo
+                                        </div>
+</td>
+<td class="px-6 py-4 text-sm text-outline" style="">21 Oct 2026</td>
+<td class="px-6 py-4 text-right" style="">
+<button class="p-2 text-outline hover:text-secondary transition-colors" style="">
+<span class="material-symbols-outlined text-xl" style="">edit_square</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors bg-error-container/5">
+<td class="px-6 py-4 font-bold text-error" style="">Salga Gulupa</td>
+<td class="px-6 py-4" style="">
+<span class="px-3 py-1 bg-primary-fixed text-on-primary-fixed-variant text-[10px] font-bold rounded-full" style="">ALMACÉN</span>
+</td><td class="px-6 py-4 text-sm font-medium text-slate-600" style="">Subreceta</td>
+<td class="px-6 py-4 font-mono font-bold text-lg text-error" style="">1.5</td>
+<td class="px-6 py-4 text-sm text-outline" style="">Litros</td>
+<td class="px-6 py-4" style="">
+<div class="flex items-center text-error font-semibold text-xs" style="">
+<span class="w-2 h-2 rounded-full bg-error mr-2"></span>
+                                            Crítico
+                                        </div>
+</td>
+<td class="px-6 py-4 text-sm text-outline" style="">15 Oct 2026</td>
+<td class="px-6 py-4 text-right" style="">
+<button class="p-2 text-outline hover:text-secondary transition-colors" style="">
+<span class="material-symbols-outlined text-xl" style="">edit_square</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-4 font-bold text-primary" style="">Pechuga de Pollo</td>
+<td class="px-6 py-4" style="">
+<span class="px-3 py-1 bg-secondary-fixed text-on-secondary-fixed-variant text-[10px] font-bold rounded-full" style="">PROTEÍNAS</span>
+</td><td class="px-6 py-4 text-sm font-medium text-slate-600" style="">Ingrediente</td>
+<td class="px-6 py-4 font-mono font-bold text-lg" style="">45.0</td>
+<td class="px-6 py-4 text-sm text-outline" style="">Kg</td>
+<td class="px-6 py-4" style="">
+<div class="flex items-center text-on-tertiary-container font-semibold text-xs" style="">
+<span class="w-2 h-2 rounded-full bg-on-tertiary-container mr-2"></span>
+                                            Óptimo
+                                        </div>
+</td>
+<td class="px-6 py-4 text-sm text-outline" style="">23 Oct 2026</td>
+<td class="px-6 py-4 text-right" style="">
+<button class="p-2 text-outline hover:text-secondary transition-colors" style="">
+<span class="material-symbols-outlined text-xl" style="">edit_square</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-6 border-t border-surface-container flex items-center justify-between">
+<p class="text-xs text-outline font-medium" style="">Mostrando 1-10 de 128 ingredientes</p>
+<div class="flex space-x-2">
+<button class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-outline hover:bg-secondary hover:text-on-primary transition-all" style="">
+<span class="material-symbols-outlined" style="">chevron_left</span>
+</button>
+<button class="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-on-primary font-bold shadow-sm" style="">1</button>
+<button class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-outline hover:bg-secondary hover:text-on-primary transition-all font-bold" style="">2</button>
+<button class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-outline hover:bg-secondary hover:text-on-primary transition-all" style="">
+<span class="material-symbols-outlined" style="">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+</div>
+<!-- Mobile BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)] px-6 py-3 flex justify-between items-center z-50">
+<button class="flex flex-col items-center text-slate-500" style="">
+<span class="material-symbols-outlined" style="">grid_view</span>
+<span class="text-[10px] font-bold mt-1" style="">Dash</span>
+</button>
+<button class="flex flex-col items-center text-secondary" style="">
+<span class="material-symbols-outlined" style='font-variation-settings: "FILL" 1;'>inventory_2</span>
+<span class="text-[10px] font-bold mt-1" style="">Inv</span>
+</button>
+<div class="relative -top-8">
+<button class="w-14 h-14 bg-secondary rounded-full shadow-lg shadow-orange-300 flex items-center justify-center text-white active:scale-90 transition-transform" style="">
+<span class="material-symbols-outlined text-3xl" style="">add</span>
+</button>
+</div>
+<button class="flex flex-col items-center text-slate-500" style="">
+<span class="material-symbols-outlined" style="">restaurant_menu</span>
+<span class="text-[10px] font-bold mt-1" style="">Pedidos</span>
+</button>
+<button class="flex flex-col items-center text-slate-500" style="">
+<span class="material-symbols-outlined" style="">bar_chart</span>
+<span class="text-[10px] font-bold mt-1" style="">Métricas</span>
+</button>
+</nav>
+</body></html>
