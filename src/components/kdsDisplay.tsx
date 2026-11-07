@@ -850,68 +850,73 @@ export default function KdsDisplay() {
     return (
       <div 
         key={ticket.id}
-        className={`bg-white dark:bg-[#111229] border rounded-[var(--radius-md)] overflow-hidden shadow-sm flex flex-col justify-between relative transition-all duration-300 hover:shadow-md ${
+        className={`bg-surface border rounded-2xl overflow-hidden shadow-md flex flex-col justify-between relative transition-all duration-300 hover:shadow-lg ${
           isUrgent 
-            ? 'border-2 border-[var(--accent-pink)] ring-1 ring-[var(--accent-pink)]/20' 
-            : 'border-slate-200/50 dark:border-slate-800/80'
+            ? 'border-2 border-rose-500 ring-2 ring-rose-500/20' 
+            : 'border-line'
         }`}
       >
         {/* Status indicator line */}
         <div className={`h-1.5 w-full ${statusBarColor}`}></div>
 
         {/* Card header */}
-        <div className="p-3.5 pb-2.5 border-b border-slate-150 dark:border-slate-800/60 bg-slate-50/20 dark:bg-slate-900/10 flex flex-col gap-2">
+        <div className="p-3.5 pb-2.5 border-b border-line bg-inset flex flex-col gap-2">
           {/* Fila 1: Mesa | Orden | Hora | Temporizador */}
           <div className="flex justify-between items-center gap-2 w-full">
             <div className="flex items-center gap-2 min-w-0">
-              <h3 className="text-xl font-extrabold text-[var(--text-primary)] leading-none tracking-tight shrink-0">
+              <h3 className="text-xl font-black text-content leading-none tracking-tight shrink-0">
                 {typeof ticket.tableId === 'number' ? `Mesa ${ticket.tableId}` : ticket.tableId || 'Llevar'}
               </h3>
               {arrivalNumber > 0 && (
-                <span className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm shrink-0">
+                <span className="bg-neutral-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-black px-2 py-0.5 rounded shadow-sm shrink-0">
                   Orden #{arrivalNumber}
                 </span>
               )}
-              <span className="text-[10px] font-bold text-[var(--text-secondary)] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded shrink-0">
+              <span className="text-[10px] font-bold text-content-secondary bg-raised px-2 py-0.5 rounded shrink-0">
                 {new Date(ticket.comandaTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
+              {(ticket.branchId || ticket.sucursalId) && (
+                <span className="bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 text-[9px] font-bold px-1.5 py-0.5 rounded truncate max-w-[120px]" title={`Sede: ${ticket.branchId || ticket.sucursalId}`}>
+                  {ticket.branchId || ticket.sucursalId}
+                </span>
+              )}
             </div>
             
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => handleToggleUrgent(ticket.id)}
-                className={`p-1 rounded-lg transition-colors hover:bg-slate-150 dark:hover:bg-slate-800 cursor-pointer border-none bg-transparent ${
+                className={`p-1 rounded-lg transition-colors hover:bg-slate-200 dark:hover:bg-raised cursor-pointer border-none bg-transparent ${
                   ticket.isRushHourOrder 
-                    ? 'text-[var(--accent-pink)] bg-rose-500/10' 
-                    : 'text-slate-400 dark:text-slate-550'
+                    ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10' 
+                    : 'text-content-tertiary'
                 }`}
                 title="Marcar Urgente"
               >
                 <span className="material-symbols-outlined text-base">flag</span>
               </button>
               
-              <div className={`flex items-center gap-0.5 font-black ${isUrgent ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--text-secondary)]'}`}>
+              <div className={`flex items-center gap-0.5 font-black ${isUrgent ? 'text-rose-600 dark:text-rose-400' : 'text-content'}`}>
                 <span className="material-symbols-outlined text-xs">schedule</span>
-                <span className="text-[11px] font-mono">{formatElapsedTime(elapsed)}</span>
+                <span className="text-[11px] tabular-numbers tracking-tight font-bold">{formatElapsedTime(elapsed)}</span>
               </div>
             </div>
           </div>
 
           {/* Fila 2: Urgente | #Comanda | Mesero | Pax */}
-          <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] font-black uppercase tracking-wider min-w-0 w-full select-none whitespace-nowrap overflow-hidden">
+          <div className="flex items-center gap-1.5 text-[10px] text-content-secondary font-black uppercase tracking-wider min-w-0 w-full select-none whitespace-nowrap overflow-hidden">
             {isUrgent && (
               <span className="bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shrink-0 shadow-sm flex items-center gap-0.5 animate-pulse mr-1">
                 🚨 URGENTE
               </span>
             )}
-            <div className="flex items-center gap-1 truncate min-w-0 text-slate-750 dark:text-slate-350">
-              <span className="material-symbols-outlined text-[13px] shrink-0 text-slate-550 dark:text-slate-450">person</span>
-              <span className="truncate max-w-[95px]">{ticket.waiterId}</span>
-              <span className="text-slate-300 dark:text-slate-700 font-normal">|</span>
-              <span className="material-symbols-outlined text-[13px] shrink-0 text-slate-550 dark:text-slate-450">groups</span>
-              <span className="shrink-0">{ticket.paxCount || 1} pax</span>
-              <span className="text-slate-300 dark:text-slate-700 font-normal">|</span>
-              <span className="bg-slate-100 dark:bg-slate-800/80 px-1 py-0.5 rounded font-mono text-[9px] text-[var(--text-secondary)] font-bold shrink-0">
+            <div className="flex items-center gap-1 truncate min-w-0 text-content">
+              <span className="material-symbols-outlined text-[13px] shrink-0 text-content-secondary">person</span>
+              <span className="truncate max-w-[95px] font-bold">{ticket.waiterId}</span>
+              <span className="text-slate-400 dark:text-slate-700 font-normal">|</span>
+              <span className="material-symbols-outlined text-[13px] shrink-0 text-content-secondary">groups</span>
+              <span className="shrink-0 font-bold">{ticket.paxCount || 1} pax</span>
+              <span className="text-slate-400 dark:text-slate-700 font-normal">|</span>
+              <span className="bg-raised px-1.5 py-0.5 rounded tabular-numbers tracking-tight text-[9px] text-content font-black shrink-0">
                 #{ticket.id.slice(-4).toUpperCase()}
               </span>
             </div>
@@ -940,7 +945,7 @@ export default function KdsDisplay() {
                     icon = 'skillet';
                     statusLabel = 'En prep';
                   } else if (status === 'COMPLETED') {
-                    badgeBg = 'bg-emerald-105 text-emerald-900 border border-emerald-250 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-800';
+                    badgeBg = 'bg-emerald-100 text-emerald-900 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-800';
                     icon = 'check_circle';
                     statusLabel = 'Listo';
                   }
@@ -961,7 +966,7 @@ export default function KdsDisplay() {
         </div>
 
         {/* Granular Items Checklist */}
-        <div className="p-4 py-3 flex-1 space-y-2 overflow-y-auto">
+        <div className="p-4 py-3 flex-1 space-y-2 overflow-y-auto bg-surface">
           {cardItems.map((item, idx) => {
             const isCompleted = item.status === 'COMPLETED';
             const isPreparing = item.status === 'PREPARING' || item.status === 'COOKING';
@@ -971,22 +976,22 @@ export default function KdsDisplay() {
             return (
               <div 
                 key={idx}
-                className={`flex items-start justify-between gap-2 p-1.5 rounded-xl transition-all ${
+                className={`flex items-start justify-between gap-2 p-2 rounded-xl transition-all border ${
                   isCompleted 
-                    ? 'opacity-40 bg-slate-50/50 dark:bg-slate-900/10' 
+                    ? 'opacity-50 bg-slate-100/60 border-slate-200 dark:bg-surface/10 dark:border-line' 
                     : isPreparing
-                      ? 'bg-blue-50/50 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/30'
-                      : 'hover:bg-slate-50 dark:hover:bg-slate-850/40'
+                      ? 'bg-blue-50/80 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/40'
+                      : 'bg-slate-50 border-slate-200/80 dark:bg-raised/40 dark:border-line'
                 }`}
               >
                 <div className="flex items-start gap-2 flex-1 min-w-0">
                   {/* Quantity block */}
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm shrink-0 shadow-sm ${
                     isCompleted 
-                      ? 'bg-[var(--accent-green)] text-white' 
+                      ? 'bg-emerald-600 text-white' 
                       : isPreparing
-                        ? 'bg-[var(--accent-blue)] text-white animate-pulse'
-                        : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border border-slate-300 dark:border-slate-700'
+                        ? 'bg-blue-600 text-white animate-pulse'
+                        : 'bg-neutral-900 text-white dark:bg-white dark:text-slate-900 border border-line'
                   }`}>
                     {item.quantity}x
                   </div>
@@ -994,22 +999,22 @@ export default function KdsDisplay() {
                   {/* Item Details */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className={`font-bold text-[var(--text-primary)] text-sm leading-snug truncate ${isCompleted ? 'line-through text-slate-450 dark:text-slate-550 font-medium' : ''}`}>
+                      <p className={`font-black text-content text-sm leading-snug truncate ${isCompleted ? 'line-through text-slate-500 dark:text-slate-500 font-semibold' : ''}`}>
                         {item.name}
                       </p>
                       {item.ronda && (
-                        <span className="bg-purple-100 text-purple-900 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">
+                        <span className="bg-purple-100 text-purple-900 border border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-800 text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">
                           Ronda {item.ronda}
                         </span>
                       )}
                       {hasLowStock && !isCompleted && (
-                        <span className="bg-rose-100 text-rose-900 border border-rose-250 dark:bg-rose-900/40 dark:text-rose-200 dark:border-rose-800 text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">
+                        <span className="bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-900/80 dark:text-rose-200 dark:border-rose-800 text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">
                           ⚠️ Stock Bajo
                         </span>
                       )}
                     </div>
                     {item.modifiers && item.modifiers.length > 0 && (
-                      <p className="text-[11px] text-[var(--text-secondary)] font-semibold italic mt-0.5">
+                      <p className="text-[11px] text-content-secondary font-bold italic mt-0.5">
                         {item.modifiers.join(', ')}
                       </p>
                     )}
@@ -1022,7 +1027,7 @@ export default function KdsDisplay() {
                   {!isPreparing && !isCompleted && (
                     <button
                       onClick={() => handleUpdateItemStatus(ticket.id, originalIndex, 'PREPARING')}
-                      className="w-7 h-7 rounded-lg bg-[var(--accent-blue)]/10 hover:bg-[var(--accent-blue)]/20 text-[var(--accent-blue)] flex items-center justify-center cursor-pointer transition-colors border-none"
+                      className="w-7 h-7 rounded-lg bg-blue-100 hover:bg-blue-200 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 flex items-center justify-center cursor-pointer transition-colors border-none"
                       title="Iniciar Preparación"
                     >
                       <span className="material-symbols-outlined text-lg">play_arrow</span>
@@ -1034,14 +1039,14 @@ export default function KdsDisplay() {
                     <>
                       <button
                         onClick={() => handleUpdateItemStatus(ticket.id, originalIndex, 'PENDING')}
-                        className="w-7 h-7 rounded-lg bg-[var(--accent-yellow)]/10 hover:bg-[var(--accent-yellow)]/20 text-[var(--accent-yellow)] flex items-center justify-center cursor-pointer transition-colors border-none"
+                        className="w-7 h-7 rounded-lg bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 flex items-center justify-center cursor-pointer transition-colors border-none"
                         title="Pausar Item"
                       >
                         <span className="material-symbols-outlined text-lg">pause</span>
                       </button>
                       <button
                         onClick={() => handleUpdateItemStatus(ticket.id, originalIndex, 'COMPLETED')}
-                        className="w-7 h-7 rounded-lg bg-[var(--accent-green)]/10 hover:bg-[var(--accent-green)]/20 text-[var(--accent-green)] flex items-center justify-center cursor-pointer transition-colors border-none"
+                        className="w-7 h-7 rounded-lg bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-400 flex items-center justify-center cursor-pointer transition-colors border-none"
                         title="Completar Item"
                       >
                         <span className="material-symbols-outlined text-lg">done</span>
@@ -1053,7 +1058,7 @@ export default function KdsDisplay() {
                   {isCompleted && (
                     <button
                       onClick={() => handleUpdateItemStatus(ticket.id, originalIndex, 'PENDING')}
-                      className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-550 flex items-center justify-center cursor-pointer border-none"
+                      className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-500/10 text-emerald-800 dark:text-emerald-400 flex items-center justify-center cursor-pointer border-none"
                       title="Revertir a Pendiente"
                     >
                       <span className="material-symbols-outlined text-lg font-bold">check_circle</span>
@@ -1066,7 +1071,7 @@ export default function KdsDisplay() {
         </div>
 
         {/* Footer buttons */}
-        <div className="p-4 bg-slate-50/50 dark:bg-[#151630]/60 border-t border-slate-100 dark:border-slate-800/40 flex gap-2">
+        <div className="p-4 bg-slate-50 border-t border-slate-200 dark:bg-inset dark:border-line flex gap-2">
           {/* Play/Pause entire comanda button */}
           {isTicketPreparing ? (
             <button
@@ -1105,96 +1110,96 @@ export default function KdsDisplay() {
       <header className="p-8 pb-4 animate-fade-in">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Card 1: Tiempo Promedio */}
-          <div className="bg-white dark:bg-[#111229] border border-slate-200/50 dark:border-slate-800/80 rounded-[var(--radius-md)] p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-surface border border-line rounded-3xl p-5 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <p className="text-xs font-bold text-content-secondary uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 TIEMPO PROMEDIO
               </p>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-black text-[var(--text-primary)]">{stats.averageTime}</span>
-                <span className="text-xs font-semibold text-[var(--text-muted)]">minutos</span>
+                <span className="text-3xl font-black text-content">{stats.averageTime}</span>
+                <span className="text-xs font-bold text-content-secondary">minutos</span>
               </div>
             </div>
-            <div className="h-9 w-9 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-500">
+            <div className="h-10 w-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-emerald-700 dark:text-emerald-300">
               <span className="material-symbols-outlined text-xl">timer</span>
             </div>
           </div>
 
           {/* Card 2: Tickets Pendientes */}
-          <div className="bg-white dark:bg-[#111229] border border-slate-200/50 dark:border-slate-800/80 rounded-[var(--radius-md)] p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-surface border border-line rounded-3xl p-5 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+              <p className="text-xs font-bold text-content-secondary uppercase tracking-wider mb-2">
                 TICKETS PENDIENTES
               </p>
               <div className="flex items-center gap-3">
-                <span className="text-3xl font-black text-[var(--text-primary)]">{stats.pendingTickets}</span>
+                <span className="text-3xl font-black text-content">{stats.pendingTickets}</span>
                 {stats.urgents > 0 && (
-                  <span className="bg-rose-500/10 text-rose-500 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rose-500/20">
+                  <span className="bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-rose-300 dark:border-rose-800">
                     +{stats.urgents} urgentes
                   </span>
                 )}
               </div>
             </div>
-            <div className="h-9 w-9 rounded-full bg-rose-50 dark:bg-rose-950/30 flex items-center justify-center text-rose-500">
+            <div className="h-10 w-10 rounded-2xl bg-rose-100 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800 flex items-center justify-center text-rose-700 dark:text-rose-300">
               <span className="material-symbols-outlined text-xl">local_activity</span>
             </div>
           </div>
 
           {/* Card 3: Eficiencia */}
-          <div className="bg-white dark:bg-[#111229] border border-slate-200/50 dark:border-slate-800/80 rounded-[var(--radius-md)] p-4 shadow-sm flex items-center justify-between">
+          <div className="bg-surface border border-line rounded-3xl p-5 shadow-sm flex items-center justify-between">
             <div>
-              <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+              <p className="text-xs font-bold text-content-secondary uppercase tracking-wider mb-2">
                 EFICIENCIA
               </p>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-[var(--text-primary)]">{stats.efficiency}%</span>
-                <span className="text-emerald-500 text-xs font-bold flex items-center">
+                <span className="text-3xl font-black text-content">{stats.efficiency}%</span>
+                <span className="text-emerald-600 dark:text-emerald-400 text-xs font-black flex items-center">
                   <span className="material-symbols-outlined text-[12px]">arrow_upward</span> 2%
                 </span>
               </div>
             </div>
-            <div className="h-9 w-9 rounded-full bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-500">
+            <div className="h-10 w-10 rounded-2xl bg-indigo-100 dark:bg-indigo-950/80 border border-indigo-300 dark:border-indigo-800 flex items-center justify-center text-indigo-700 dark:text-indigo-300">
               <span className="material-symbols-outlined text-xl">trending_up</span>
             </div>
           </div>
 
           {/* Card 4: Pendientes Estación */}
-          <div className="bg-white dark:bg-[#111229] border border-slate-200/50 dark:border-slate-800/80 rounded-[var(--radius-md)] p-4 shadow-sm flex flex-col justify-between">
+          <div className="bg-surface border border-line rounded-3xl p-5 shadow-sm flex flex-col justify-between">
             <div>
-              <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sky-500 text-sm">pending_actions</span>
+              <p className="text-xs font-bold text-content-secondary uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sky-600 dark:text-sky-400 text-sm">pending_actions</span>
                 PENDIENTES ESTACIÓN
               </p>
               <div className="flex items-center gap-2 overflow-x-auto py-1 flex-wrap">
                 {Object.entries(stationSummary.categories)
                   .filter(([_, count]) => count > 0)
                   .map(([cat, count]) => (
-                    <span key={cat} className="text-[11px] font-extrabold bg-slate-50 dark:bg-slate-900 text-[var(--text-primary)] px-2 py-0.5 rounded border border-slate-200/60 dark:border-slate-800 shrink-0">
-                      {cat}: <strong className="text-[var(--accent-blue)] dark:text-sky-400 font-black">{count}</strong>
+                    <span key={cat} className="text-[11px] font-extrabold bg-raised text-content px-2 py-0.5 rounded-lg border border-line shrink-0">
+                      {cat}: <strong className="text-blue-600 dark:text-sky-400 font-black">{count}</strong>
                     </span>
                   ))}
-                <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded border shrink-0 ${
+                <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-lg border shrink-0 ${
                   stationSummary.hasLowStock 
-                    ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' 
-                    : 'bg-emerald-500/10 text-emerald-550 border-emerald-550/20'
+                    ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800' 
+                    : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
                 }`}>
                   {stationSummary.hasLowStock 
                     ? `⚠️ Stock Bajo: ${stationSummary.lowStockItems.length} prod.`
                     : 'Stock: OK'}
                 </span>
                 {(filterMode === 'ALL' || filterMode.toLowerCase() === 'cocina') && (
-                  <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded border shrink-0 ${
+                  <span className={`text-[11px] font-extrabold px-2 py-0.5 rounded-lg border shrink-0 ${
                     stationSummary.salsas.includes('⚠️') 
-                      ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' 
-                      : 'bg-emerald-500/10 text-emerald-550 border-emerald-550/20'
+                      ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800' 
+                      : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
                   }`}>
                     Salsas: {stationSummary.salsas}
                   </span>
                 )}
               </div>
             </div>
-            <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-800/40 pt-2 mt-2">
-              <span className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-wider">
+            <div className="flex justify-between items-center border-t border-line pt-2 mt-2">
+              <span className="text-[9px] text-content-secondary font-black uppercase tracking-wider">
                 ACT.: {lastUpdate}
               </span>
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -1206,15 +1211,15 @@ export default function KdsDisplay() {
       {/* Title & Filter Toolbar */}
       <div className="px-8 py-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[var(--text-primary)]">Tickets en Vivo</h2>
+          <h2 className="text-2xl font-black text-content">Tickets en Vivo</h2>
         </div>
         
         <div className="flex items-center gap-3 w-full sm:w-auto relative flex-wrap sm:flex-nowrap justify-end">
-          {/* Forced Resync Button (Requirement 4) */}
+          {/* Forced Resync Button */}
           <button
             onClick={handleForceUpdate}
             disabled={isRefreshing}
-            className="px-4 py-2.5 bg-white dark:bg-[#111229] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50 transition-all"
+            className="px-4 py-2.5 bg-surface border border-line rounded-xl text-xs font-black uppercase tracking-wider text-content hover:bg-slate-100 dark:hover:bg-raised flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50 transition-all"
             title="Forzar actualización de datos desde Firestore"
           >
             <span className={`material-symbols-outlined text-sm ${isRefreshing ? 'animate-spin' : ''}`}>sync</span>
@@ -1225,7 +1230,7 @@ export default function KdsDisplay() {
           <div className="relative">
             <button
               onClick={() => setStationMenuOpen(!stationMenuOpen)}
-              className="px-4 py-2.5 bg-white dark:bg-[#111229] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-2 cursor-pointer shadow-sm"
+              className="px-4 py-2.5 bg-surface border border-line rounded-xl text-xs font-black uppercase tracking-wider text-content hover:bg-slate-100 dark:hover:bg-raised flex items-center gap-2 cursor-pointer shadow-sm"
             >
               <span className="material-symbols-outlined text-sm">filter_list</span>
               Estación: {filterMode === 'ALL' ? 'Todo' : filterMode}
@@ -1233,10 +1238,10 @@ export default function KdsDisplay() {
             </button>
             
             {stationMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-[#111229] border border-slate-200 dark:border-slate-800 rounded-xl shadow-lg z-50 overflow-hidden">
+              <div className="absolute right-0 mt-2 w-48 bg-surface border border-line rounded-xl shadow-lg z-50 overflow-hidden">
                 <button
                   onClick={() => { setFilterMode('ALL'); setStationMenuOpen(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer ${
+                  className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase hover:bg-slate-50 dark:hover:bg-raised/50 cursor-pointer ${
                     filterMode === 'ALL' ? 'text-[var(--color-primary)]' : 'text-[var(--text-secondary)]'
                   }`}
                 >
@@ -1244,7 +1249,7 @@ export default function KdsDisplay() {
                 </button>
                 <button
                   onClick={() => { setFilterMode('Cocina'); setStationMenuOpen(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer ${
+                  className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase hover:bg-slate-50 dark:hover:bg-raised/50 cursor-pointer ${
                     filterMode === 'Cocina' ? 'text-[var(--color-primary)]' : 'text-[var(--text-secondary)]'
                   }`}
                 >
@@ -1252,7 +1257,7 @@ export default function KdsDisplay() {
                 </button>
                 <button
                   onClick={() => { setFilterMode('Bar'); setStationMenuOpen(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer ${
+                  className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase hover:bg-slate-50 dark:hover:bg-raised/50 cursor-pointer ${
                     filterMode === 'Bar' ? 'text-[var(--color-primary)]' : 'text-[var(--text-secondary)]'
                   }`}
                 >
@@ -1260,7 +1265,7 @@ export default function KdsDisplay() {
                 </button>
                 <button
                   onClick={() => { setFilterMode('Batidos'); setStationMenuOpen(false); }}
-                  className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer ${
+                  className={`w-full text-left px-4 py-2.5 text-xs font-bold uppercase hover:bg-slate-50 dark:hover:bg-raised/50 cursor-pointer ${
                     filterMode === 'Batidos' ? 'text-[var(--color-primary)]' : 'text-[var(--text-secondary)]'
                   }`}
                 >
@@ -1276,7 +1281,7 @@ export default function KdsDisplay() {
             className={`px-4 py-2.5 border rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-sm transition-all ${
               sortUrgentsFirst 
                 ? 'bg-[var(--accent-pink)] border-[var(--accent-pink)] text-white shadow-pink-500/20' 
-                : 'bg-white dark:bg-[#111229] border-slate-200 dark:border-slate-800 text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                : 'bg-surface border-line text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
             title="Mover pedidos urgentes a la parte superior de cada columna"
           >
@@ -1290,7 +1295,7 @@ export default function KdsDisplay() {
             className={`px-4 py-2.5 border rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-sm transition-all ${
               filterPriority 
                 ? 'bg-rose-500 border-rose-500 text-white shadow-rose-500/20' 
-                : 'bg-white dark:bg-[#111229] border-slate-200 dark:border-slate-800 text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                : 'bg-surface border-line text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             <span className="material-symbols-outlined text-sm">priority_high</span>
@@ -1304,16 +1309,16 @@ export default function KdsDisplay() {
         {/* Kanban Board columns (2-column layout: Pendientes & En Preparación) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full min-h-[600px] w-full">
           {/* Column 1: Pendientes */}
-          <div className="flex flex-col h-full bg-slate-50/20 dark:bg-slate-900/10 rounded-2xl border border-slate-200/40 dark:border-slate-800/40 p-4">
+          <div className="flex flex-col h-full bg-slate-200/60 border border-slate-300/70 dark:bg-surface/10 dark:border-line rounded-2xl p-4">
             <div className="flex items-center justify-between mb-4 px-2">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-slate-400 animate-pulse"></span>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-secondary)]">Pendientes ({pendingTickets.length})</h3>
+                <span className="w-2.5 h-2.5 rounded-full bg-slate-500 animate-pulse"></span>
+                <h3 className="text-sm font-black uppercase tracking-wider text-content">Pendientes ({pendingTickets.length})</h3>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               {pendingTickets.length === 0 ? (
-                <div className="h-40 flex items-center justify-center border border-dashed border-slate-200 dark:border-slate-850 rounded-xl text-xs text-[var(--text-muted)] font-medium">
+                <div className="h-40 flex items-center justify-center border border-dashed border-line rounded-xl text-xs text-content-secondary font-bold">
                   Sin pedidos pendientes
                 </div>
               ) : (
@@ -1329,11 +1334,11 @@ export default function KdsDisplay() {
           </div>
 
           {/* Column 2: En Preparación */}
-          <div className="flex flex-col h-full bg-slate-50/20 dark:bg-slate-900/10 rounded-2xl border border-slate-200/40 dark:border-slate-800/40 p-4">
+          <div className="flex flex-col h-full bg-slate-200/60 border border-slate-300/70 dark:bg-surface/10 dark:border-line rounded-2xl p-4">
             <div className="flex items-center justify-between mb-4 px-2">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[var(--accent-blue)] animate-pulse"></span>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--text-secondary)]">En Preparación ({preparingTickets.length})</h3>
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+                <h3 className="text-sm font-black uppercase tracking-wider text-content">En Preparación ({preparingTickets.length})</h3>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">

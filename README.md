@@ -1,73 +1,28 @@
-# React + TypeScript + Vite
+# Blueprint de FoodiePOS 360
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Visión General del Sistema
+FoodiePOS 360 es un sistema de punto de venta (POS) y control de inventarios *offline-first* para gastrobares y restaurantes, construido con React, TypeScript, Vite, Tailwind CSS, Dexie.js (IndexedDB) y Google Cloud Firestore. La aplicación gestiona salones, mesas, comandas, pantallas de cocina (KDS), explosión automática de listas de materiales (BOM) para recetas, control de stock multisede, analítica financiera y asistencia copilot multimodal por voz mediante Groq y Gemini.
 
-Currently, two official plugins are available:
+## Interfaz Local e Invariantes
+- `[vite.config.ts]`: Configuración del empaquetador Vite con soporte para React y plugins de desarrollo.
+- `[vitest.config.ts]`: Configuración del motor de pruebas unitarias bajo entorno `jsdom` y setup global.
+- `[firestore.rules]`: Reglas de seguridad para el acceso a colecciones y documentos en Cloud Firestore.
+- `[tailwind.preset.js]`: Preset del sistema de diseño Tailwind con tokens de color y tipografía de restaurante POS.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Subdirectorios y Límites del Sistema
+- [Código Fuente de la Aplicación (src)](./src/README.md): Capa principal de la aplicación, abarcando componentes visuales, persistencia Dexie, servicios de IA, tokens de estilo y utilidades de dominio.
 
-## React Compiler
+## Invariantes Globales
+- **Persistencia Offline-First**: Todas las mutaciones transaccionales (pedidos, ajustes de stock, recetas, configuración) se guardan primero de forma síncrona en IndexedDB local antes de encolar eventos de sincronización en segundo plano.
+- **Deducción de Inventario en Dos Fases**: La toma de pedidos aparta reservas no negativas (`Math.max(0, físico - reservado)`); el descuento físico real se ejecuta al iniciar preparación o al cerrar la cuenta.
+- **Integridad de Datos y Cálculos Fiscales**: Importes monetarios y stock aplican formato numérico estricto (`es-CO`), cálculo de Impoconsumo al 8% y límites inferiores sin stock negativo.
+- **Respaldo Dual de IA**: Las consultas al asistente de voz priorizan la inferencia rápida con Groq Cloud, ejecutando conmutación por error automática a Google Gemini Flash ante saturación de cuota o límites de tasa.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Efectos Secundarios Globales
+- Almacenamiento local: Persistencia estructurada en la base de datos IndexedDB `foodiepos_db` y preferencias de usuario en `localStorage`.
+- Red en la nube: Suscripciones en tiempo real y escrituras por lotes hacia colecciones de Google Cloud Firestore.
+- APIs externas: Peticiones HTTPS a las APIs de Groq Cloud y Google Gemini para extracción de lenguaje natural y acciones copilot.
+- APIs de hardware: Conexión mediante Web Serial API para pesaje físico y auditoría de botellas en bar con báscula USB.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Verificación del Sistema
+- Ejecutar: `npm test`

@@ -1,0 +1,88 @@
+{
+  "$description": "Perfil POS restaurante. Se aplica sobre tokens.json: reasigna acción (crema) y reserva el naranja para el calor.",
+  "primitive": {
+    "cream": {
+      "$type": "color",
+      "50":  { "$value": "#FBF7F0" },
+      "100": { "$value": "#F5EFE6" },
+      "200": { "$value": "#E8DFD0" }
+    }
+  },
+  "touch": {
+    "$type": "dimension",
+    "min": { "$value": "56px" },
+    "lg":  { "$value": "64px" },
+    "key": { "$value": "72px" },
+    "gap": { "$value": "8px" }
+  },
+  "numeric": {
+    "$type": "dimension",
+    "md": { "$value": "24px" },
+    "lg": { "$value": "32px" },
+    "xl": { "$value": "48px" },
+    "kds": { "md": { "$value": "32px" }, "lg": { "$value": "48px" }, "xl": { "$value": "72px" } }
+  },
+  "theme": {
+    "dark": {
+      "action": {
+        "$type": "color",
+        "fill":    { "$value": "{primitive.cream.100}" },
+        "hover":   { "$value": "{primitive.cream.50}" },
+        "pressed": { "$value": "{primitive.cream.200}" },
+        "text":    { "$value": "{primitive.neutral.950}" }
+      },
+      "heat": {
+        "$type": "color",
+        "$description": "Único uso del naranja. Siempre acompañado de icono y tiempo en texto.",
+        "ok":      { "$value": "{primitive.neutral.300}" },
+        "warm":    { "$value": "{primitive.orange.300}" },
+        "hot":     { "$value": "{primitive.orange.500}" },
+        "overdue": { "$value": "{primitive.orange.600}" },
+        "overdue-text": { "$value": "{primitive.neutral.950}" }
+      },
+      "table": {
+        "$type": "color",
+        "free":     { "$value": "{primitive.neutral.500}" },
+        "occupied": { "$value": "{primitive.neutral.300}" },
+        "bill":     { "$value": "{primitive.blue.400}" },
+        "ready":    { "$value": "{primitive.green.500}" },
+        "reserved": { "$value": "{primitive.violet.400}" }
+      }
+    },
+    "light": {
+      "action": {
+        "$type": "color",
+        "fill":    { "$value": "{primitive.neutral.950}" },
+        "hover":   { "$value": "{primitive.neutral.850}" },
+        "pressed": { "$value": "{primitive.neutral.800}" },
+        "text":    { "$value": "{primitive.cream.50}" }
+      },
+      "heat": {
+        "$type": "color",
+        "ok":      { "$value": "{primitive.neutral.600}" },
+        "warm":    { "$value": "{primitive.orange.600}" },
+        "hot":     { "$value": "{primitive.orange.700}" },
+        "overdue": { "$value": "{primitive.orange.800}" },
+        "overdue-text": { "$value": "{primitive.neutral.0}" }
+      },
+      "table": {
+        "$type": "color",
+        "free":     { "$value": "{primitive.neutral.600}" },
+        "occupied": { "$value": "{primitive.neutral.700}" },
+        "bill":     { "$value": "{primitive.blue.700}" },
+        "ready":    { "$value": "{primitive.green.700}" },
+        "reserved": { "$value": "{primitive.violet.700}" }
+      }
+    },
+    "kds": {
+      "$description": "Cocina: fondo #000, sin vidrio, números 1.5x, texto secundario más claro.",
+      "bg": { "canvas": { "$type": "color", "$value": "{primitive.neutral.1000}" } }
+    }
+  },
+  "heatThresholds": {
+    "$description": "Porcentaje del tiempo objetivo del plato o mesa. Configurable por restaurante.",
+    "warm": { "$type": "number", "$value": 0.5 },
+    "hot":  { "$type": "number", "$value": 0.8 },
+    "overdue": { "$type": "number", "$value": 1.0 }
+  }
+}

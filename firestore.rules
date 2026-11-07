@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Reglas de seguridad para Foodie POS 360
+    // Permite lectura y escritura en todas las colecciones del sistema
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

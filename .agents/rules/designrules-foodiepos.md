@@ -5,94 +5,94 @@ trigger: always_on
 # Google Anti-Gravity ID: System UI/UX & Design System Rules (Universal Dark/Light & Responsive Desktop/Mobile)
 
 ## 1. Core Philosophy & Design Strategy
-- **Style:** Functional Minimalism + Soft Neumorphism/Card Elevation. Clean, scannable, and distraction-free for high-productivity business, POS, comanda, and analytical environments.
+- **Style:** Functional Minimalism + Progressive Surface Elevation (Soft Neumorphism & Card Elevation). Clean, scannable, and distraction-free for high-productivity gastrobar, POS, comanda, and analytical environments.
 - **Universal Multi-Theme & Multi-Device:** Mandatory full support for both **Dark Mode** and **Light Mode**, fully responsive across **Desktop, Tablet, and Mobile/Native** platforms.
-- **Core Principle:** Visual aesthetics (blur, shadows, color) must strictly serve usability, quick operation, visual hierarchy, and strict accessibility (a11y) without performance bottlenecks.
+- **Core Principle:** Visual aesthetics (color-mix shadows, borders, micro-interactions) must strictly serve usability, quick operation, visual hierarchy, sub-100ms tactile feedback, and strict accessibility (a11y) without performance bottlenecks.
 
 ---
 
-## 2. Color System & Theme Models (Desktop & Mobile)
+## 2. Color System & Dual Theme Tokens (Desktop & Mobile)
 
-Both themes must be seamlessly supported across Desktop, Tablet, and Mobile interfaces.
+Both themes must be seamlessly supported across Desktop, Tablet, and Mobile interfaces using semantic CSS tokens.
 
-### 2.1 Dark Mode System (Desktop & Mobile)
-- **Background (Level 0):** Deep near-black or dark blue slate (`#0B0E14` or `#0F121C`).
-- **Cards & Containers (Level 1):** Slightly elevated dark slate (`#161B26` / `#1A202C`) creating soft visual separation without harsh borders.
-- **Hover/Active (Level 2):** Elevated interactive state with subtle lighter tone or thin border highlight.
-- **Accent Color:** Vibrant Electric Purple (`#8B5CF6` / `#A855F7`) or Cyan for active navigation, key system actions, and focused states.
-- **Text & Contrast:** Pure white (`#FFFFFF`) for primary titles; 70% opacity muted slate (`#94A3B8`) for secondary text/labels.
+### 2.1 Dark Mode System (Pure Neutral Carbon)
+- **Background (Level 0):** Pure Carbon Neutral (`#0A0A0A` / `--bg-canvas`).
+- **Cards & Containers (Level 1):** Elevated dark neutral (`#171717` / `--bg-surface`).
+- **Surface Raised / Modals (Level 2):** Elevated dark container (`#262626` / `--bg-raised`).
+- **Inputs & Fields:** Deep contrast field (`#0A0A0A` / `--bg-inset`) with hairline border (`rgba(255,255,255,0.10)` / `--border-default`).
+- **Accent Primary (POS Default):** Warm Cream (`#F5EFE6` / `--action-fill`) with dark ink text (`#0A0A0A`) for primary actions, uncoupling from kitchen thermal warnings.
+- **Accents Palette (Configurable):** 6 accessible accent choices: Crema (`#F5EFE6`), Naranja Fuego (`#FF6B2C`), Rojo Carmesí (`#EF4444`), Púrpura Eléctrico (`#8F63F4`), Azul Cobalto (`#3B82F6`), Verde Esmeralda (`#10B981`).
+- **Text & Contrast:** Pure high-contrast white (`#FAFAFA` / `--text-primary`) for titles (>19:1 AAA); muted slate/gray (`#A3A3A3` / `--text-secondary`) for labels; dimmed gray (`#8A8A8A` / `--text-tertiary`) for metadata.
 
-### 2.2 Light Mode System (Desktop & Mobile)
-- **Background (Level 0):** Soft warm light gray (`#F8F9FA` or `#F4F5F7`) to eliminate screen glare during continuous use.
-- **Cards & Containers (Level 1):** Pure White (`#FFFFFF`) with ultra-soft ambient drop shadows (`box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04)`).
-- **Accent Color:** Warm Amber/Orange (`#FF5722` / `#F97316`) or Deep Crimson (`#EF4444`) for primary Call-to-Actions (CTAs) and interactive action elements.
-- **Badges & Status Tags:** Light-tinted container fills with full-opacity bold text (e.g., light orange tag with deep orange text for pending items).
-- **Text & Contrast:** Deep charcoal (`#1E293B`) for primary titles; muted slate gray (`#64748B`) for body text and metadata.
+### 2.2 Light Mode System (Anti-Glare Clean)
+- **Background (Level 0):** Soft matte anti-glare (`#FAFAFA` / `#F1F5F9` / `--bg-canvas`).
+- **Cards & Containers (Level 1):** Pure White (`#FFFFFF` / `--bg-surface`) with subtle clean border.
+- **Surface Raised / Tinted (Level 2):** Subtle elevation tint (`#F4F4F5` / `--bg-raised`).
+- **Inputs & Fields:** Clean white (`#FFFFFF` / `--bg-inset`) with crisp neutral border (`#D4D4D4` / `--border-default`).
+- **Accent Primary (POS Default):** Dark Ink (`#0A0A0A` / `--action-fill`) with warm cream text (`#FBF7F0`).
+- **Thermal Heat Exclusivity:** Orange (`--heat-hot: #FF6B2C / #C73E12`) is strictly reserved for kitchen/ticket preparation aging (`--heat-*`), never mixed with general button selections.
+- **Text & Contrast:** Deep neutral (`#0A0A0A` / `--text-primary`) for titles (19:1 AAA); high-contrast slate (`#525252` / `--text-secondary`, 7.5:1 AAA) for body; slate gray (`#737373` / `--text-tertiary`, 4.7:1 AA) for secondary metadata. Prohibited light faded texts.
 
 ### 2.3 Semantic & Operational Colors (Universal)
-- **Success / Ready (Green):** `#10B981` — Positive metrics, completed order, item ready/served, "In Stock".
-- **Warning / Pending (Yellow/Orange):** `#F59E0B` — Item in preparation, pending confirmation, medium risk, low stock alert.
-- **Error / Urgent (Red):** `#EF4444` — Canceled item, urgent alert, threat/risk indicator, critical state.
-- **Data Visualization & Charts:** Colorblind-friendly secondary palettes (Cyan, Light Blue, Purple, Crimson) with subtle opacity fills in Light Mode or gradient fills under line charts.
+- **Success / Ready / Sync (Green):** `#10B981` / `#059669` — Order served, paid, sync completed, stock in green.
+- **Warning / Pending / Local (Amber):** `#F59E0B` / `#D97706` — Order cooking, pending local sync (outbox), stock warning.
+- **Error / Urgent (Red):** `#EF4444` / `#DC2626` — Kitchen ticket overtime (>15 min), canceled item, sync error.
+- **In-Transit / Active (Blue):** `#3B82F6` — Order dispatched, flying comanda.
 
 ---
 
-## 3. Responsive Layout & Spatial Architecture
+## 3. Radii Geometry & Progressive Elevation
 
-### 3.1 Mobile & Touch Viewports (Dark & Light Mode)
-- **Border Radius:** Generous outer and card radii (`16px` to `24px`) for modern touch interfaces.
-- **Thumb-Zone Ergonomics:**
-  - Primary operational controls (e.g., "Adicionar a la comanda", "Confirmar pedido", "Ver comanda", "Guardar cambios") positioned in the lower-third screen area for rapid single-hand operation.
-  - Floating or sticky bottom action bars / Bottom Navigation Bar for high-frequency tasks and main sections.
-- **Touch Targets:** Minimum interactive area of `44x44px` (recommended `48x48px` for fast-paced order taking) for buttons, icons, and item modifiers (`+` / `-`).
-- **Card Patterns:** Horizontal category/filter chips at the top; vertical stacked card lists or carousels for catalog items, active orders, or data lists.
+### 3.1 Strict Border Radius Scale
+- **`rounded-full` (`9999px`):** Mandatory for primary interactive controls: operational action buttons, quantity toggles (`+` / `-`), filter chips, search bars (`OmniSearch`), and state badges.
+- **`rounded-xl` (`20px`):** Main containers, modal dialogs (`Modal`), sliding drawers, and payment checkout sheets.
+- **`rounded-lg` (`16px`):** Product catalog cards, KDS kitchen tickets, financial KPI containers, and form panels.
+- **`rounded-md` (`12px`):** Secondary buttons, nested card elements, interactive list rows.
+- **`rounded-sm` / `rounded-input` (`8px`):** Mandatory standard for all form fields: `<input>`, `<select>`, `Combobox`, `PriceInput`, `<textarea>`.
+- **`rounded-none` (`0px`):** Dividers, hairline separators, and breakdown table rows.
 
-### 3.2 Desktop & Tablet Viewports (Dark & Light Mode)
+### 3.2 Chromatic Shadows & Elevation
+- **Light Mode Progressive Lift:** Avoid muddy black shadows. Use brand/text-tinted shadows via `color-mix`:
+  - Card rest: `0 8px 24px rgba(15, 23, 42, 0.04)`
+  - Card hover (desktop): `0 16px 32px -10px color-mix(in srgb, #0F172A 15%, transparent)`
+- **Dark Mode Elevation:** Rely primarily on surface lightness stepping (`--bg-app` -> `--bg-surface` -> `--bg-surface-raised`) paired with 1px hairline borders (`--border-subtle`). Reserve glows exclusively for active/focus states.
+
+---
+
+## 4. Responsive Layout & Spatial Architecture
+
+### 4.1 Mobile & Touch Viewports (Dark & Light Mode)
+- **Thumb-Zone Ergonomics:** High-frequency controls ("Adicionar ítem", "Confirmar pedido", "Ver comanda", "Cobrar") strictly placed in the lower-third viewport.
+- **Sticky Bottom Action Bar:** Persistent floating pill or bottom summary bar (`"3 ítems · $45,000 COP → Ver Comanda"`).
+- **Touch Targets:** Minimum interactive area of `48x48px` with at least `8px` physical gap between adjacent buttons (`+` / `-`).
+- **Filter Chips:** Horizontally scrollable pill chips with smooth momentum scrolling.
+
+### 4.2 Desktop & Tablet Viewports (Dark & Light Mode)
 - **Split View Layout:**
-  - Left/Center: Main catalog, tables, or analytical dashboards.
-  - Right Panel (Fixed/Sticky): Active comanda summary, live order items, or detailed record view.
-- **Navigation:** Collapsible Left Sidebar with clear icon + text hierarchy, switching seamlessly to a top bar or bottom bar on smaller screens.
-- **Grid System:** Multi-column responsive layout (2, 3, or 4 columns) adapting dynamically according to screen resolution.
-- **Top Bar:** Fixed top area for global search, user profile, notifications, and location/context pickers.
+  - Left / Center: Product catalog grid (2-4 cols), interactive tables, or analytical views.
+  - Right Panel (Fixed/Sticky): Live active comanda, guest selector, dish modifiers, and direct checkout controls.
+- **Navigation:** Collapsible left sidebar with clear icon + text hierarchy, adapting to top/bottom bar on smaller touch devices.
 
 ---
 
-## 4. Typography, Hierarchy & Iconography
+## 5. Typography, Financial Formatting & Iconography
 
-### 4.1 Typography Scale
-- **Font Family:** Modern geometric sans-serif (e.g., Inter, Plus Jakarta Sans, SF Pro).
-- **Dark Mode Contrast:** Pure white (`#FFFFFF`) for primary titles; 70% opacity muted slate (`#94A3B8`) for secondary text/labels.
-- **Light Mode Contrast:** Deep charcoal (`#1E293B`) for primary titles; muted slate gray (`#64748B`) for body text and metadata.
-- **Hierarchy:** Rely heavily on font weight variation (Bold/Semi-bold vs. Regular) and letter-spacing rather than excessive font-size jumps.
+### 5.1 Typography Scale & Tabular Numbers
+- **Font Family:** `Plus Jakarta Sans` as primary font; tabular fallback.
+- **Financial & Price Formatting:** All monetary totals, table numbers, and item prices MUST enforce `font-variant-numeric: tabular-nums` and tight tracking (`letter-spacing: -0.02em` to `-0.03em`) in Bold/Semi-Bold (`600` / `700` / `800`) to ensure fast, stable scanning without visual jumping.
+- **Contrast Ratios:** WCAG 2.1 AA/AAA mandatory: > 7:1 for primary titles/prices, > 4.5:1 for secondary labels.
 
-### 4.2 Iconography
-- **Style:** Clean, consistent stroke line-art (Outline) for default states; Solid/Filled for active states.
-- **Integration:** Icons must align perfectly with text labels (16px, 20px, 24px grid).
-- **Floating & Badge Buttons:** Action icons (e.g., floating comanda badge, notification indicators) must use high-contrast primary accent fills with subtle shadows.
+### 5.2 Micro-Interactions & Dual-State Feedback
+- **Desktop/Mouse Hover:** Smooth lift `transform: translateY(-2px)` on buttons, `translateY(-4px)` on catalog cards.
+- **Touch / Mobile / POS Press:** Instant haptic feedback via tactile compression `:active { transform: scale(0.97); }` (80ms-100ms duration) prior to action dispatch.
+- **Transitions:** Short, crisp animations (`150ms - 200ms ease-out`). Avoid long decorative delays.
 
----
-
-## 5. Operational Components, Order Flow & Interactions
-
-### 5.1 Comanda & Item Modifiers
-- **Item Action Buttons:** Explicit operational labels like "Adicionar ítem", "Modificar comanda", "Enviar a cocina", or "Tomar pedido".
-- **Quantity Modifiers:** Prominent `+` and `-` controls with high visual contrast to eliminate misclicks during fast customer service.
-- **Category Chips/Pills:** Rounded capsule buttons (`border-radius: 9999px`) for fast filtering. Active pills take full accent color fill with inverted high-contrast text.
-
-### 5.2 Visual Progress & Status Indicators
-- **Progress Bars:** Soft track background with high-contrast filled indicator. Always pair visual progress bars with clear numeric, percentage, or state text labels (e.g., "En preparación", "Comanda enviada").
-- **Table / List Views:** Dense, readable tables with subtle zebra striping or soft card borders for rapid scannability.
-
-### 5.3 Micro-Interactions & Feedback
-- **Transitions:** Smooth, short animations (`150ms - 200ms ease-in-out`) on hover, press, tap, or state toggle to confirm user action.
-- **Dark/Light Mode Toggle:** Seamless smooth-transition switcher, persisting theme preference across sessions.
+### 5.3 Iconography
+- **Style:** Clean 2px stroke outline (`Lucide Icons` / `Material Symbols Outlined`) on a 20px / 24px grid. Solid for active state.
 
 ---
 
-## 6. Accessibility (a11y) & UX Guardrails (Universal)
-- **WCAG 2.1 AA/AAA Compliance:**
-  - Minimum text-to-background contrast ratio of **4.5:1** for secondary text and **7:1** for primary text across BOTH Dark and Light modes on all screen sizes.
-  - Explicit `:focus-visible` ring/outline for touch screen and physical keyboard navigation.
-- **Information Architecture:** Clear content grouping using elevated cards rather than harsh grid divider lines.
-- **Scalable Imagery:** High-resolution asset containers with aspect-ratio locking and graceful skeleton loaders while images load.
-- **Clear Commercial Vocabulary:** Use direct commercial and operational terminology tailored to customer service and order workflow (e.g., *comanda*, *cliente*, *pedido*, *ítem*).
+## 6. Accessibility (a11y) & UX Guardrails
+- **Focus Rings:** Mandatory `:focus-visible` with 2px solid outline in primary accent (`--accent-purple` in Dark, `--accent-orange` in Light) and 2px offset.
+- **Long Text Clamping:** Truncate dish names with `truncate` / `line-clamp-2` so prices and touch buttons are never pushed off-screen.
+- **Commercial Vocabulary:** Use strict restaurant & hospitality terms: *comanda*, *mesa*, *cliente*, *ítem*, *enviar a cocina*, *cierre de turno*, *arqueo*. Never generic terms.

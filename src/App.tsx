@@ -13,16 +13,23 @@ import OmniSearch from './components/OmniSearch';
 import SettingsPanel from './components/settingsPanel';
 import InventoryDashboard from './components/inventoryDashboard';
 import ItemOnboarding from './components/itemOnboarding';
+import InventoryItemDetail from './components/InventoryItemDetail';
+import InventoryLayout from './components/inventory/InventoryLayout';
 import AssetManagementList from './components/assetManagementList';
 import SupplierManagementList from './components/supplierManagementList';
 import ClientManagement from './components/clientManagement';
+import ListaDePrecios from './components/inventory/ListaDePrecios';
 import { db } from './db/localDb';
 import { SplashScreen } from './components/SplashScreen';
 import { seedDatabase } from './db/seedData';
 import { eventBus } from './events/eventBus';
-import { processOrderPaidInventory } from './db/inventoryEngine';
+import { processOrderPaidInventory, autoMigrateBranchStock } from './db/inventoryEngine';
 import { handleComandaClosure } from './services/reservationService';
-import { startFirebaseSync } from './services/firebaseSync';
+import { startFirebaseSync, pullDataFromFirestore } from './services/syncService';
+import { SyncStatusBadge } from './components/SyncStatusBadge';
+import { VoiceCopilotProvider } from './context/VoiceCopilotContext';
+import FoodieBotHeaderButton from './components/voice/FoodieBotHeaderButton';
+import VoiceCopilotWidget from './components/voice/VoiceCopilotWidget';
 import './App.css';
 
 type ActiveTab =
@@ -31,9 +38,11 @@ type ActiveTab =
   | 'ORDER'
   | 'INVENTORY_DASHBOARD'
   | 'INVENTORY_ONBOARDING'
+  | 'INVENTORY_ITEM_DETAIL'
   | 'INVENTORY_ALERTS'
   | 'INVENTORY_RECEIPTS'
   | 'BAR_INVENTORY'
+  | 'PRICE_LIST'
   | 'FINANCIAL_DASHBOARD'
   | 'RECIPES'
   | 'SETTINGS'
@@ -56,6 +65,7 @@ function App() {
           throw new Error("Esquema desincronizado: Falta la tabla 'reservas'");
         }
         await seedDatabase();
+        await autoMigrateBranchStock();
         if (isMounted) {
           setIsDbReady(true);
         }
@@ -75,6 +85,10 @@ function App() {
 
   const handleResetDatabase = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('foodiepos_db_initialized');
+        localStorage.removeItem('foodiepos_seeded');
+      }
       await db.delete();
       window.location.reload();
     } catch (err) {
@@ -87,15 +101,21 @@ function App() {
     return <SplashScreen error={initError} onReset={handleResetDatabase} />;
   }
 
-  return <AppContent />;
+  return (
+    <VoiceCopilotProvider>
+      <AppContent />
+    </VoiceCopilotProvider>
+  );
 }
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('SALON');
+  const [navigationOrigin, setNavigationOrigin] = useState<ActiveTab>('INVENTORY_DASHBOARD');
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [opacityClass, setOpacityClass] = useState<string>('opacity-0');
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const [editItemType, setEditItemType] = useState<string | null>(null);
+  const [viewItemId, setViewItemId] = useState<string | null>(null);
 
   // Search Navigation states
   const [searchNav, setSearchNav] = useState<{ id: string; view: 'detail' | 'create_recipe' | 'create_subrecipe' | null }>({
@@ -112,6 +132,12 @@ function AppContent() {
   // Alerts filtering state passed between Dashboard and Alerts Console
   const [alertsInitialFilter, setAlertsInitialFilter] = useState<{ level?: 'Crítico' | 'Bajo' | 'ALL'; type?: 'Stock' | 'Vencimiento' | 'Mantenimiento' | 'ALL' } | null>(null);
 
+  // Purchase Order Draft state for transferring suggested items from alerts to receipt form
+  const [purchaseOrderDraft, setPurchaseOrderDraft] = useState<{
+    supplierId?: string;
+    items?: any[];
+  } | null>(null);
+
   // Sync accordion expansion with active tab
   useEffect(() => {
     if (['INVENTORY_DASHBOARD', 'INVENTORY_ONBOARDING', 'INVENTORY_ALERTS', 'INVENTORY_RECEIPTS', 'ASSET_MANAGEMENT', 'SUPPLIER_MANAGEMENT'].includes(activeTab)) {
@@ -119,14 +145,62 @@ function AppContent() {
     }
   }, [activeTab]);
 
-  // Theme states (light/dark) from context
-  const { theme, toggleTheme } = useTheme();
+  // Handle global copilot navigation to onboarding forms and settings
+  useEffect(() => {
+    const handleCopilotNav = (e: any) => {
+      if (e?.detail?.target === 'SETTINGS') {
+        setSelectedTable(null);
+        setActiveTab('SETTINGS');
+        return;
+      }
+      setSelectedTable(null);
+      setNavigationOrigin('INVENTORY_DASHBOARD');
+      setActiveTab('INVENTORY_ONBOARDING');
+      setIsInventoryMenuExpanded(true);
+    };
 
-  // Start Firebase sync when AppContent mounts
+    const handleOpenSettings = () => {
+      setSelectedTable(null);
+      setActiveTab('SETTINGS');
+    };
+
+    window.addEventListener('copilot-navigate', handleCopilotNav);
+    window.addEventListener('open-settings', handleOpenSettings);
+    return () => {
+      window.removeEventListener('copilot-navigate', handleCopilotNav);
+      window.removeEventListener('open-settings', handleOpenSettings);
+    };
+  }, []);
+
+  // Theme states (light/dark + glass effect) from context
+  const { theme, toggleTheme, glassEnabled, toggleGlass } = useTheme();
+
+  // Start Firebase sync & auto-hydration when AppContent mounts
   useEffect(() => {
     const unsubscribeSync = startFirebaseSync();
+
+    // Auto-hydration pull from cloud on boot
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      pullDataFromFirestore({ logActivity: false })
+        .then((stats) => {
+          if (stats.success && stats.totalPulled > 0) {
+            toast.success(`Datos sincronizados con la nube (${stats.totalPulled} registros actualizados)`, {
+              id: 'boot-sync',
+              duration: 3000
+            });
+          }
+        })
+        .catch((err) => {
+          console.warn('[AppContent] Background boot sync warning:', err);
+        });
+    }
+
+    const handleNavRecipes = () => setActiveTab('RECIPES');
+    window.addEventListener('foodiepos:navigate-recipes', handleNavRecipes);
+
     return () => {
       unsubscribeSync();
+      window.removeEventListener('foodiepos:navigate-recipes', handleNavRecipes);
     };
   }, []);
 
@@ -197,12 +271,12 @@ function AppContent() {
       <div>
         {/* Logo & Brand Header */}
         <div className="flex items-center gap-3 mb-8 px-2">
-          <div className="w-9 h-9 bg-[var(--accent-purple)] rounded-xl flex items-center justify-center text-white font-black text-xl shadow-md">
+          <div className="w-9 h-9 bg-action text-action-text rounded-lg flex items-center justify-center font-black text-xl shadow-sm border border-line">
             <span className="material-symbols-outlined text-lg font-bold">restaurant</span>
           </div>
           <div>
-            <span className="text-md font-black text-[var(--text-primary)] tracking-tight leading-none block">Foodie POS</span>
-            <span className="text-[9px] text-[var(--text-muted)] font-bold tracking-wider uppercase mt-1 block">THE DIGITAL MAITRE'D</span>
+            <span className="text-md font-black text-content tracking-tight leading-none block">Foodie POS</span>
+            <span className="text-[9px] text-content-tertiary font-bold tracking-wider uppercase mt-1 block">THE DIGITAL MAITRE'D</span>
           </div>
         </div>
 
@@ -217,14 +291,14 @@ function AppContent() {
               setActiveTab('FINANCIAL_DASHBOARD');
               setIsMobileMenuOpen(false);
             }}
-            className={`w-full text-left rounded-xl px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative ${
+            className={`w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative btn-press ${
               activeTab === 'FINANCIAL_DASHBOARD'
-                ? 'bg-[var(--accent-purple)] text-[var(--text-primary)] font-bold'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] font-semibold'
+                ? 'bg-action text-action-text font-bold shadow-sm'
+                : 'text-content-secondary hover:bg-raised hover:text-content font-semibold'
             }`}
           >
             {activeTab === 'FINANCIAL_DASHBOARD' && (
-              <span className="absolute left-0 top-3 bottom-3 w-1 bg-[var(--text-primary)] rounded-r"></span>
+              <span className="absolute left-0 top-3 bottom-3 w-1 bg-action-text rounded-r"></span>
             )}
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: activeTab === 'FINANCIAL_DASHBOARD' ? "'FILL' 1" : undefined }}>dashboard</span>
             <span className="text-xs font-semibold">Dashboard</span>
@@ -239,14 +313,14 @@ function AppContent() {
               setActiveTab('SALON');
               setIsMobileMenuOpen(false);
             }}
-            className={`w-full text-left rounded-xl px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative ${
+            className={`w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative btn-press ${
               activeTab === 'SALON'
-                ? 'bg-[var(--accent-purple)] text-[var(--text-primary)] font-bold'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] font-semibold'
+                ? 'bg-action text-action-text font-bold shadow-sm'
+                : 'text-content-secondary hover:bg-raised hover:text-content font-semibold'
             }`}
           >
             {activeTab === 'SALON' && (
-              <span className="absolute left-0 top-3 bottom-3 w-1 bg-[var(--text-primary)] rounded-r"></span>
+              <span className="absolute left-0 top-3 bottom-3 w-1 bg-action-text rounded-r"></span>
             )}
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: activeTab === 'SALON' ? "'FILL' 1" : undefined }}>deck</span>
             <span className="text-xs font-semibold">Pedidos</span>
@@ -261,14 +335,14 @@ function AppContent() {
               setActiveTab('CLIENTS');
               setIsMobileMenuOpen(false);
             }}
-            className={`w-full text-left rounded-xl px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative ${
+            className={`w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative btn-press ${
               activeTab === 'CLIENTS'
-                ? 'bg-[var(--accent-purple)] text-[var(--text-primary)] font-bold'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] font-semibold'
+                ? 'bg-action text-action-text font-bold shadow-sm'
+                : 'text-content-secondary hover:bg-raised hover:text-content font-semibold'
             }`}
           >
             {activeTab === 'CLIENTS' && (
-              <span className="absolute left-0 top-3 bottom-3 w-1 bg-[var(--text-primary)] rounded-r"></span>
+              <span className="absolute left-0 top-3 bottom-3 w-1 bg-action-text rounded-r"></span>
             )}
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: activeTab === 'CLIENTS' ? "'FILL' 1" : undefined }}>group</span>
             <span className="text-xs font-semibold">Clientes</span>
@@ -283,14 +357,14 @@ function AppContent() {
               setActiveTab('KDS');
               setIsMobileMenuOpen(false);
             }}
-            className={`w-full text-left rounded-xl px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative ${
+            className={`w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative btn-press ${
               activeTab === 'KDS'
-                ? 'bg-[var(--accent-purple)] text-[var(--text-primary)] font-bold'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] font-semibold'
+                ? 'bg-action text-action-text font-bold shadow-sm'
+                : 'text-content-secondary hover:bg-raised hover:text-content font-semibold'
             }`}
           >
             {activeTab === 'KDS' && (
-              <span className="absolute left-0 top-3 bottom-3 w-1 bg-[var(--text-primary)] rounded-r"></span>
+              <span className="absolute left-0 top-3 bottom-3 w-1 bg-action-text rounded-r"></span>
             )}
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: activeTab === 'KDS' ? "'FILL' 1" : undefined }}>skillet</span>
             <span className="text-xs font-semibold">Cocina</span>
@@ -305,14 +379,14 @@ function AppContent() {
               setActiveTab('BAR_INVENTORY');
               setIsMobileMenuOpen(false);
             }}
-            className={`w-full text-left rounded-xl px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative ${
+            className={`w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative btn-press ${
               activeTab === 'BAR_INVENTORY'
-                ? 'bg-[var(--accent-purple)] text-[var(--text-primary)] font-bold'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] font-semibold'
+                ? 'bg-action text-action-text font-bold shadow-sm'
+                : 'text-content-secondary hover:bg-raised hover:text-content font-semibold'
             }`}
           >
             {activeTab === 'BAR_INVENTORY' && (
-              <span className="absolute left-0 top-3 bottom-3 w-1 bg-[var(--text-primary)] rounded-r"></span>
+              <span className="absolute left-0 top-3 bottom-3 w-1 bg-action-text rounded-r"></span>
             )}
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: activeTab === 'BAR_INVENTORY' ? "'FILL' 1" : undefined }}>liquor</span>
             <span className="text-xs font-semibold">Bar</span>
@@ -330,10 +404,10 @@ function AppContent() {
                   setActiveTab('INVENTORY_DASHBOARD');
                 }
               }}
-              className={`w-full text-left rounded-xl px-4 py-3 flex items-center justify-between transition-all cursor-pointer relative ${
+              className={`w-full text-left rounded-lg px-4 py-3 flex items-center justify-between transition-all cursor-pointer relative btn-press ${
                 ['INVENTORY_DASHBOARD', 'INVENTORY_ONBOARDING', 'INVENTORY_ALERTS', 'INVENTORY_RECEIPTS', 'ASSET_MANAGEMENT'].includes(activeTab)
-                  ? 'bg-[var(--accent-purple)] text-[var(--text-primary)] font-bold shadow-md shadow-[var(--accent-purple)]/20'
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] font-semibold'
+                  ? 'bg-action text-action-text font-bold shadow-sm'
+                  : 'text-content-secondary hover:bg-raised hover:text-content font-semibold'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -347,19 +421,35 @@ function AppContent() {
 
             {/* Submenu links */}
             {isInventoryMenuExpanded && (
-              <div className="pl-6 pr-2 py-4 mt-1 space-y-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-glow)]">
+              <div className="pl-4 pr-2 py-3 mt-1 space-y-1 bg-canvas/60 rounded-lg border border-line">
                 <button
                   onClick={() => {
                     setActiveTab('INVENTORY_DASHBOARD');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full text-left rounded-lg py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
-                    activeTab === 'INVENTORY_DASHBOARD' || activeTab === 'INVENTORY_ONBOARDING' || activeTab === 'ASSET_MANAGEMENT'
-                      ? 'text-[var(--accent-purple)] font-black bg-[var(--accent-purple)]/15 border-[var(--accent-purple)]/25 backdrop-blur-md shadow-sm'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-app)]/50 border-transparent'
+                  className={`w-full text-left rounded-sm py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
+                    activeTab === 'INVENTORY_DASHBOARD'
+                      ? 'text-content font-black bg-[var(--bg-selected)] border-line shadow-sm'
+                      : 'text-content-secondary hover:text-content hover:bg-raised border-transparent'
                   }`}
                 >
-                  Gestión de Inventario
+                  Dashboard Inventario
+                </button>
+
+                <button
+                  onClick={() => {
+                    setEditItemId(null);
+                    setEditItemType(null);
+                    setActiveTab('INVENTORY_ONBOARDING');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full text-left rounded-sm py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
+                    activeTab === 'INVENTORY_ONBOARDING' && !editItemId
+                      ? 'text-content font-black bg-[var(--bg-selected)] border-line shadow-sm'
+                      : 'text-content-secondary hover:text-content hover:bg-raised border-transparent'
+                  }`}
+                >
+                  Nuevo elemento
                 </button>
 
                 <button
@@ -367,10 +457,10 @@ function AppContent() {
                     setActiveTab('INVENTORY_RECEIPTS');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full text-left rounded-lg py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
+                  className={`w-full text-left rounded-sm py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
                     activeTab === 'INVENTORY_RECEIPTS'
-                      ? 'text-[var(--accent-purple)] font-black bg-[var(--accent-purple)]/15 border-[var(--accent-purple)]/25 backdrop-blur-md shadow-sm'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-app)]/50 border-transparent'
+                      ? 'text-content font-black bg-[var(--bg-selected)] border-line shadow-sm'
+                      : 'text-content-secondary hover:text-content hover:bg-raised border-transparent'
                   }`}
                 >
                   Entradas (Compras)
@@ -381,10 +471,10 @@ function AppContent() {
                     setActiveTab('INVENTORY_ALERTS');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full text-left rounded-lg py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
+                  className={`w-full text-left rounded-sm py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
                     activeTab === 'INVENTORY_ALERTS'
-                      ? 'text-[var(--accent-purple)] font-black bg-[var(--accent-purple)]/15 border-[var(--accent-purple)]/25 backdrop-blur-md shadow-sm'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-app)]/50 border-transparent'
+                      ? 'text-content font-black bg-[var(--bg-selected)] border-line shadow-sm'
+                      : 'text-content-secondary hover:text-content hover:bg-raised border-transparent'
                   }`}
                 >
                   Alertas de Stock
@@ -395,10 +485,10 @@ function AppContent() {
                     setActiveTab('ASSET_MANAGEMENT');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full text-left rounded-lg py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
+                  className={`w-full text-left rounded-sm py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
                     activeTab === 'ASSET_MANAGEMENT'
-                      ? 'text-[var(--accent-purple)] font-black bg-[var(--accent-purple)]/15 border-[var(--accent-purple)]/25 backdrop-blur-md shadow-sm'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-app)]/50 border-transparent'
+                      ? 'text-content font-black bg-[var(--bg-selected)] border-line shadow-sm'
+                      : 'text-content-secondary hover:text-content hover:bg-raised border-transparent'
                   }`}
                 >
                   Gestión de Activos
@@ -409,10 +499,10 @@ function AppContent() {
                     setActiveTab('SUPPLIER_MANAGEMENT');
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full text-left rounded-lg py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
+                  className={`w-full text-left rounded-sm py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
                     activeTab === 'SUPPLIER_MANAGEMENT'
-                      ? 'text-[var(--accent-purple)] font-black bg-[var(--accent-purple)]/15 border-[var(--accent-purple)]/25 backdrop-blur-md shadow-sm'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-app)]/50 border-transparent'
+                      ? 'text-content font-black bg-[var(--bg-selected)] border-line shadow-sm'
+                      : 'text-content-secondary hover:text-content hover:bg-raised border-transparent'
                   }`}
                 >
                   Proveedores
@@ -420,9 +510,15 @@ function AppContent() {
 
                 <button
                   onClick={() => {
-                    toast('Módulo de Lista de Precios en desarrollo.', { icon: '🚧' });
+                    setSelectedTable(null);
+                    setActiveTab('PRICE_LIST');
+                    setIsMobileMenuOpen(false);
                   }}
-                  className="w-full text-left rounded-lg py-2 px-3 text-[11px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-app)]/50 transition-all cursor-pointer flex items-center gap-2"
+                  className={`w-full text-left rounded-sm py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center gap-2 border ${
+                    activeTab === 'PRICE_LIST'
+                      ? 'text-content font-black bg-[var(--bg-selected)] border-line shadow-sm'
+                      : 'text-content-secondary hover:text-content hover:bg-raised border-transparent'
+                  }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                   Lista de precios
@@ -438,14 +534,14 @@ function AppContent() {
               setActiveTab('RECIPES');
               setIsMobileMenuOpen(false);
             }}
-            className={`w-full text-left rounded-xl px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative ${
+            className={`w-full text-left rounded-lg px-4 py-3 flex items-center gap-3 transition-all cursor-pointer relative btn-press ${
               activeTab === 'RECIPES'
-                ? 'bg-[var(--accent-purple)] text-[var(--text-primary)] font-bold'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] font-semibold'
+                ? 'bg-action text-action-text font-bold shadow-sm'
+                : 'text-content-secondary hover:bg-raised hover:text-content font-semibold'
             }`}
           >
             {activeTab === 'RECIPES' && (
-              <span className="absolute left-0 top-3 bottom-3 w-1 bg-[var(--text-primary)] rounded-r"></span>
+              <span className="absolute left-0 top-3 bottom-3 w-1 bg-action-text rounded-r"></span>
             )}
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: activeTab === 'RECIPES' ? "'FILL' 1" : undefined }}>receipt_long</span>
             <span className="text-xs font-semibold">Recetas</span>
@@ -467,9 +563,9 @@ function AppContent() {
       </div>
 
       {/* Simple Footer/Tenant Info */}
-      <div className="px-2 pt-4 border-t border-[var(--border-glow)]">
-        <span className="text-[10px] text-[var(--text-muted)] font-bold block">SEDE PRINCIPAL</span>
-        <span className="text-[9px] text-[var(--text-muted)] font-medium block">Malibu Gastrobar</span>
+      <div className="px-2 pt-4 border-t border-line">
+        <span className="text-[10px] text-content-secondary font-bold block">SEDE PRINCIPAL</span>
+        <span className="text-[9px] text-content-tertiary font-medium block">Malibu Gastrobar</span>
       </div>
     </>
   );
@@ -477,20 +573,20 @@ function AppContent() {
 
 
   return (
-    <div className={`flex h-screen w-screen overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)] font-sans transition-opacity duration-500 ease-in-out ${opacityClass}`}>
+    <div className={`flex h-screen w-screen overflow-hidden bg-canvas text-content font-sans transition-opacity duration-500 ease-in-out ${opacityClass}`}>
       {/* Desktop Sidebar (hidden on mobile) */}
-      <aside className="hidden md:flex w-64 bg-[var(--bg-surface)] border-r border-[var(--border-glow)] flex-col py-6 px-4 h-full select-none z-30 shrink-0 justify-between transition-receitly">
+      <aside className="hidden md:flex w-64 glass bg-surface border-r border-line flex-col py-6 px-4 h-full select-none z-30 shrink-0 justify-between transition-receitly">
         {renderSidebarContent()}
       </aside>
 
       {/* Mobile Sidebar overlay */}
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 md:hidden flex transition-all"
+          className="fixed inset-0 bg-overlay backdrop-blur-sm z-50 md:hidden flex transition-all"
           onClick={() => setIsMobileMenuOpen(false)}
         >
           <aside
-            className="w-64 bg-[var(--bg-surface)] flex flex-col py-6 px-4 h-full justify-between select-none border-r border-[var(--border-glow)] transition-receitly"
+            className="w-64 glass bg-surface flex flex-col py-6 px-4 h-full justify-between select-none border-r border-line transition-receitly"
             onClick={(e) => e.stopPropagation()}
           >
             {renderSidebarContent()}
@@ -501,19 +597,21 @@ function AppContent() {
       {/* Main Content Area with Fixed Top Bar */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Top Header Search Bar */}
-        <header className="h-16 border-b border-[var(--border-glow)] bg-[var(--bg-surface)] px-8 flex items-center justify-between gap-4 z-20 shrink-0 transition-receitly">
+        <header className="h-16 border-b border-line glass bg-surface px-8 flex items-center justify-between gap-4 z-20 shrink-0 transition-receitly">
           <div className="flex items-center gap-2 shrink-0">
             {/* Mobile Hamburger menu */}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="md:hidden p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center mr-1"
+              className="md:hidden p-1.5 rounded-sm border border-line text-content-secondary hover:bg-raised hover:text-content flex items-center justify-center mr-1"
+              aria-label="Abrir menú lateral"
             >
               <span className="material-symbols-outlined text-lg">menu</span>
             </button>
           </div>
 
           {/* Search container taking up the middle area */}
-          <div className="flex-1 flex justify-end">
+          <div className="flex-1 flex items-center justify-end gap-3">
+            <SyncStatusBadge />
             <OmniSearch
               onSelectRecipe={handleSelectRecipe}
               onSelectInventoryItem={handleSelectInventory}
@@ -521,28 +619,57 @@ function AppContent() {
           </div>
 
           {/* Quick Info & User Profile */}
-          <div className="flex items-center gap-5 shrink-0">
-            {/* Theme Toggle Button */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Foodie Bot AI Assistant */}
+            <FoodieBotHeaderButton />
+
+            {/* Theme (Dark/Light) & Glass Effect Quick Controls */}
+            <div className="flex items-center gap-1 bg-canvas border border-line rounded-full p-1">
+              <button
+                onClick={toggleTheme}
+                className="px-2.5 py-1 rounded-full text-content-secondary hover:text-content hover:bg-raised transition-colors cursor-pointer flex items-center gap-1.5 text-[11px] font-bold"
+                title={theme === 'light' ? 'Cambiar a Modo Oscuro' : 'Cambiar a Modo Claro'}
+                aria-label="Toggle Light/Dark Theme"
+              >
+                <span className="material-symbols-outlined text-base">
+                  {theme === 'light' ? 'dark_mode' : 'light_mode'}
+                </span>
+                <span className="hidden sm:inline">{theme === 'light' ? 'Claro' : 'Oscuro'}</span>
+              </button>
+
+              <button
+                onClick={toggleGlass}
+                aria-pressed={glassEnabled}
+                className={`px-2.5 py-1 rounded-full transition-colors cursor-pointer flex items-center gap-1 text-[11px] font-bold ${
+                  glassEnabled
+                    ? 'bg-action text-action-text shadow-xs'
+                    : 'text-content-tertiary hover:text-content hover:bg-raised'
+                }`}
+                title={glassEnabled ? 'Efecto Glass Activado (clic para desactivar)' : 'Efecto Glass Desactivado (clic para activar)'}
+                aria-label="Alternar efecto Glass"
+              >
+                <span className="material-symbols-outlined text-sm">
+                  {glassEnabled ? 'blur_on' : 'blur_off'}
+                </span>
+                <span className="hidden sm:inline">Glass</span>
+              </button>
+            </div>
+
             <button
-              onClick={toggleTheme}
-              className="p-1 text-slate-500 hover:text-slate-800 dark:text-slate-500 dark:hover:text-white transition-colors cursor-pointer flex items-center justify-center"
-              title="Toggle Light/Dark Theme"
+              className="relative p-1.5 text-content-secondary hover:text-content transition-colors cursor-pointer flex items-center justify-center rounded-full hover:bg-raised"
+              aria-label="Notificaciones"
             >
-              <span className="material-symbols-outlined text-xl">
-                {theme === 'light' ? 'dark_mode' : 'light_mode'}
-              </span>
-            </button>
-            <button className="relative p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer flex items-center justify-center">
               <span className="material-symbols-outlined text-xl">notifications</span>
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[var(--accent-pink)] rounded-full border-2 border-[var(--bg-surface)]"></span>
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-danger rounded-full border-2 border-surface"></span>
             </button>
             <button 
               onClick={() => setActiveTab('SETTINGS')}
-              className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer flex items-center justify-center"
+              className="p-1.5 text-content-secondary hover:text-content transition-colors cursor-pointer flex items-center justify-center rounded-full hover:bg-raised"
+              aria-label="Configuración"
             >
               <span className="material-symbols-outlined text-xl">settings</span>
             </button>
-            <div className="w-8 h-8 rounded-full overflow-hidden cursor-pointer border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full overflow-hidden cursor-pointer border border-line shadow-sm flex items-center justify-center">
               <img
                 src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&h=100&q=80"
                 alt="User Avatar"
@@ -575,54 +702,123 @@ function AppContent() {
             />
           )}
 
-          {activeTab === 'INVENTORY_DASHBOARD' && (
-            <InventoryDashboard 
-              onIngreso={() => {
-                setEditItemId(null);
-                setEditItemType(null);
-                setActiveTab('INVENTORY_ONBOARDING');
-              }} 
-              onEditItem={(itemId, type) => {
-                setEditItemId(itemId);
-                setEditItemType(type);
-                setActiveTab('INVENTORY_ONBOARDING');
-              }}
-              onNavigateToAlerts={(filter) => {
-                setAlertsInitialFilter(filter);
-                setActiveTab('INVENTORY_ALERTS');
-              }}
-            />
-          )}
+          {['INVENTORY_DASHBOARD', 'INVENTORY_ITEM_DETAIL', 'INVENTORY_ONBOARDING', 'INVENTORY_ALERTS', 'INVENTORY_RECEIPTS', 'BAR_INVENTORY', 'PRICE_LIST'].includes(activeTab) && (
+            <InventoryLayout activeContext={activeTab === 'INVENTORY_ONBOARDING' ? 'ONBOARDING' : 'DASHBOARD'}>
+              {activeTab === 'INVENTORY_DASHBOARD' && (
+                <InventoryDashboard 
+                  onIngreso={() => {
+                    setNavigationOrigin('INVENTORY_DASHBOARD');
+                    setEditItemId(null);
+                    setEditItemType(null);
+                    setActiveTab('INVENTORY_ONBOARDING');
+                  }} 
+                  onEditItem={(itemId, type) => {
+                    setNavigationOrigin('INVENTORY_DASHBOARD');
+                    setEditItemId(itemId);
+                    setEditItemType(type);
+                    setActiveTab('INVENTORY_ONBOARDING');
+                  }}
+                  onViewItem={(itemId) => {
+                    setNavigationOrigin('INVENTORY_DASHBOARD');
+                    setViewItemId(itemId);
+                    setActiveTab('INVENTORY_ITEM_DETAIL');
+                  }}
+                  onNavigateToAlerts={(filter) => {
+                    setAlertsInitialFilter(filter);
+                    setActiveTab('INVENTORY_ALERTS');
+                  }}
+                />
+              )}
 
-          {activeTab === 'INVENTORY_ONBOARDING' && (
-            <ItemOnboarding 
-              editItemId={editItemId}
-              editItemType={editItemType}
-              onBack={() => {
-                setEditItemId(null);
-                setEditItemType(null);
-                setActiveTab('INVENTORY_DASHBOARD');
-              }}
-            />
-          )}
+              {activeTab === 'INVENTORY_ITEM_DETAIL' && viewItemId && (
+                <InventoryItemDetail
+                  itemId={viewItemId}
+                  onBack={() => {
+                    setViewItemId(null);
+                    setActiveTab(navigationOrigin === 'INVENTORY_ONBOARDING' ? 'INVENTORY_ONBOARDING' : 'INVENTORY_DASHBOARD');
+                  }}
+                  onEdit={(itemId, type) => {
+                    setNavigationOrigin('INVENTORY_ITEM_DETAIL');
+                    setEditItemId(itemId);
+                    setEditItemType(type);
+                    setActiveTab('INVENTORY_ONBOARDING');
+                  }}
+                />
+              )}
 
-          {activeTab === 'INVENTORY_ALERTS' && (
-            <InventoryAlerts 
-              initialFilter={alertsInitialFilter}
-              onClearFilter={() => setAlertsInitialFilter(null)}
-            />
-          )}
+              {activeTab === 'INVENTORY_ONBOARDING' && (
+                <ItemOnboarding 
+                  editItemId={editItemId}
+                  editItemType={editItemType}
+                  onBack={() => {
+                    setEditItemId(null);
+                    setEditItemType(null);
+                    if (navigationOrigin === 'INVENTORY_ITEM_DETAIL' && viewItemId) {
+                      setActiveTab('INVENTORY_ITEM_DETAIL');
+                    } else {
+                      setActiveTab(navigationOrigin === 'INVENTORY_ONBOARDING' ? 'INVENTORY_ONBOARDING' : 'INVENTORY_DASHBOARD');
+                    }
+                  }}
+                  onEditItem={(itemId, type) => {
+                    setNavigationOrigin('INVENTORY_ONBOARDING');
+                    setEditItemId(itemId);
+                    setEditItemType(type);
+                  }}
+                  onViewItem={(itemId) => {
+                    setNavigationOrigin('INVENTORY_ONBOARDING');
+                    setViewItemId(itemId);
+                    setActiveTab('INVENTORY_ITEM_DETAIL');
+                  }}
+                />
+              )}
 
-          {activeTab === 'INVENTORY_RECEIPTS' && (
-            <PurchaseOrderForm />
-          )}
+              {activeTab === 'INVENTORY_ALERTS' && (
+                <InventoryAlerts 
+                  initialFilter={alertsInitialFilter}
+                  onClearFilter={() => setAlertsInitialFilter(null)}
+                  onNavigateToPurchaseOrder={(draft) => {
+                    setPurchaseOrderDraft(draft);
+                    setActiveTab('INVENTORY_RECEIPTS');
+                  }}
+                />
+              )}
 
-          {activeTab === 'BAR_INVENTORY' && (
-            <BarInventory />
+              {activeTab === 'INVENTORY_RECEIPTS' && (
+                <PurchaseOrderForm 
+                  initialSupplierId={purchaseOrderDraft?.supplierId}
+                  initialItems={purchaseOrderDraft?.items}
+                  onComplete={() => setPurchaseOrderDraft(null)}
+                />
+              )}
+
+              {activeTab === 'BAR_INVENTORY' && (
+                <BarInventory />
+              )}
+
+              {activeTab === 'PRICE_LIST' && (
+                <ListaDePrecios 
+                  onIngreso={() => {
+                    setNavigationOrigin('INVENTORY_DASHBOARD');
+                    setEditItemId(null);
+                    setEditItemType(null);
+                    setActiveTab('INVENTORY_ONBOARDING');
+                  }}
+                  onNavigateToRecipes={() => {
+                    setActiveTab('RECIPES');
+                  }}
+                  onEditItem={(itemId) => {
+                    setNavigationOrigin('INVENTORY_DASHBOARD');
+                    setEditItemId(itemId);
+                    setEditItemType(null);
+                    setActiveTab('INVENTORY_ONBOARDING');
+                  }}
+                />
+              )}
+            </InventoryLayout>
           )}
 
           {activeTab === 'FINANCIAL_DASHBOARD' && (
-            <FinancialDashboard />
+            <FinancialDashboard onNavigateToRecipes={() => setActiveTab('RECIPES')} />
           )}
 
           {activeTab === 'RECIPES' && (
@@ -634,7 +830,7 @@ function AppContent() {
           )}
 
           {activeTab === 'SETTINGS' && (
-            <SettingsPanel />
+            <SettingsPanel onNavigateToDashboard={() => setActiveTab('SALON')} />
           )}
 
           {activeTab === 'ASSET_MANAGEMENT' && (
@@ -650,12 +846,15 @@ function AppContent() {
           )}
         </div>
       </div>
+      {/* Global Non-Invasive Foodie Bot Lateral Drawer */}
+      <VoiceCopilotWidget />
+
       <Toaster 
         toastOptions={{
           style: {
-            background: theme === 'dark' ? '#1e293b' : '#ffffff',
-            color: theme === 'dark' ? '#f8fafc' : '#0f172a',
-            border: theme === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
+            background: theme === 'dark' ? '#171717' : '#FFFFFF',
+            color: theme === 'dark' ? '#FAFAFA' : '#0A0A0A',
+            border: theme === 'dark' ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid #D4D4D4',
           }
         }}
       />

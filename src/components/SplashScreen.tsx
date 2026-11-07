@@ -7,9 +7,9 @@ interface SplashScreenProps {
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ error, onReset }) => {
   return (
-    <div className="fixed inset-0 z-[9999] flex h-screen w-screen items-center justify-center bg-[#0A0B1A] text-[#FAFAFF] font-sans">
+    <div className="fixed inset-0 z-[9999] flex h-screen w-screen items-center justify-center bg-canvas text-[#FAFAFF] font-sans">
       {error ? (
-        <div className="flex flex-col items-center justify-center text-center p-8 max-w-md bg-[#111229] border border-rose-500/30 rounded-2xl shadow-2xl shadow-rose-950/20 animate-fade-in space-y-4 m-4">
+        <div className="flex flex-col items-center justify-center text-center p-8 max-w-md bg-surface border border-rose-500/30 rounded-2xl shadow-2xl shadow-rose-950/20 animate-fade-in space-y-4 m-4">
           <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center text-rose-500 mb-2 border border-rose-500/20">
             <span className="material-symbols-outlined text-4xl font-bold">database_off</span>
           </div>

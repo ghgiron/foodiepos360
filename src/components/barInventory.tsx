@@ -105,7 +105,7 @@ export default function BarInventory() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-headline font-black text-slate-900 dark:text-white">Control de Licores por Peso</h2>
+          <h2 className="text-3xl font-headline font-black text-content">Control de Licores por Peso</h2>
           <p className="text-slate-500 font-semibold text-sm">Pesaje y auditoría de botellas abiertas en tiempo real mediante balanza USB.</p>
         </div>
         {showSuccess && (
@@ -118,10 +118,10 @@ export default function BarInventory() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Scale Connection and Selection Panel */}
         <div className="panel-card space-y-6">
-          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">Pesaje de Botella</h3>
+          <h3 className="text-base font-bold text-content">Pesaje de Botella</h3>
 
           {/* Web Serial API scale trigger */}
-          <div className="p-4 bg-slate-50 dark:bg-[var(--card-color)]/40 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3">
+          <div className="p-4 bg-slate-50 dark:bg-[var(--card-color)]/40 rounded-2xl border border-line space-y-3">
             <span className="text-[10px] font-bold text-slate-400 uppercase block">Balanza USB (Web Serial)</span>
             
             {serialStatus === 'DISCONNECTED' && (
@@ -169,7 +169,7 @@ export default function BarInventory() {
                 onChange={setSelectedItemId}
                 options={liquors.map(liq => ({ value: liq.id, label: `${liq.name} (Min: ${liq.stockMinLimit}ml)` }))}
                 placeholder="Seleccionar botella..."
-                className="w-full bg-white dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm text-slate-900 dark:text-white"
+                className="w-full bg-surface border border-line rounded-xl p-3 text-sm text-content"
               />
             </div>
 
@@ -182,7 +182,7 @@ export default function BarInventory() {
                 type="number"
                 value={scaleWeight}
                 onChange={(e) => setScaleWeight(parseFloat(e.target.value) || 0)}
-                className="w-full rounded-xl border-slate-200 dark:border-slate-800 dark:bg-[var(--card-color)] dark:text-white p-3 text-sm focus:ring-2 focus:ring-[var(--accent-purple)] outline-none"
+                className="w-full rounded-xl border-line dark:bg-[var(--card-color)] dark:text-white p-3 text-sm focus:ring-2 focus:ring-[var(--accent-purple)] outline-none"
                 placeholder="ej. 1250"
               />
             </div>
@@ -193,7 +193,7 @@ export default function BarInventory() {
         <div className="panel-card lg:col-span-2 flex flex-col justify-between min-h-[420px]">
           <div>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">Resultados del Pesaje</h3>
+              <h3 className="text-base font-bold text-content">Resultados del Pesaje</h3>
               {selectedItem && (
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                   SKU: {selectedItem.id}
@@ -205,19 +205,19 @@ export default function BarInventory() {
               <div className="space-y-6">
                 {/* Weight stats Bento row */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-slate-50 dark:bg-[var(--card-color)]/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <div className="bg-slate-50 dark:bg-[var(--card-color)]/40 p-4 rounded-2xl border border-line">
                     <span className="text-[10px] text-slate-400 font-bold uppercase block">Peso de Botella (Tara)</span>
-                    <p className="text-xl font-headline font-black mt-1 text-slate-800 dark:text-slate-200">
+                    <p className="text-xl font-headline font-black mt-1 text-content">
                       {tareWeight} g
                     </p>
                   </div>
-                  <div className="bg-slate-50 dark:bg-[var(--card-color)]/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <div className="bg-slate-50 dark:bg-[var(--card-color)]/40 p-4 rounded-2xl border border-line">
                     <span className="text-[10px] text-slate-400 font-bold uppercase block">Densidad del Líquido</span>
-                    <p className="text-xl font-headline font-black mt-1 text-slate-800 dark:text-slate-200">
+                    <p className="text-xl font-headline font-black mt-1 text-content">
                       {density} g/ml
                     </p>
                   </div>
-                  <div className="bg-slate-50 dark:bg-[var(--card-color)]/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <div className="bg-slate-50 dark:bg-[var(--card-color)]/40 p-4 rounded-2xl border border-line">
                     <span className="text-[10px] text-slate-400 font-bold uppercase block">Millilitros Netos Reales</span>
                     <p className="text-xl font-headline font-black mt-1 text-emerald-600 dark:text-emerald-400">
                       {netMilliliters} ml
@@ -226,7 +226,7 @@ export default function BarInventory() {
                 </div>
 
                 {/* Stock Variance Calculator Card */}
-                <div className="p-6 bg-slate-50 dark:bg-[var(--card-color)]/30 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+                <div className="p-6 bg-slate-50 dark:bg-[var(--card-color)]/30 rounded-2xl border border-line space-y-4">
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cálculo de Variación Teórica vs Real</h4>
                   
                   <div className="grid grid-cols-2 gap-6 pt-2">
@@ -240,7 +240,7 @@ export default function BarInventory() {
                     </div>
                   </div>
 
-                  <div className="border-t border-dashed border-slate-200 dark:border-slate-800 pt-4 flex justify-between items-center">
+                  <div className="border-t border-dashed border-line pt-4 flex justify-between items-center">
                     <div>
                       <p className="text-xs text-slate-500 font-medium">Diferencia de Merma:</p>
                       <p className={`text-xl font-black ${varianceMl >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
@@ -264,7 +264,7 @@ export default function BarInventory() {
           </div>
 
           {selectedItem && (
-            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-end mt-6">
+            <div className="pt-6 border-t border-line flex justify-end mt-6">
               <button
                 onClick={handleSavePhysicalWeight}
                 className="btn-receitly px-8 py-4 text-xs uppercase tracking-wider"

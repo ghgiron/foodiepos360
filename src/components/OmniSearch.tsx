@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { db } from '../db/localDb';
 import type { Recipe, InventoryItem } from '../types';
+import { formatCurrency } from '../utils/formatters';
+import { flexibleMultiMatch } from '../utils/searchEngine';
 
 interface OmniSearchProps {
   onSelectRecipe?: (id: string, isSub: boolean) => void;
@@ -71,8 +73,6 @@ export default function OmniSearch({ onSelectRecipe, onSelectInventoryItem }: Om
 
   // Unified Search indexing
   const filteredResults = useMemo(() => {
-    const q = query.toLowerCase().trim();
-
     // 1. Process Recipes and Subrecipes
     const recipeResults = recipes.map(r => {
       const displayPrice = r.sellPrice > 0 ? r.sellPrice : (r.costPrice || 0);
@@ -111,11 +111,9 @@ export default function OmniSearch({ onSelectRecipe, onSelectInventoryItem }: Om
     let unified = [...recipeResults, ...inventoryResults];
 
     // Apply text search
-    if (q) {
+    if (query.trim()) {
       unified = unified.filter(item => 
-        item.name.toLowerCase().includes(q) || 
-        item.category.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q)
+        flexibleMultiMatch([item.name, item.category, item.description], query)
       );
     }
 
@@ -174,9 +172,9 @@ export default function OmniSearch({ onSelectRecipe, onSelectInventoryItem }: Om
     >
       {/* Search Input Box */}
       <div 
-        className="flex items-center gap-2 bg-[var(--bg-input)] rounded-xl px-4 py-2 w-full h-10 shadow-sm focus-within:ring-2 focus-within:ring-[var(--accent-purple)]/50 transition-all border border-transparent focus-within:bg-[var(--bg-surface)] focus-within:border-[var(--border-glow)]"
+        className="flex items-center gap-2 bg-inset rounded-full px-4 py-2 w-full h-10 shadow-sm focus-within:ring-2 focus-within:ring-action/30 transition-all border border-line focus-within:bg-surface focus-within:border-action"
       >
-        <span className="material-symbols-outlined text-slate-500 dark:text-slate-400 text-lg" aria-hidden="true">search</span>
+        <span className="material-symbols-outlined text-content-secondary text-lg" aria-hidden="true">search</span>
         <input
           type="text"
           role="combobox"
@@ -189,13 +187,13 @@ export default function OmniSearch({ onSelectRecipe, onSelectInventoryItem }: Om
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
-          className="bg-transparent border-none outline-none text-xs text-[var(--text-primary)] w-full placeholder:text-[var(--text-muted)] font-semibold"
+          className="bg-transparent border-none outline-none text-xs text-content w-full placeholder:text-content-tertiary font-semibold"
         />
         {query && (
           <button 
             aria-label="Limpiar búsqueda"
             onClick={() => setQuery('')}
-            className="text-slate-400 hover:text-slate-650 dark:hover:text-white flex items-center justify-center cursor-pointer border-none bg-transparent"
+            className="text-content-tertiary hover:text-content flex items-center justify-center cursor-pointer border-none bg-transparent"
           >
             <span className="material-symbols-outlined text-sm" aria-hidden="true">close</span>
           </button>
@@ -204,17 +202,17 @@ export default function OmniSearch({ onSelectRecipe, onSelectInventoryItem }: Om
 
       {/* Omnipresent Floating Results Panel */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 glass-card shadow-2xl !p-0 bg-[var(--bg-surface)]/95 dark:bg-[var(--bg-surface)]/85 backdrop-blur-[14px] border border-[var(--border-glow)] rounded-[var(--radius-md)] z-[999] overflow-hidden flex flex-col md:flex-row h-[28rem] w-full">
+        <div className="absolute top-full left-0 right-0 mt-2 glass bg-surface shadow-lg border border-line rounded-xl z-[999] overflow-hidden flex flex-col md:flex-row h-[28rem] w-full">
           
-          {/* Left Filter Sidebar (Mercado Libre style layout) */}
-          <div className="w-full md:w-[30%] bg-slate-50/50 dark:bg-slate-950/30 border-b md:border-b-0 md:border-r border-slate-100 dark:border-slate-800 p-4 flex flex-col justify-between shrink-0 overflow-y-auto">
+          {/* Left Filter Sidebar */}
+          <div className="w-full md:w-[30%] bg-canvas/80 border-b md:border-b-0 md:border-r border-line p-4 flex flex-col justify-between shrink-0 overflow-y-auto">
             <div className="space-y-4">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">
-                <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Filtros</span>
+              <div className="flex justify-between items-center pb-2 border-b border-line">
+                <span className="text-[10px] font-black uppercase text-content-secondary tracking-wider">Filtros</span>
                 {(selectedCategory !== 'Todos' || costRange !== 'All' || stockAlertOnly) && (
                   <button 
                     onClick={handleResetFilters}
-                    className="text-[9px] font-black text-rose-500 hover:underline cursor-pointer"
+                    className="text-[9px] font-black text-danger hover:underline cursor-pointer"
                   >
                     Limpiar
                   </button>
@@ -223,16 +221,16 @@ export default function OmniSearch({ onSelectRecipe, onSelectInventoryItem }: Om
 
               {/* Category selector */}
               <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Categoría</label>
+                <label className="text-[9px] font-black uppercase text-content-secondary block mb-1">Categoría</label>
                 <div className="max-h-24 overflow-y-auto space-y-0.5 pr-1 scrollbar-thin">
                   {categories.map(cat => (
                     <button
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
-                      className={`w-full text-left text-[10px] font-bold px-2 py-1 rounded-lg block truncate ${
+                      className={`w-full text-left text-[10px] font-bold px-3 py-1 rounded-full block truncate transition-colors btn-press ${
                         selectedCategory === cat
-                          ? 'bg-[var(--accent-purple)]/10 text-[var(--accent-purple)]'
-                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          ? 'bg-action text-action-text font-black'
+                          : 'text-content-secondary hover:bg-raised hover:text-content'
                       }`}
                     >
                       {cat}
@@ -243,7 +241,7 @@ export default function OmniSearch({ onSelectRecipe, onSelectInventoryItem }: Om
 
               {/* Cost Ranges */}
               <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Rango de Costo</label>
+                <label className="text-[9px] font-black uppercase text-content-secondary block mb-1">Rango de Costo</label>
                 <div className="space-y-0.5">
                   {[
                     { id: 'All', label: 'Todos' },
@@ -254,10 +252,10 @@ export default function OmniSearch({ onSelectRecipe, onSelectInventoryItem }: Om
                     <button
                       key={range.id}
                       onClick={() => setCostRange(range.id as any)}
-                      className={`w-full text-left text-[10px] font-bold px-2 py-1 rounded-lg block truncate ${
+                      className={`w-full text-left text-[10px] font-bold px-3 py-1 rounded-full block truncate transition-colors btn-press ${
                         costRange === range.id
-                          ? 'bg-cyan-500/10 text-cyan-500'
-                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          ? 'bg-info-subtle text-info font-black'
+                          : 'text-content-secondary hover:bg-raised hover:text-content'
                       }`}
                     >
                       {range.label}
@@ -268,86 +266,86 @@ export default function OmniSearch({ onSelectRecipe, onSelectInventoryItem }: Om
 
               {/* Alerts filters */}
               <div className="space-y-1.5 pt-1">
-                <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Alertas de Stock</label>
-                <label className="flex items-center gap-2 cursor-pointer text-[10px] font-bold text-slate-600 dark:text-slate-350">
+                <label className="text-[9px] font-black uppercase text-content-secondary block mb-1">Alertas de Stock</label>
+                <label className="flex items-center gap-2 cursor-pointer text-[10px] font-bold text-content">
                   <input
                     type="checkbox"
                     checked={stockAlertOnly}
                     onChange={(e) => setStockAlertOnly(e.target.checked)}
-                    className="rounded text-[var(--accent-purple)] focus:ring-[var(--accent-purple)] border-slate-300 dark:border-slate-700 bg-transparent"
+                    className="rounded-xs text-action focus:ring-action border-line bg-transparent"
                   />
                   <span>Stock Crítico</span>
                 </label>
               </div>
             </div>
 
-            <div className="text-[8px] text-slate-400 font-semibold border-t border-slate-200 dark:border-slate-800 pt-2.5 mt-4">
+            <div className="text-[8px] text-content-tertiary font-bold border-t border-line pt-2.5 mt-4">
               Unified index: {recipes.length + inventoryItems.length} resources
             </div>
           </div>
 
           {/* Right Results Column */}
-          <div className="w-full md:w-[70%] flex flex-col min-w-0">
+          <div className="w-full md:w-[70%] flex flex-col min-w-0 bg-surface">
             {/* Header / Results Count */}
-            <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50/20 dark:bg-slate-900/30 shrink-0">
-              <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+            <div className="px-4 py-3 border-b border-line flex justify-between items-center bg-canvas/50 shrink-0">
+              <span className="text-[10px] font-black uppercase text-content-secondary tracking-wider">
                 Resultados ({filteredResults.length})
               </span>
               {query && (
-                <span className="text-[9px] font-bold text-slate-400 italic">
+                <span className="text-[9px] font-bold text-content-tertiary italic">
                   Búsqueda: "{query}"
                 </span>
               )}
             </div>
 
             {/* Results List */}
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="flex-1 overflow-y-auto divide-y divide-line-subtle">
               {filteredResults.map(item => (
                 <button
                   key={item.id}
                   onClick={() => handleItemClick(item)}
-                  className="w-full text-left p-4 hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-all flex items-center justify-between gap-4 group cursor-pointer"
+                  className="w-full text-left p-4 hover:bg-raised transition-all flex items-center justify-between gap-4 group cursor-pointer border-none bg-transparent"
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[var(--accent-purple)] transition-colors">
+                      <span className="text-xs font-black text-content truncate transition-colors">
                         {item.name}
                       </span>
                       {/* Type Badge */}
-                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md ${
+                      <span className={`text-[9px] font-extrabold px-2.5 py-0.5 rounded-full border ${
                         item.type === 'recipe'
-                          ? 'bg-[var(--accent-purple)]/10 text-[var(--accent-purple)]'
+                          ? 'bg-secondary-subtle text-secondary border-secondary/30'
                           : item.type === 'subrecipe'
-                          ? 'bg-cyan-500/10 text-cyan-500'
-                          : 'bg-purple-500/10 text-purple-500'
+                          ? 'bg-info-subtle text-info border-info/30'
+                          : 'bg-success-subtle text-success border-success/30'
                       }`}>
                         {item.type === 'recipe' ? 'RECETA' : item.type === 'subrecipe' ? 'SUBRECETA' : 'INSUMO'}
                       </span>
 
                       {/* Category Badge */}
-                      <span className="text-[8px] font-bold bg-slate-100 dark:bg-[var(--card-color)] text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-md truncate max-w-[80px]">
+                      <span className="text-[9px] font-bold bg-raised text-content-secondary px-2.5 py-0.5 rounded-full border border-line truncate max-w-[100px]">
                         {item.category}
                       </span>
                     </div>
 
-                    <p className="text-[10px] text-slate-400 truncate max-w-sm">
+                    <p className="text-[10px] text-content-secondary truncate max-w-sm">
                       {item.description}
                     </p>
                   </div>
 
                   <div className="text-right shrink-0 space-y-1">
                     {/* Cost / Price tag */}
-                    <span className="text-xs font-black text-slate-950 dark:text-white block">
-                      ${Math.round(item.price).toLocaleString('es-CO')}
+                    <span className="text-sm font-black text-content block tabular-numbers tracking-tight">
+                      {formatCurrency(item.price, 0)}
                     </span>
-                    <span className="text-[9px] text-slate-400 font-semibold block">
-                      Costo: ${Math.round(item.cost).toLocaleString('es-CO')}
+                    <span className="text-[10px] text-content-secondary font-bold block">
+                      Costo: <span className="tabular-numbers tracking-tight">{formatCurrency(item.cost, 0)}</span>
                     </span>
                     
                     {/* Stock Warning indicator */}
                     {item.isLowStock && (
-                      <span className="text-[8px] font-black text-rose-500 flex items-center justify-end gap-0.5">
-                        <span className="material-symbols-outlined text-[10px]" style={{ fontVariationSettings: "'FILL' 1" }}>error</span>
+                      <span className="text-[9px] font-black text-danger flex items-center justify-end gap-0.5">
+                        <span className="material-symbols-outlined text-[11px]" style={{ fontVariationSettings: "'FILL' 1" }}>error</span>
                         Stock Bajo
                       </span>
                     )}
@@ -356,7 +354,7 @@ export default function OmniSearch({ onSelectRecipe, onSelectInventoryItem }: Om
               ))}
 
               {filteredResults.length === 0 && (
-                <div className="p-8 text-center text-slate-500 dark:text-slate-500 flex flex-col items-center justify-center h-full space-y-2">
+                <div className="p-8 text-center text-content-secondary flex flex-col items-center justify-center h-full space-y-2">
                   <span className="material-symbols-outlined text-3xl">search_off</span>
                   <span className="text-xs font-bold uppercase tracking-wider">Sin Resultados</span>
                   <p className="text-[10px] max-w-xs">No encontramos ningún recurso que coincida con la consulta y filtros especificados.</p>

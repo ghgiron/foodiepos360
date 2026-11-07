@@ -2,13 +2,29 @@
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/localDb';
+import { deleteRecordFromFirestore } from '../services/syncService';
 import type { FixedAsset } from '../types';
 import AssetForm from './assetForm';
 import toast from 'react-hot-toast';
 import ConfirmDialog from './ui/ConfirmDialog';
 import CustomSelect from './ui/CustomSelect';
 
+import { useAssetLocations, useAssetCategories } from '../hooks/useCatalogs';
+
 export default function AssetManagementList() {
+  const assetLocations = useAssetLocations();
+  const assetCategories = useAssetCategories();
+
+  const locationFilterOptions = useMemo(() => [
+    { value: 'ALL', label: 'Todas las Ubicaciones' },
+    ...assetLocations.map(loc => ({ value: loc, label: loc }))
+  ], [assetLocations]);
+
+  const categoryFilterOptions = useMemo(() => [
+    { value: 'ALL', label: 'Todas las Categorías' },
+    ...assetCategories.map(cat => ({ value: cat, label: cat }))
+  ], [assetCategories]);
+
   const [activeTab, setActiveTab] = useState<'ALL' | 'Dotación' | 'Menaje' | 'Mobiliario'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('ALL');
@@ -137,7 +153,7 @@ export default function AssetManagementList() {
   const confirmDelete = async () => {
     if (!deleteAssetId) return;
     try {
-      await db.fixedAssets.delete(deleteAssetId);
+      await deleteRecordFromFirestore('fixedAssets', deleteAssetId);
       toast.success('Activo eliminado exitosamente.');
     } catch (err) {
       console.error('Error deleting asset:', err);
@@ -161,10 +177,10 @@ export default function AssetManagementList() {
   }
 
   return (
-    <div className="p-8 space-y-8 transition-receitly overflow-y-auto flex-1 font-body text-slate-800 dark:text-slate-200">
+    <div className="p-8 space-y-8 transition-receitly overflow-y-auto flex-1 font-body text-content">
       
       {/* Top Header Breadcrumbs & Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200/50 dark:border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-line">
         <div>
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
             <span>Inventario</span>
@@ -172,7 +188,7 @@ export default function AssetManagementList() {
             <span className="text-[var(--accent-purple)]">Dotación y Mobiliario</span>
           </div>
 
-          <h2 className="text-3xl font-headline font-black text-slate-900 dark:text-white mt-1">
+          <h2 className="text-3xl font-headline font-black text-content mt-1">
             Gestión de Inventario, activos fijos
           </h2>
           <p className="text-slate-500 dark:text-slate-500 font-semibold text-xs mt-0.5">
@@ -187,7 +203,7 @@ export default function AssetManagementList() {
               setCurrentAsset(null);
               setViewState('damage_report');
             }}
-            className="border border-slate-200/80 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold py-2.5 px-6 rounded-xl flex items-center gap-2 transition-all text-xs uppercase tracking-wider cursor-pointer shadow-sm"
+            className="border border-slate-200/80 hover:bg-slate-50 dark:border-line dark:hover:bg-raised text-content-secondary font-extrabold py-2.5 px-6 rounded-xl flex items-center gap-2 transition-all text-xs uppercase tracking-wider cursor-pointer shadow-sm"
           >
             <span className="material-symbols-outlined text-sm font-bold text-rose-500">warning</span>
             Reportar Daño
@@ -209,20 +225,20 @@ export default function AssetManagementList() {
       {/* Bento Stats Indicators Grid */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Total Items */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/85 p-6 rounded-3xl shadow-sm flex items-center gap-4 relative overflow-hidden">
+        <div className="bg-surface border border-line p-6 rounded-3xl shadow-sm flex items-center gap-4 relative overflow-hidden">
           <div className="w-12 h-12 bg-[var(--accent-purple)]/10 text-[var(--accent-purple)] rounded-2xl flex items-center justify-center">
             <span className="material-symbols-outlined text-2xl font-bold">category</span>
           </div>
           <div>
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block">Total Items</span>
-            <h3 className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1 leading-none">
+            <h3 className="text-2xl font-black font-mono text-content mt-1 leading-none">
               {stats.totalItems.toLocaleString()}
             </h3>
           </div>
         </div>
 
         {/* Stock Bajo */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/85 p-6 rounded-3xl shadow-sm flex items-center gap-4 relative overflow-hidden">
+        <div className="bg-surface border border-line p-6 rounded-3xl shadow-sm flex items-center gap-4 relative overflow-hidden">
           <div className="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center">
             <span className="material-symbols-outlined text-2xl font-bold">warning</span>
           </div>
@@ -235,13 +251,13 @@ export default function AssetManagementList() {
         </div>
 
         {/* Valor de Activos */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/85 p-6 rounded-3xl shadow-sm flex items-center gap-4 relative overflow-hidden">
+        <div className="bg-surface border border-line p-6 rounded-3xl shadow-sm flex items-center gap-4 relative overflow-hidden">
           <div className="w-12 h-12 bg-teal-500/10 text-teal-600 dark:text-teal-400 rounded-2xl flex items-center justify-center">
             <span className="material-symbols-outlined text-2xl font-bold">payments</span>
           </div>
           <div>
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block">Valor de Activos</span>
-            <h3 className="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1 leading-none">
+            <h3 className="text-2xl font-black font-mono text-content mt-1 leading-none">
               ${stats.valuation.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </h3>
           </div>
@@ -249,13 +265,13 @@ export default function AssetManagementList() {
       </section>
 
       {/* Advanced Filters and Table Card */}
-      <section className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200/60 dark:border-slate-800/85 shadow-sm overflow-hidden">
+      <section className="bg-surface rounded-[2rem] border border-line shadow-sm overflow-hidden">
         
         {/* Navigation Tabs & Search */}
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/20 dark:bg-slate-900/50">
+        <div className="p-6 border-b border-line flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/20 dark:bg-surface/50">
           
           {/* Tabs */}
-          <div className="flex items-center gap-2 border-b md:border-none border-slate-100 dark:border-slate-800 pb-2 md:pb-0 overflow-x-auto">
+          <div className="flex items-center gap-2 border-b md:border-none border-line pb-2 md:pb-0 overflow-x-auto">
             <button
               onClick={() => { setActiveTab('ALL'); setCurrentPage(1); }}
               className={`px-4 py-2 text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all cursor-pointer ${
@@ -300,14 +316,14 @@ export default function AssetManagementList() {
 
           {/* Quick Search and Filter Buttons */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 bg-slate-100/70 dark:bg-[var(--card-color)] px-4 py-2.5 rounded-xl border border-slate-200/30 dark:border-slate-800/30 w-64">
+            <div className="flex items-center gap-2 bg-slate-100/70 dark:bg-[var(--card-color)] px-4 py-2.5 rounded-xl border border-slate-200/30 dark:border-line-subtle w-64">
               <span className="material-symbols-outlined text-slate-400 text-sm">search</span>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 placeholder="Buscar en mobiliario o dotación..."
-                className="bg-transparent border-none outline-none text-xs w-full font-semibold placeholder-slate-500 dark:placeholder-slate-500 text-slate-900 dark:text-white"
+                className="bg-transparent border-none outline-none text-xs w-full font-semibold placeholder-slate-500 dark:placeholder-slate-500 text-content"
               />
             </div>
 
@@ -316,7 +332,7 @@ export default function AssetManagementList() {
               className={`px-4 py-2.5 rounded-xl border flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer ${
                 showAdvancedFilters
                   ? 'bg-[var(--accent-purple)]/15 text-[var(--accent-purple)] border-[rgba(143,99,244,0.15)]'
-                  : 'bg-white dark:bg-[var(--card-color)] border-slate-200 dark:border-slate-700/50 text-slate-700 dark:text-slate-300'
+                  : 'bg-surface border-line text-content-secondary'
               }`}
             >
               <span className="material-symbols-outlined text-base">filter_list</span>
@@ -327,21 +343,15 @@ export default function AssetManagementList() {
 
         {/* Collapsible Advanced Filters */}
         {showAdvancedFilters && (
-          <div className="p-6 bg-slate-50/50 dark:bg-slate-900/30 border-b border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-6 bg-slate-50/50 dark:bg-surface/30 border-b border-line grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Location Filter */}
             <div className="space-y-1">
               <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Ubicación</label>
                 <CustomSelect
                   value={selectedLocation}
                   onChange={(val) => { setSelectedLocation(val); setCurrentPage(1); }}
-                  options={[
-                    { value: 'ALL', label: 'Todas las Ubicaciones (Salón, Cocina, Barra, Terraza)' },
-                    { value: 'Salón', label: 'Salón' },
-                    { value: 'Cocina', label: 'Cocina' },
-                    { value: 'Barra', label: 'Barra' },
-                    { value: 'Terraza', label: 'Terraza' }
-                  ]}
-                  className="w-full bg-white dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs font-bold text-slate-700 dark:text-slate-300"
+                  options={locationFilterOptions}
+                  className="w-full bg-surface border border-line rounded-xl p-3 text-xs font-bold text-content-secondary"
                 />
             </div>
 
@@ -351,15 +361,8 @@ export default function AssetManagementList() {
                 <CustomSelect
                   value={selectedCategory}
                   onChange={(val) => { setSelectedCategory(val); setCurrentPage(1); }}
-                  options={[
-                    { value: 'ALL', label: 'Todas las Categorías' },
-                    { value: 'Electrodomésticos', label: 'Electrodomésticos / Maquinaria' },
-                    { value: 'Menaje', label: 'Menaje / Cristalería' },
-                    { value: 'Mobiliario', label: 'Mobiliario' },
-                    { value: 'Dotación', label: 'Dotación / Uniformes' },
-                    { value: 'Ambientación', label: 'Ambientación' }
-                  ]}
-                  className="w-full bg-white dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs font-bold text-slate-700 dark:text-slate-300"
+                  options={categoryFilterOptions}
+                  className="w-full bg-surface border border-line rounded-xl p-3 text-xs font-bold text-content-secondary"
                 />
             </div>
           </div>
@@ -368,7 +371,7 @@ export default function AssetManagementList() {
         {/* Table list */}
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 dark:bg-[var(--card-color)]/60 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
+            <thead className="bg-slate-50 dark:bg-[var(--card-color)]/60 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-line">
               <tr>
                 <th className="py-4 px-6">Elemento</th>
                 <th className="py-4 px-4">Categoría</th>
@@ -379,7 +382,7 @@ export default function AssetManagementList() {
                 <th className="py-4 px-6 text-center">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
+            <tbody className="divide-y divide-line/80 text-xs">
               {paginatedAssets.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 px-6 text-center text-slate-400 italic">
@@ -388,11 +391,11 @@ export default function AssetManagementList() {
                 </tr>
               ) : (
                 paginatedAssets.map(item => (
-                  <tr key={item.id} className="hover:bg-slate-50/40 dark:hover:bg-slate-900/30 transition-all">
+                  <tr key={item.id} className="hover:bg-slate-50/40 dark:hover:bg-surface/30 transition-all">
                     
                     {/* Elemento */}
                     <td className="py-4 px-6 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[var(--card-color)] flex items-center justify-center text-[var(--accent-purple)] shrink-0 border border-slate-200/50 dark:border-slate-700/50">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[var(--card-color)] flex items-center justify-center text-[var(--accent-purple)] shrink-0 border border-slate-200/50 dark:border-line">
                         <span className="material-symbols-outlined text-xl">
                           {item.category.includes('Electro') ? 'microwave' : 
                            item.category.includes('Menaje') ? 'local_bar' : 
@@ -400,20 +403,20 @@ export default function AssetManagementList() {
                         </span>
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">{item.name}</p>
+                        <p className="font-bold text-content leading-tight">{item.name}</p>
                         <p className="text-[10px] text-slate-400 mt-0.5">{item.description || item.id}</p>
                       </div>
                     </td>
 
                     {/* Categoría */}
                     <td className="py-4 px-4">
-                      <span className="bg-slate-100 dark:bg-[var(--card-color)] text-slate-1000 dark:text-slate-350 text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border border-slate-200/30 dark:border-slate-700/30">
+                      <span className="bg-slate-100 dark:bg-[var(--card-color)] text-slate-1000 dark:text-slate-350 text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border border-slate-200/30 dark:border-line-subtle">
                         {item.category.includes('/') ? item.category.split('/')[0].trim() : item.category}
                       </span>
                     </td>
 
                     {/* Stock Actual */}
-                    <td className="py-4 px-4 text-center font-mono font-bold text-sm text-slate-800 dark:text-slate-200">
+                    <td className="py-4 px-4 text-center font-mono font-bold text-sm text-content">
                       {item.stockActual}
                     </td>
 
@@ -423,7 +426,7 @@ export default function AssetManagementList() {
                     </td>
 
                     {/* Valor Unit */}
-                    <td className="py-4 px-4 text-right font-mono font-bold text-slate-800 dark:text-slate-200">
+                    <td className="py-4 px-4 text-right font-mono font-bold text-content">
                       ${item.purchaseCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </td>
 
@@ -436,17 +439,17 @@ export default function AssetManagementList() {
                     <td className="py-4 px-6 text-center relative">
                       <button
                         onClick={() => setActiveMenuId(activeMenuId === item.id ? null : item.id)}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg cursor-pointer transition-colors"
+                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-raised text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg cursor-pointer transition-colors"
                       >
                         <span className="material-symbols-outlined text-base">more_vert</span>
                       </button>
 
                       {activeMenuId === item.id && (
-                        <div className="absolute right-6 top-10 w-44 bg-white dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-750 rounded-xl shadow-xl z-30 py-1 text-left animate-fade-in">
+                        <div className="absolute right-6 top-10 w-44 bg-surface border border-slate-200 dark:border-slate-750 rounded-xl shadow-xl z-30 py-1 text-left animate-fade-in">
                           <button
                             type="button"
                             onClick={() => handleEditClick(item)}
-                            className="w-full px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2 cursor-pointer"
+                            className="w-full px-4 py-2 hover:bg-slate-50 dark:hover:bg-raised text-xs font-semibold text-content-secondary flex items-center gap-2 cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-sm">edit</span>
                             Editar Activo
@@ -455,7 +458,7 @@ export default function AssetManagementList() {
                           <button
                             type="button"
                             onClick={() => handleDamageReportClick(item)}
-                            className="w-full px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2 cursor-pointer"
+                            className="w-full px-4 py-2 hover:bg-slate-50 dark:hover:bg-raised text-xs font-semibold text-content-secondary flex items-center gap-2 cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-sm">warning</span>
                             Reportar Daño
@@ -464,7 +467,7 @@ export default function AssetManagementList() {
                           <button
                             type="button"
                             onClick={() => handleDeleteClick(item.id)}
-                            className="w-full px-4 py-2 hover:bg-rose-500/10 text-xs font-semibold text-rose-500 flex items-center gap-2 cursor-pointer border-t border-slate-100 dark:border-slate-800"
+                            className="w-full px-4 py-2 hover:bg-rose-500/10 text-xs font-semibold text-rose-500 flex items-center gap-2 cursor-pointer border-t border-line"
                           >
                             <span className="material-symbols-outlined text-sm">delete</span>
                             Eliminar
@@ -481,8 +484,8 @@ export default function AssetManagementList() {
         </div>
 
         {/* Pagination Footer */}
-        <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/20 dark:bg-slate-900/50">
-          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
+        <div className="p-6 border-t border-line flex items-center justify-between bg-slate-50/20 dark:bg-surface/50">
+          <span className="text-[10px] font-bold text-content-tertiary uppercase">
             Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredAssets.length)} de {filteredAssets.length} activos fijos
           </span>
           
@@ -490,7 +493,7 @@ export default function AssetManagementList() {
             <button
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
-              className="w-8 h-8 rounded-lg border border-slate-300/50 dark:border-slate-700/50 flex items-center justify-center text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer"
+              className="w-8 h-8 rounded-lg border border-slate-300/50 dark:border-line flex items-center justify-center text-slate-500 hover:bg-slate-50 dark:hover:bg-raised disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer"
             >
               <span className="material-symbols-outlined text-sm font-bold">chevron_left</span>
             </button>
@@ -502,7 +505,7 @@ export default function AssetManagementList() {
                 className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   currentPage === page
                     ? 'bg-[var(--accent-purple)] text-white shadow-md'
-                    : 'border border-slate-300/50 dark:border-slate-700/50 text-slate-650 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    : 'border border-slate-300/50 dark:border-line text-slate-650 hover:bg-slate-50 dark:hover:bg-raised'
                 }`}
               >
                 {page}
@@ -512,7 +515,7 @@ export default function AssetManagementList() {
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
-              className="w-8 h-8 rounded-lg border border-slate-300/50 dark:border-slate-700/50 flex items-center justify-center text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer"
+              className="w-8 h-8 rounded-lg border border-slate-300/50 dark:border-line flex items-center justify-center text-slate-500 hover:bg-slate-50 dark:hover:bg-raised disabled:opacity-40 disabled:hover:bg-transparent cursor-pointer"
             >
               <span className="material-symbols-outlined text-sm font-bold">chevron_right</span>
             </button>

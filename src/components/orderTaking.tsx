@@ -1,11 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from '../hooks/useNavigate';
 import { db } from '../db/localDb';
 import { syncTicketToFirebase } from '../services/firebaseSync';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { eventBus } from '../events/eventBus';
 import { toast } from 'react-hot-toast';
 import type { KdsOrderTicket, KdsOrderTicketItem, Client } from '../types';
+import { getAvailableStockInBranch } from '../types';
+import { getEffectiveImpoconsumoRate } from '../types/settings';
 import Modal from './ui/Modal';
+import CustomSelect from './ui/CustomSelect';
+import { useWasteReasons } from '../hooks/useCatalogs';
+import { formatCurrency } from '../utils/formatters';
+import DiscardChangesModal from './ui/DiscardChangesModal';
+import { flexibleMultiMatch } from '../utils/searchEngine';
+import { stageComandaStock, commitComandaStock, releaseComandaStock, autoMigrateBranchStock } from '../db/inventoryEngine';
+import { calculateAvailabilitySync, type AvailabilityResult } from '../services/inventoryBomService';
 
 // --- TYPES & HELPERS ---
 type Category = string;
@@ -16,12 +26,14 @@ interface MenuItem {
   description: string;
   price: number;
   category: Category;
+  categoryName?: string;
   bcgClassification?: 'ESTRELLA' | 'CABALLO_DE_BATALLA' | 'ROMPECABEZAS' | 'PERRO';
   isRecommended?: boolean;
   isExperiential?: boolean;
   img?: string;
   allergens?: string[];
   productionZone?: string;
+  sku?: string;
 }
 
 interface OrderItem {
@@ -85,19 +97,97 @@ const formatLocalTime = (isoString: string | null): string => {
 interface OrderTakingProps {
   selectedTableName?: string;
   selectedZoneName?: string;
+  branchId?: string;
   onOrderSubmitted?: () => void;
   onCancel?: () => void;
 }
 
-export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'Mesa 12', selectedZoneName = 'Salón Principal', onOrderSubmitted, onCancel }) => {
+export const OrderTaking: React.FC<OrderTakingProps> = ({ 
+  selectedTableName = 'Mesa 12', 
+  selectedZoneName = 'Salón Principal', 
+  branchId,
+  onOrderSubmitted, 
+  onCancel 
+}) => {
+  const wasteReasonsList = useWasteReasons();
+  const wasteReasonOptions = useMemo(() => [
+    { value: '', label: 'Seleccione un motivo...' },
+    ...wasteReasonsList.map(r => ({ value: r, label: r }))
+  ], [wasteReasonsList]);
+
   // Live query for recipes and inventory items
   const dbRecipes = useLiveQuery(() => db.recipes.toArray()) || [];
   const dbInventoryItems = useLiveQuery(() => db.inventoryItems.toArray()) || [];
+  const dbIngredientCategories = useLiveQuery(() => db.ingredientCategories.toArray()) || [];
+  const dbSupplyCategories = useLiveQuery(() => db.supplyCategories.toArray()) || [];
 
-  // Map db recipes & products to UI MenuItem (filter by activo_catalogo: true)
+  // Warehouse/inventory storage categories to strictly decouple and hide from sales catalog
+  const WAREHOUSE_CATEGORIES = useMemo(() => {
+    const baseSet = new Set([
+      'aceites, salsas y condimentos',
+      'frutas y verduras',
+      'carnes y proteinas',
+      'carnes y proteínas',
+      'licores y destilados',
+      'lacteos y quesos',
+      'lácteos y quesos',
+      'panaderia y harinas',
+      'panadería y harinas',
+      'abarrotes secos',
+      'abarrotes y secos',
+      'congelados y procesados',
+      'suministros',
+      'empaques y desechables',
+      'empaques / desechables',
+      'limpieza y aseo',
+      'aseo y desinfeccion',
+      'aseo y desinfección',
+      'decoracion e insumos de barra',
+      'decoración e insumos de barra',
+      'consumibles de produccion',
+      'consumibles de producción',
+      'siropes y mixers',
+      'garnish y decoracion',
+      'garnish y decoración',
+      'especias y hierbas',
+      'granos y cereales',
+      'mariscos y pescados',
+      'embutidos',
+      'reposteria',
+      'repostería',
+      'endulzantes',
+      'vinagres y aderezos'
+    ]);
+    dbIngredientCategories.forEach(c => {
+      if (c.name) baseSet.add(c.name.toLowerCase().trim());
+    });
+    dbSupplyCategories.forEach(c => {
+      if (c.name) baseSet.add(c.name.toLowerCase().trim());
+    });
+    return baseSet;
+  }, [dbIngredientCategories, dbSupplyCategories]);
+
+  // Map db recipes & products to UI MenuItem (Strict filter for vendible items)
   const menuItems = useMemo<MenuItem[]>(() => {
+    // 1. Approved & Active Recipes (excluding subrecipes and non-catalog items)
     const recipesMapped = dbRecipes
-      .filter(recipe => recipe.activo_catalogo === true || recipe.mostrar_en_catalogo === true)
+      .filter(recipe => {
+        // Exclude intermediate preparations (subrecipes)
+        if (recipe.isSubRecipe) return false;
+
+        // Must be active and enabled in catalog
+        const isActive = (recipe as any).isActive !== false;
+        const isCatalog = recipe.activo_catalogo === true || 
+                          recipe.mostrar_en_catalogo === true || 
+                          (recipe as any).isAvailableInCatalog === true;
+        if (!isActive || !isCatalog) return false;
+
+        // Discard any raw storage category
+        const catLower = (recipe.category || '').toLowerCase().trim();
+        if (WAREHOUSE_CATEGORIES.has(catLower)) return false;
+
+        return true;
+      })
       .map(recipe => {
         const isRecommended = recipe.bcgClassification === 'ESTRELLA';
         const isExperiential = recipe.difficulty === 'Alta';
@@ -107,6 +197,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
           description: recipe.description || 'Sin descripción disponible.',
           price: recipe.sellPrice,
           category: recipe.category || 'General',
+          categoryName: recipe.category || 'General',
           bcgClassification: recipe.bcgClassification as MenuItem['bcgClassification'],
           isRecommended,
           isExperiential,
@@ -117,35 +208,119 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
             if (l === 'gluten' || l === 'trigo') return 'gluten';
             return l;
           }),
-          productionZone: recipe.productionZone || 'Cocina'
+          productionZone: recipe.productionZone || 'Cocina',
+          sku: (recipe as any).sku || (recipe as any).code || recipe.id
         };
       });
 
+    // 2. Direct Sale Products ONLY (strictly exclude raw ingredients, supplies, packaging, and warehouse categories)
+    const RAW_CULINARY_UNITS = new Set([
+      'gramo', 'gramos', 'gr', 'g',
+      'kilogramo', 'kilogramos', 'kg',
+      'mililitro', 'mililitros', 'ml',
+      'litro', 'litros', 'l', 'lt',
+      'onza', 'onzas', 'oz',
+      'libra', 'libras', 'lb'
+    ]);
+
     const productsMapped = dbInventoryItems
-      .filter(item => item.activo_catalogo === true)
+      .filter(item => {
+        const resType = (item.resourceType || '').toLowerCase().trim();
+        const invType = ((item as any).inventoryType || '').toUpperCase().trim();
+        const cat = (item.category || item.categoryName || '').toLowerCase().trim();
+        const countUnitLower = (item.countUnit || item.purchaseUnit || '').toLowerCase().trim();
+
+        // Check if item is explicitly marked as inactive
+        if ((item as any).isActive === false) return false;
+
+        // Strictly exclude raw ingredients, supplies, packaging, and fixed assets
+        if (
+          resType === 'ingredient' ||
+          resType === 'supply' ||
+          resType === 'asset' ||
+          invType === 'INGREDIENT' ||
+          invType === 'SUPPLY' ||
+          invType === 'ASSET' ||
+          item.id.startsWith('ins-ing') ||
+          item.id.startsWith('ins-sup') ||
+          item.id.startsWith('ins-pkg') ||
+          item.id.startsWith('ins-ast') ||
+          item.isPackagingDesechable === true
+        ) {
+          return false;
+        }
+
+        // Strictly exclude warehouse/inventory categories
+        if (WAREHOUSE_CATEGORIES.has(cat)) {
+          return false;
+        }
+
+        // Exclude items measured in raw bulk culinary units (grams, ml, oz) unless explicitly created as a retail product (ins-prd)
+        if (RAW_CULINARY_UNITS.has(countUnitLower) && !item.id.startsWith('ins-prd')) {
+          return false;
+        }
+
+        // Must be a direct sale product (`resourceType === 'product'`, `inventoryType === 'PRODUCT'`, or `ins-prd`)
+        const isProductByType = resType === 'product' || invType === 'PRODUCT' || item.id.startsWith('ins-prd');
+        const isCatalogFlagged =
+          item.activo_catalogo === true ||
+          (item as any).mostrar_en_catalogo === true ||
+          (item as any).isAvailableInCatalog === true;
+
+        return isProductByType && isCatalogFlagged !== false;
+      })
       .map(item => {
+        const cat = (item.category || item.categoryName || '').trim();
+        const nameLower = item.name.toLowerCase();
+        let displayCategory = cat;
+
+        // Standardize beer and beverage categories for intuitive POS filtering
+        if (nameLower.includes('cerveza') || nameLower.includes('budweiser') || nameLower.includes('bbc')) {
+          displayCategory = 'Cervezas y Gaseosas';
+        } else if (!displayCategory || displayCategory === 'General' || displayCategory.toLowerCase().includes('inventario')) {
+          displayCategory = 'Bebidas';
+        }
+
+        // Resolving price cleanly
+        let price = Number(item.sellPrice) || 0;
+        if (price <= 0 && (item as any).pvp) {
+          price = Number((item as any).pvp) || 0;
+        }
+        if (price <= 0 && item.purchaseCost > 0) {
+          const margin = item.gainPercentage && item.gainPercentage > 0 ? item.gainPercentage : 35;
+          price = Math.round(item.purchaseCost * (1 + margin / 100));
+        }
+        if (price <= 0) {
+          price = nameLower.includes('bbc') ? 14000 : nameLower.includes('budweiser') ? 10000 : 8000;
+        }
+
         return {
           id: item.id,
           name: item.name,
-          description: item.description || 'Sin descripción disponible.',
-          price: item.sellPrice || 0,
-          category: item.category || 'General',
+          description: item.description || `Presentación ${item.purchaseUnit || item.countUnit || 'Unidad'}`,
+          price,
+          category: displayCategory,
+          categoryName: displayCategory,
           isRecommended: false,
           isExperiential: false,
           img: item.img,
           allergens: [],
-          productionZone: item.operationZone || 'General'
+          productionZone: item.operationZone || 'Bar',
+          sku: (item as any).sku || (item as any).code || item.id
         };
       });
 
     return [...recipesMapped, ...productsMapped];
-  }, [dbRecipes, dbInventoryItems]);
+  }, [dbRecipes, dbInventoryItems, WAREHOUSE_CATEGORIES]);
 
-  // Dynamic categories
+  // Dynamic categories - derived ONLY from approved vendible items, decoupled from warehouse
   const CATEGORIES = useMemo(() => {
     const cats = new Set<string>();
     menuItems.forEach(item => {
-      if (item.category) cats.add(item.category);
+      const cat = (item.category || '').trim();
+      if (cat) {
+        cats.add(cat);
+      }
     });
     return ['Todos', ...Array.from(cats)];
   }, [menuItems]);
@@ -159,8 +334,21 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
     }, {} as Record<string, any>);
   }) || {};
 
-  const taxPercentage = systemSettings['taxPercentage'] !== undefined ? Number(systemSettings['taxPercentage']) : 10;
+  const branchesList = systemSettings['system_branches'] || [];
+  const activeBranchFromStorage = typeof window !== 'undefined' ? localStorage.getItem('foodiepos_active_branch_id') : null;
+  const currentBranchId = branchId || activeBranchFromStorage || systemSettings['active_branch_id'] || (Array.isArray(branchesList) && branchesList[0]?.id) || 'main';
+  const currentBranchObj = Array.isArray(branchesList) ? branchesList.find((b: any) => b.id === currentBranchId) : null;
+  const currentBranchName = currentBranchObj?.name || (currentBranchId === 'main' ? 'Sede Principal' : currentBranchId);
+
+  const taxPercentage = getEffectiveImpoconsumoRate(systemSettings);
   const taxRate = taxPercentage / 100;
+
+  // Auto-migration routine: ensures all registered items have stock populated for active branch
+  useEffect(() => {
+    if (currentBranchId) {
+      autoMigrateBranchStock(currentBranchId);
+    }
+  }, [currentBranchId]);
 
   // menuItems memoized above
 
@@ -179,9 +367,31 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
   // Responsive View Mode Toggle (Mobile-First)
   const [mobileView, setMobileView] = useState<'catalog' | 'ticket'>('catalog');
 
+  const navigate = useNavigate();
+
   // Cancel order modal state
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+
+  const handleSafeExit = () => {
+    const unsavedItems = orderItems.filter(i => !i.sent);
+    if (unsavedItems.length > 0) {
+      setShowExitConfirmModal(true);
+    } else {
+      if (onCancel) onCancel();
+      else navigate(-1);
+    }
+  };
+
+  const handleConfirmExit = async () => {
+    setShowExitConfirmModal(false);
+    const sentOnly = orderItems.filter(i => i.sent);
+    setOrderItems(sentOnly);
+    await saveCartToDb(sentOnly);
+    if (onCancel) onCancel();
+    else navigate(-1);
+  };
 
   // Takeaway conversion modal states
   const [showTakeawayModal, setShowTakeawayModal] = useState(false);
@@ -200,7 +410,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
   const dbClients = useLiveQuery(() => db.clients.toArray()) || [];
 
   const filteredClientsForTakeaway = useMemo(() => {
-    return dbClients.filter(c => c.name.toLowerCase().includes(takeawayClientQuery.toLowerCase()));
+    return dbClients.filter(c => flexibleMultiMatch([c.name, c.phone, c.email, c.taxId], takeawayClientQuery));
   }, [dbClients, takeawayClientQuery]);
 
   const loadOrder = async () => {
@@ -241,10 +451,12 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
             status: mapDbStatusToUiStatus(item.status),
             addedAt: item.completedAt ? new Date(item.completedAt).getTime() : Date.now(),
             ronda: item.ronda || 1,
-            sent: true
+            sent: item.sent ?? true
           };
         });
         setOrderItems(items);
+        // Ensure active comanda items are staged in inventory
+        await stageComandaStock(ticket);
       } else {
         setOrderId(`COMANDA #${Date.now().toString().slice(-4)}`);
         setClient(isTakeaway ? clientName : 'Mesa');
@@ -282,6 +494,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
         existingTicket.cancelJustification = 'Comanda vaciada (sin ítems)';
         existingTicket.closedAt = new Date().toISOString();
         await syncTicketToFirebase(existingTicket);
+        await releaseComandaStock(existingTicket.id);
       }
       return;
     }
@@ -313,11 +526,15 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
       };
     });
 
+    let ticketToStage: KdsOrderTicket;
     if (existingTicket) {
       existingTicket.items = comandaItems;
       existingTicket.clientId = isTakeaway ? clientName : undefined;
       existingTicket.orderType = isTakeaway ? 'TAKEAWAY' : 'DINE_IN';
       existingTicket.tableId = tableNumber;
+      existingTicket.branchId = existingTicket.branchId || currentBranchId;
+      existingTicket.sucursalId = existingTicket.sucursalId || currentBranchId;
+      ticketToStage = existingTicket;
       await syncTicketToFirebase(existingTicket);
     } else {
       const ticketId = `kds-${Date.now()}`;
@@ -335,14 +552,50 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
         isRushHourOrder: false,
         items: comandaItems,
         overallStatus: 'ORDEN TOMADA',
-        createdAt: newComandaTime
+        createdAt: newComandaTime,
+        branchId: currentBranchId,
+        sucursalId: currentBranchId
       };
+      ticketToStage = newTicket;
       await syncTicketToFirebase(newTicket);
       setComandaTime(newComandaTime);
     }
+
+    // Real-time Staging (Soft-Lock): reserve ingredients & subrecipes immediately when selected in comanda
+    await stageComandaStock(ticketToStage);
   };
 
   const handleAddItem = async (item: MenuItem) => {
+    const isTakeaway = table.startsWith('To-Go');
+    const invItem = dbInventoryItems.find(i => i.id === item.id);
+    let availability: AvailabilityResult;
+
+    if (invItem && (invItem.resourceType === 'product' || !dbRecipes.some(r => r.id === item.id))) {
+      const availQty = getAvailableStockInBranch(invItem, currentBranchId);
+      availability = {
+        isAvailable: availQty > 0,
+        availablePortions: availQty,
+        availableQuantity: availQty,
+        requiredQuantity: 1,
+        missingItemName: availQty <= 0 ? invItem.name : undefined,
+        branchId: currentBranchId
+      };
+    } else {
+      availability = calculateAvailabilitySync(
+        item.id,
+        dbRecipes,
+        dbInventoryItems,
+        isTakeaway ? 'delivery' : 'dine_in',
+        currentBranchId
+      );
+    }
+
+    if (!availability.isAvailable || availability.availablePortions < 1) {
+      const branchName = currentBranchName || currentBranchId;
+      toast.error(`Stock insuficiente en ${branchName}: Solo hay ${availability.availableQuantity ?? 0} unidades disponibles de ${availability.missingItemName || item.name}.`);
+      return;
+    }
+
     const newItem: OrderItem = {
       id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       menuItemId: item.id,
@@ -356,7 +609,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
     const updated = [...orderItems, newItem];
     setOrderItems(updated);
     await saveCartToDb(updated);
-    toast.success(`${item.name} agregado.`);
+    toast.success(`${item.name} agregado (insumos reservados en staging).`);
   };
 
   const updateQuantity = async (id: string, delta: number) => {
@@ -373,6 +626,36 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
       if (menuItem) {
         handleAddItem(menuItem);
       } else {
+        const isTakeaway = table.startsWith('To-Go');
+        const invItem = dbInventoryItems.find(i => i.id === targetItem.menuItemId);
+        let availability: AvailabilityResult;
+
+        if (invItem && (invItem.resourceType === 'product' || !dbRecipes.some(r => r.id === targetItem.menuItemId))) {
+          const availQty = getAvailableStockInBranch(invItem, currentBranchId);
+          availability = {
+            isAvailable: availQty > 0,
+            availablePortions: availQty,
+            availableQuantity: availQty,
+            requiredQuantity: 1,
+            missingItemName: availQty <= 0 ? invItem.name : undefined,
+            branchId: currentBranchId
+          };
+        } else {
+          availability = calculateAvailabilitySync(
+            targetItem.menuItemId,
+            dbRecipes,
+            dbInventoryItems,
+            isTakeaway ? 'delivery' : 'dine_in',
+            currentBranchId
+          );
+        }
+
+        if (!availability.isAvailable || availability.availablePortions < 1) {
+          const branchName = currentBranchName || currentBranchId;
+          toast.error(`Stock insuficiente en ${branchName}: Solo hay ${availability.availableQuantity ?? 0} unidades disponibles de ${availability.missingItemName || 'insumo'}.`);
+          return;
+        }
+
         const newItem: OrderItem = {
           id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           menuItemId: targetItem.menuItemId,
@@ -389,6 +672,38 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
         toast.success(`${targetItem.name} agregado (nueva ronda).`);
       }
       return;
+    }
+
+    if (delta > 0) {
+      const isTakeaway = table.startsWith('To-Go');
+      const invItem = dbInventoryItems.find(i => i.id === targetItem.menuItemId);
+      let availability: AvailabilityResult;
+
+      if (invItem && (invItem.resourceType === 'product' || !dbRecipes.some(r => r.id === targetItem.menuItemId))) {
+        const availQty = getAvailableStockInBranch(invItem, currentBranchId);
+        availability = {
+          isAvailable: availQty >= delta,
+          availablePortions: availQty,
+          availableQuantity: availQty,
+          requiredQuantity: delta,
+          missingItemName: availQty < delta ? invItem.name : undefined,
+          branchId: currentBranchId
+        };
+      } else {
+        availability = calculateAvailabilitySync(
+          targetItem.menuItemId,
+          dbRecipes,
+          dbInventoryItems,
+          isTakeaway ? 'delivery' : 'dine_in',
+          currentBranchId
+        );
+      }
+
+      if (availability.availablePortions < delta || !availability.isAvailable) {
+        const branchName = currentBranchName || currentBranchId;
+        toast.error(`Stock insuficiente en ${branchName}: Solo hay ${availability.availableQuantity ?? 0} unidades disponibles de ${availability.missingItemName || targetItem.name}.`);
+        return;
+      }
     }
 
     const updated = orderItems.map(item => {
@@ -441,6 +756,30 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
       ? await db.orders.filter(t => t.clientId === clientName && t.overallStatus !== 'CERRADA' && t.overallStatus !== 'CANCELADA').first()
       : await db.orders.where('tableId').equals(tableNumber!).filter(t => t.overallStatus !== 'CERRADA' && t.overallStatus !== 'CANCELADA').first();
 
+    // Check if items are already staged for this ticket
+    const ticketOrderKey = existingTicket ? (existingTicket.orderId || existingTicket.id) : '';
+    const alreadyStagedCount = existingTicket
+      ? await db.stockReservations.where('orderId').equals(ticketOrderKey).filter(s => s.status === 'staged').count()
+      : 0;
+
+    // Hard-gate check for unsent items only if not already staged for this ticket
+    if (alreadyStagedCount === 0) {
+      for (const unsent of unsentItems) {
+        const avail = calculateAvailabilitySync(
+          unsent.menuItemId,
+          dbRecipes,
+          dbInventoryItems,
+          isTakeaway ? 'delivery' : 'dine_in',
+          currentBranchId
+        );
+        if (avail.availablePortions < unsent.quantity) {
+          const branchName = currentBranchName || currentBranchId;
+          toast.error(`Stock insuficiente en ${branchName}: Solo hay ${avail.availablePortions} porciones disponibles de ${unsent.name} (faltan unidades de ${avail.missingItemName || 'insumo'}).`);
+          return;
+        }
+      }
+    }
+
     const existingRounds = existingTicket?.items.map(i => i.ronda || 1) || [0];
     const maxRound = Math.max(...existingRounds);
     const nextRound = maxRound + 1;
@@ -489,6 +828,8 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
 
     if (existingTicket) {
       existingTicket.items = comandaItems;
+      existingTicket.branchId = existingTicket.branchId || currentBranchId;
+      existingTicket.sucursalId = existingTicket.sucursalId || currentBranchId;
       // If order status is READY or DELIVERED, sending new items reactivates it to PREPARANDO
       if (existingTicket.overallStatus === 'LISTO PARA MESERO' || existingTicket.overallStatus === 'ENTREGADO A MESA') {
         existingTicket.overallStatus = 'PREPARANDO';
@@ -511,11 +852,16 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
         isRushHourOrder: false,
         items: comandaItems,
         overallStatus: 'ORDEN TOMADA',
-        createdAt: newComandaTime
+        createdAt: newComandaTime,
+        branchId: currentBranchId,
+        sucursalId: currentBranchId
       };
       await syncTicketToFirebase(ticketToSave);
       setComandaTime(newComandaTime);
     }
+
+    // Phase 1 Staging: reserve stock in inventory staging
+    await stageComandaStock(ticketToSave);
 
     await eventBus.emit('OrderPlaced', ticketToSave);
 
@@ -565,9 +911,16 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
         ? await db.orders.filter(t => t.clientId === clientName && t.overallStatus !== 'CERRADA' && t.overallStatus !== 'CANCELADA').first()
         : await db.orders.where('tableId').equals(tableNumber!).filter(t => t.overallStatus !== 'CERRADA' && t.overallStatus !== 'CANCELADA').first();
 
-      const comandaItems = orderItems.map(item => {
+      const comandaItems = orderItems.map((item, idx) => {
         const recipe = dbRecipes.find(r => r.id === item.menuItemId);
         const invItem = !recipe ? dbInventoryItems.find(i => i.id === item.menuItemId) : null;
+        const prevTicketItem = existingTicket?.items?.[idx];
+        const alreadyConsumed = Boolean(
+          prevTicketItem &&
+          prevTicketItem.recipeId === item.menuItemId &&
+          prevTicketItem.quantity === item.quantity &&
+          prevTicketItem.consumed
+        );
         return {
           recipeId: item.menuItemId,
           name: item.name,
@@ -577,7 +930,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
           modifiers: item.note ? [item.note] : [],
           status: 'COMPLETED' as const,
           completedAt: new Date().toISOString(),
-          consumed: false
+          consumed: alreadyConsumed
         };
       });
 
@@ -597,10 +950,13 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
         overallStatus: 'CERRADA',
         createdAt: existingTicket ? existingTicket.createdAt : new Date().toISOString(),
         deliveredAt: existingTicket?.deliveredAt || new Date().toISOString(),
-        closedAt: new Date().toISOString()
+        closedAt: new Date().toISOString(),
+        branchId: currentBranchId,
+        sucursalId: currentBranchId
       };
 
       await syncTicketToFirebase(ticketToSave);
+      await commitComandaStock(ticketToSave.id);
 
       const payPayload = {
         orderId: ticketToSave.orderId,
@@ -678,7 +1034,9 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
         existingTicket.cancelJustification = cancelReason || "Cancelada desde Toma de Pedidos";
         existingTicket.closedAt = new Date().toISOString();
         await syncTicketToFirebase(existingTicket);
-        toast.success('Comanda cancelada y registrada en auditoría de mermas.');
+        // Phase 3 Rollback: release reserved stock
+        await releaseComandaStock(existingTicket.id);
+        toast.success('Comanda cancelada y stock reservado liberado.');
       }
     } catch (error) {
       console.error('Error cancelling order:', error);
@@ -761,26 +1119,72 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
   const taxes = subtotal * taxRate;
   const total = subtotal + taxes;
 
-  const filteredMenu = menuItems.filter(item => {
-    const matchesCat = activeCategory === 'Todos' || item.category === activeCategory;
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCat && matchesSearch;
-  });
+  // Reset activeCategory to 'Todos' if current selection no longer exists in decoupled categories
+  useEffect(() => {
+    if (activeCategory !== 'Todos' && !CATEGORIES.includes(activeCategory)) {
+      setActiveCategory('Todos');
+    }
+  }, [CATEGORIES, activeCategory]);
+
+  // Priority sorting: Available items first, out-of-stock items at the end
+  const filteredAndSortedMenu = useMemo(() => {
+    const list = menuItems.filter(item => {
+      const matchesCat = activeCategory === 'Todos' || item.category === activeCategory;
+      const matchesSearch = flexibleMultiMatch([item.name, item.category, item.categoryName, item.description, item.sku], searchQuery);
+      return matchesCat && matchesSearch;
+    });
+
+    return list.map(item => {
+      const invItem = dbInventoryItems.find(i => i.id === item.id);
+      let availability: AvailabilityResult;
+
+      if (invItem && (invItem.resourceType === 'product' || !dbRecipes.some(r => r.id === item.id))) {
+        const availQty = getAvailableStockInBranch(invItem, currentBranchId);
+        availability = {
+          isAvailable: availQty > 0,
+          availablePortions: availQty,
+          availableQuantity: availQty,
+          requiredQuantity: 1,
+          missingItemName: availQty <= 0 ? invItem.name : undefined,
+          limitingResourceName: invItem.name,
+          branchId: currentBranchId
+        };
+      } else {
+        availability = calculateAvailabilitySync(
+          item.id,
+          dbRecipes,
+          dbInventoryItems,
+          table.startsWith('To-Go') ? 'delivery' : 'dine_in',
+          currentBranchId
+        );
+      }
+
+      return {
+        item,
+        availability,
+        isAvailable: availability.isAvailable
+      };
+    }).sort((a, b) => {
+      // 1. Available items first
+      if (a.isAvailable && !b.isAvailable) return -1;
+      if (!a.isAvailable && b.isAvailable) return 1;
+      // 2. Alphabetical order
+      return a.item.name.localeCompare(b.item.name);
+    });
+  }, [menuItems, activeCategory, searchQuery, dbRecipes, dbInventoryItems, table, currentBranchId]);
 
   const renderStars = (bcg?: string) => {
     const count = bcg === 'ESTRELLA' ? 5 : bcg === 'CABALLO_DE_BATALLA' ? 4 : bcg === 'ROMPECABEZAS' ? 3 : 2;
     return (
-      <div className="flex items-center text-[var(--accent-purple)] text-sm mb-2">
+      <div className="flex items-center text-[var(--accent-purple)] text-xs mb-1">
         {[...Array(5)].map((_, i) => (
-          <span key={i} className="material-symbols-outlined text-[16px]">
+          <span key={i} className="material-symbols-outlined text-[14px]">
             {i < count ? 'star' : 'star_border'}
           </span>
         ))}
       </div>
     );
   };
-
-  const formatCurrency = (val: number) => `$${val.toLocaleString('es-CO', { minimumFractionDigits: 2 })}`;
 
   return (
     <div className="h-full w-full flex flex-col md:flex-row bg-[var(--bg-app)] text-[var(--text-primary)] font-sans overflow-hidden">
@@ -805,7 +1209,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
               />
             </div>
             <button 
-              onClick={onCancel}
+              onClick={handleSafeExit}
               className="h-10 w-10 rounded-full bg-[var(--bg-surface)] border border-[var(--border-glow)] flex items-center justify-center text-[var(--text-secondary)] hover-accent-purple shrink-0 cursor-pointer"
             >
               <span className="material-symbols-outlined">arrow_back</span>
@@ -819,7 +1223,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
             <button 
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-5 py-2 rounded-full font-medium whitespace-nowrap transition-receitly cursor-pointer border ${
+              className={`px-5 py-2 rounded-full font-medium whitespace-nowrap transition-receitly cursor-pointer border btn-press ${
                 activeCategory === cat 
                 ? 'bg-[var(--text-primary)] text-[var(--bg-app)] dark:bg-[var(--text-accessible)] dark:text-[var(--bg-app)] border-transparent' 
                 : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border-[var(--border-glow)] hover:bg-[var(--text-primary)] hover:text-[var(--bg-app)] dark:hover:bg-[var(--text-accessible)] dark:hover:text-[var(--bg-app)]'
@@ -831,77 +1235,121 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
         </div>
 
         {/* Product Grid */}
-        <div className="flex-1 overflow-y-auto hide-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-24">
+        <div className="flex-1 overflow-y-auto hide-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-24 content-start items-start">
           {isLoading ? (
             <div className="col-span-full py-12 flex flex-col items-center justify-center text-[var(--text-muted)]">
               <span className="material-symbols-outlined animate-spin text-4xl mb-2">sync</span>
               <p className="text-sm">Cargando menú...</p>
             </div>
-          ) : filteredMenu.length === 0 ? (
+          ) : filteredAndSortedMenu.length === 0 ? (
             <div className="col-span-full py-12 text-center text-[var(--text-muted)]">
               No se encontraron productos en el catálogo.
             </div>
           ) : (
-            filteredMenu.map(item => (
-              <div key={item.id} className="glass-card flex flex-col relative group cursor-pointer hover:-translate-y-1">
-                
+            filteredAndSortedMenu.map(({ item, availability, isAvailable }) => {
+              const isOutOfStock = !isAvailable;
+
+              return (
+              <div 
+                key={item.id} 
+                onClick={() => {
+                  if (isOutOfStock) {
+                    const branchName = currentBranchName || currentBranchId;
+                    toast.error(`Stock insuficiente en ${branchName}: Solo hay ${availability.availableQuantity ?? 0} unidades disponibles de ${availability.missingItemName || 'insumo'}.`);
+                    return;
+                  }
+                  handleAddItem(item);
+                }}
+                className={`glass-card !p-3.5 flex flex-col relative group cursor-pointer card-lift h-auto ${
+                  isOutOfStock ? 'opacity-75 border-rose-300/40 dark:border-rose-900/40' : ''
+                }`}
+              >
                 {/* Badges */}
-                <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
-                  {item.isRecommended && (
-                    <span className="bg-[var(--accent-pink)] text-white text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shadow-sm">
+                <div className="absolute top-2.5 left-2.5 z-20 flex flex-col gap-1">
+                  {isOutOfStock ? (
+                    <span className="bg-rose-600 text-white text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[12px]">block</span>
+                      Agotado
+                    </span>
+                  ) : item.isRecommended ? (
+                    <span className="bg-[var(--accent-pink)] text-white text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm">
                       Recomendado del Chef
                     </span>
-                  )}
+                  ) : null}
                 </div>
-                <div className="absolute top-3 right-3 z-20 flex gap-1">
+                <div className="absolute top-2.5 right-2.5 z-20 flex gap-1">
                   {item.allergens?.includes('fish') && <span className="material-symbols-outlined text-sm text-[var(--text-muted)] bg-[var(--bg-surface)] rounded-full p-1 shadow-sm">set_meal</span>}
                   {item.allergens?.includes('gluten') && <span className="material-symbols-outlined text-sm text-[var(--text-muted)] bg-[var(--bg-surface)] rounded-full p-1 shadow-sm">bakery_dining</span>}
                 </div>
 
                 {/* Photo Image / Fallback Placeholder */}
-                <div className="h-40 w-full rounded-[var(--radius-sm)] bg-[var(--bg-input)] mb-4 overflow-hidden flex items-center justify-center text-[var(--text-muted)] transition-receitly relative group-hover:opacity-90">
+                <div className="h-28 w-full rounded-[var(--radius-sm)] bg-[var(--bg-input)] mb-2.5 overflow-hidden flex items-center justify-center text-[var(--text-muted)] transition-receitly relative group-hover:opacity-90 shrink-0">
                   {item.img ? (
                     <img 
                       src={item.img} 
                       alt={item.name} 
-                      className="w-full h-full object-cover"
+                      className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale contrast-75' : ''}`}
                     />
                   ) : (
-                    <span className="material-symbols-outlined text-5xl opacity-40">restaurant</span>
+                    <span className="material-symbols-outlined text-4xl opacity-40">restaurant</span>
+                  )}
+                  {isOutOfStock && (
+                    <div className="absolute inset-0 bg-overlay backdrop-blur-[1px] flex items-center justify-center">
+                      <span className="bg-surface/90 text-rose-300 font-black text-[10px] px-2.5 py-1 rounded-lg border border-rose-500/30 uppercase tracking-widest">
+                        Sin Stock
+                      </span>
+                    </div>
                   )}
                 </div>
 
-                <div className="flex-1 flex flex-col">
-                  <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1">
-                    Rentabilidad
+                <div className="flex flex-col">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <div className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider truncate">
+                      {isOutOfStock ? `Falta: ${availability.missingItemName || 'Stock insuficiente'}` : 'Rentabilidad'}
+                    </div>
+                    {!isOutOfStock && renderStars(item.bcgClassification)}
                   </div>
-                  {renderStars(item.bcgClassification)}
                   
                   {item.isExperiential && (
-                    <span className="bg-[var(--text-primary)] text-[var(--bg-surface)] text-[10px] font-bold px-2 py-0.5 rounded-sm uppercase tracking-wider w-max mb-2 dark:bg-[var(--text-accessible)] dark:text-[var(--bg-app)]">
+                    <span className="bg-[var(--text-primary)] text-[var(--bg-surface)] text-[9px] font-bold px-2 py-0.5 rounded-sm uppercase tracking-wider w-max mb-1 dark:bg-[var(--text-accessible)] dark:text-[var(--bg-app)]">
                       Experiencial
                     </span>
                   )}
                   
-                  <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2 leading-tight">{item.name}</h3>
-                  <p className="text-sm text-[var(--text-secondary)] line-clamp-2 mb-4 flex-1">
+                  <h3 className="text-base font-bold text-[var(--text-primary)] mb-1 leading-snug line-clamp-1">{item.name}</h3>
+                  <p className="text-xs text-[var(--text-secondary)] line-clamp-2 mb-2.5 leading-snug">
                     {item.description}
                   </p>
                   
-                  <div className="flex items-center justify-between mt-auto">
-                    <span className="text-xl font-bold text-[var(--accent-pink)]">
+                  <div className="flex items-center justify-between pt-2 border-t border-[var(--border-subtle)]/50">
+                    <span className="text-lg font-bold text-[var(--accent-pink)] tabular-numbers tracking-tight">
                       {formatCurrency(item.price)}
                     </span>
                     <button 
-                      onClick={(e) => { e.stopPropagation(); handleAddItem(item); }}
-                      className="h-10 w-10 rounded-full bg-[var(--bg-input)] text-[var(--text-primary)] flex items-center justify-center hover:bg-[var(--accent-pink)] hover:text-white transition-receitly border-none cursor-pointer"
+                      disabled={isOutOfStock}
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if (isOutOfStock) {
+                          toast.error(`No es posible ordenar ${item.name}: falta stock de ${availability.missingItemName || 'ingrediente'}.`);
+                          return;
+                        }
+                        handleAddItem(item); 
+                      }}
+                      className={`h-10 w-10 rounded-full flex items-center justify-center transition-receitly border-none shadow-sm shrink-0 ${
+                        isOutOfStock
+                          ? 'bg-raised text-content-tertiary cursor-not-allowed'
+                          : 'bg-[var(--bg-input)] text-[var(--text-primary)] hover:bg-[var(--accent-pink)] hover:text-white cursor-pointer btn-press'
+                      }`}
+                      aria-label={isOutOfStock ? `${item.name} sin stock` : `Agregar ${item.name}`}
+                      title={isOutOfStock ? `Sin stock de ${availability.missingItemName}` : `Agregar ${item.name}`}
                     >
-                      <span className="material-symbols-outlined">add</span>
+                      <span className="material-symbols-outlined text-lg">{isOutOfStock ? 'block' : 'add'}</span>
                     </button>
                   </div>
                 </div>
               </div>
-            ))
+            );
+            })
           )}
         </div>
 
@@ -909,13 +1357,13 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
         <div className="md:hidden fixed bottom-6 left-6 right-6 z-30">
           <button
             onClick={() => setMobileView('ticket')}
-            className="w-full py-3 bg-[var(--accent-purple)] text-white font-black rounded-xl text-sm flex items-center justify-between px-5 shadow-lg shadow-[var(--accent-purple)]/20 active:scale-98 transition-all border-none"
+            className="w-full py-3 min-h-[48px] bg-[var(--accent-purple)] text-white font-black rounded-full text-sm flex items-center justify-between px-6 shadow-lg shadow-[var(--accent-purple)]/20 btn-press border-none"
           >
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined">shopping_cart</span>
               <span>Ver Comanda ({orderItems.reduce((s, i) => s + i.quantity, 0)})</span>
             </div>
-            <span className="font-mono font-bold">{formatCurrency(total)}</span>
+            <span className="tabular-numbers font-bold tracking-tight">{formatCurrency(total)}</span>
           </button>
         </div>
       </div>
@@ -991,7 +1439,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
                   <div className="flex-1 flex flex-col">
                     <div className="flex justify-between items-start mb-1 gap-2">
                       <span className="font-bold text-[var(--text-primary)] text-sm leading-snug">{item.name}</span>
-                      <span className="font-semibold text-[var(--text-primary)] text-sm font-mono shrink-0">{formatCurrency(item.price * item.quantity)}</span>
+                      <span className="font-semibold text-[var(--text-primary)] text-sm tabular-numbers tracking-tight shrink-0">{formatCurrency(item.price * item.quantity)}</span>
                     </div>
                     
                     {/* Status and Round Indicator */}
@@ -1053,7 +1501,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
                         >
                           -
                         </button>
-                        <span className="px-3 py-0.5 text-xs font-mono font-bold text-[var(--text-primary)]">{item.quantity}</span>
+                        <span className="px-3 py-0.5 text-xs tabular-numbers font-bold text-[var(--text-primary)]">{item.quantity}</span>
                         <button 
                           onClick={() => updateQuantity(item.id, 1)} 
                           className="px-2.5 py-0.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-bold cursor-pointer border-none bg-transparent"
@@ -1079,15 +1527,15 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
         <div className="p-6 border-t border-[var(--border-glow)] bg-[var(--bg-surface)]">
           <div className="flex justify-between items-center mb-2 text-sm text-[var(--text-secondary)]">
             <span>Subtotal</span>
-            <span className="font-mono">{formatCurrency(subtotal)}</span>
+            <span className="tabular-numbers font-bold tracking-tight">{formatCurrency(subtotal)}</span>
           </div>
           <div className="flex justify-between items-center mb-4 text-sm text-[var(--text-secondary)]">
-            <span>Impuestos ({taxPercentage}%)</span>
-            <span className="font-mono">{formatCurrency(taxes)}</span>
+            <span>{taxPercentage === 0 ? 'Impuestos (0% - Exento)' : `Impuestos (${taxPercentage}%)`}</span>
+            <span className="tabular-numbers font-bold tracking-tight">{formatCurrency(taxes)}</span>
           </div>
           <div className="flex justify-between items-center mb-6">
             <span className="text-xl font-bold text-[var(--text-primary)]">Total</span>
-            <span className="text-2xl font-black text-[var(--accent-pink)] font-mono">{formatCurrency(total)}</span>
+            <span className="text-2xl font-black text-[var(--accent-pink)] tabular-numbers tracking-tight">{formatCurrency(total)}</span>
           </div>
 
           <div className="grid grid-cols-4 gap-2 mb-4">
@@ -1151,18 +1599,12 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
             
             <div className="mb-6 relative z-50">
               <label className="block text-xs font-bold text-[var(--text-muted)] uppercase mb-2">Motivo</label>
-              <select 
-                className="w-full p-3 rounded-[var(--radius-sm)] bg-[var(--bg-input)] border border-[var(--border-glow)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-purple)]"
+              <CustomSelect 
+                className="w-full bg-[var(--bg-input)] border border-[var(--border-glow)] text-[var(--text-primary)] rounded-[var(--radius-sm)]"
                 value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-              >
-                <option value="">Seleccione un motivo...</option>
-                <option value="Demora">Demora en preparación</option>
-                <option value="Error">Error de captura</option>
-                <option value="Cancela Cliente">El cliente se arrepintió</option>
-                <option value="Falta Stock">Falta de insumos</option>
-                <option value="Otro">Otro...</option>
-              </select>
+                onChange={setCancelReason}
+                options={wasteReasonOptions}
+              />
             </div>
 
             <div className="flex justify-end gap-3">
@@ -1213,13 +1655,13 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
                 />
               </div>
 
-              <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-[var(--card-color)]/20">
+              <div className="max-h-48 overflow-y-auto divide-y divide-line border border-line rounded-xl bg-slate-50/50 dark:bg-[var(--card-color)]/20">
                 {filteredClientsForTakeaway.map(client => (
                   <button
                     key={client.id}
                     type="button"
                     onClick={() => handleConvertToTakeaway(client)}
-                    className="w-full text-left p-3 hover:bg-[var(--accent-purple)]/10 text-slate-800 dark:text-slate-200 transition-colors flex flex-col gap-0.5 cursor-pointer border-none bg-transparent"
+                    className="w-full text-left p-3 hover:bg-[var(--accent-purple)]/10 text-content transition-colors flex flex-col gap-0.5 cursor-pointer border-none bg-transparent"
                   >
                     <span className="text-xs font-bold">{client.name}</span>
                     <span className="text-[10px] text-slate-400 font-semibold">{client.phone} • NIT: {client.taxId || 'No registra'}</span>
@@ -1244,7 +1686,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
                     setTakeawayTaxId('');
                     setIsNewClientMode(true);
                   }}
-                  className="w-full py-3 bg-slate-100 dark:bg-[var(--bg-input)] text-slate-800 dark:text-white hover:bg-slate-200 font-bold rounded-xl text-xs uppercase tracking-wider text-center cursor-pointer border border-slate-200 dark:border-slate-700"
+                  className="w-full py-3 bg-slate-100 dark:bg-[var(--bg-input)] text-content hover:bg-slate-200 font-bold rounded-xl text-xs uppercase tracking-wider text-center cursor-pointer border border-line"
                 >
                   Registrar Nuevo Cliente
                 </button>
@@ -1291,7 +1733,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-[var(--border-glow)]">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-inset border border-[var(--border-glow)]">
                 <span className="text-xs font-bold text-[var(--text-primary)]">Factura Electrónica</span>
                 <label className="relative inline-flex items-center cursor-pointer select-none">
                   <input
@@ -1329,7 +1771,7 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
                 </div>
               )}
 
-              <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex gap-3 pt-4 border-t border-line">
                 <button
                   type="button"
                   onClick={() => setIsNewClientMode(false)}
@@ -1375,6 +1817,14 @@ export const OrderTaking: React.FC<OrderTakingProps> = ({ selectedTableName = 'M
           )}
         </Modal>
       )}
+
+      <DiscardChangesModal
+        isOpen={showExitConfirmModal}
+        onContinueEditing={() => setShowExitConfirmModal(false)}
+        onDiscardAndExit={handleConfirmExit}
+        onConfirm={handleConfirmExit}
+        onCancel={() => setShowExitConfirmModal(false)}
+      />
 
     </div>
   );

@@ -1,0 +1,846 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Dark + Glass System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap">
+<style>
+/* ==========================================================================
+   Design Tokens — Dark + Glass
+   Capas: 1) primitivos  2) semánticos (por tema)  3) componentes
+   Uso:  <html data-theme="dark">  |  <html data-theme="glass">
+   ========================================================================== */
+
+:root {
+  /* ---------- 1. PRIMITIVOS ---------- */
+
+  /* Neutros (escala pura, AAA) */
+  --neutral-0:   #FFFFFF;
+  --neutral-50:  #FAFAFA;
+  --neutral-100: #F5F5F5;
+  --neutral-200: #E5E5E5;
+  --neutral-300: #D4D4D4;
+  --neutral-400: #A3A3A3;
+  --neutral-500: #8A8A8A;
+  --neutral-600: #737373;
+  --neutral-700: #525252;
+  --neutral-750: #404040;
+  --neutral-800: #373737;
+  --neutral-850: #262626;
+  --neutral-900: #171717;
+  --neutral-950: #0A0A0A;
+  --neutral-1000:#000000;
+
+  /* Acento primario — naranja */
+  --orange-50:  #FFF4ED;
+  --orange-100: #FFE6D5;
+  --orange-200: #FFCCAA;
+  --orange-300: #FFA874;
+  --orange-400: #FF8A4C;
+  --orange-500: #FF6B2C;
+  --orange-600: #F0511A;
+  --orange-700: #C73E12;
+  --orange-800: #9E3314;
+  --orange-900: #7F2D14;
+  --orange-950: #451407;
+
+  /* Secundario — violeta */
+  --violet-300: #C4B5FD;
+  --violet-400: #A78BFA;
+  --violet-500: #8B5CF6;
+  --violet-600: #7C3AED;
+  --violet-700: #6D28D9;
+
+  /* Semánticos de estado */
+  --green-400:  #34E0A9;
+  --green-500:  #06C990;
+  --green-600:  #05A576;
+  --red-400:    #FF7A8E;
+  --red-500:    #FF4D67;
+  --red-600:    #E0304C;
+  --yellow-400: #FFE27A;
+  --yellow-500: #FFC533;
+  --yellow-600: #E0A50F;
+  --blue-400:   #7FA2FF;
+  --blue-500:   #4F7DFF;
+  --blue-600:   #2E5BF0;
+
+  /* Variantes oscuras de estado, para texto sobre fondos claros (modo light) */
+  --green-700:  #047857;
+  --red-700:    #C81E3A;
+  --yellow-700: #8A5A00;
+  --blue-700:   #2549D8;
+
+  /* Iconos (Lucide: https://lucide.dev) */
+  --icon-size-sm: 16px;
+  --icon-size-md: 20px;
+  --icon-size-lg: 24px;
+  --icon-stroke:  1.5;   /* grosor de línea de las referencias; Lucide usa 2 por defecto */
+
+  /* Tipografía */
+  /* Fuentes libres (Google Fonts, licencia OFL). Cargar en el <head>:
+     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap"> */
+  --font-display: "Manrope", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body:    "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono:    ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+
+  --text-xs:   0.75rem;   /* 12 */
+  --text-sm:   0.875rem;  /* 14 */
+  --text-base: 1rem;      /* 16 */
+  --text-lg:   1.125rem;  /* 18 */
+  --text-xl:   1.25rem;   /* 20 */
+  --text-2xl:  1.5rem;    /* 24 */
+  --text-3xl:  2rem;      /* 32 */
+  --text-4xl:  2.5rem;    /* 40 */
+  --text-5xl:  3.5rem;    /* 56 */
+
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-extrabold:800;
+
+  --leading-tight:  1.1;
+  --leading-snug:   1.25;
+  --leading-normal: 1.5;
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+
+  /* Espaciado (base 4px) */
+  --space-0:  0;
+  --space-1:  0.25rem;  /* 4 */
+  --space-2:  0.5rem;   /* 8 */
+  --space-3:  0.75rem;  /* 12 */
+  --space-4:  1rem;     /* 16 */
+  --space-5:  1.25rem;  /* 20 */
+  --space-6:  1.5rem;   /* 24 */
+  --space-8:  2rem;     /* 32 */
+  --space-10: 2.5rem;   /* 40 */
+  --space-12: 3rem;     /* 48 */
+  --space-16: 4rem;     /* 64 */
+
+  /* Radios */
+  --radius-xs:   6px;
+  --radius-sm:   8px;
+  --radius-md:   12px;   /* inputs, botones en dashboard */
+  --radius-lg:   16px;   /* tarjetas densas */
+  --radius-xl:   20px;
+  --radius-2xl:  28px;   /* tarjetas glass, sheets */
+  --radius-3xl:  40px;   /* contenedor de dispositivo / hero */
+  --radius-full: 9999px; /* pills, toggles, chips */
+
+  /* Movimiento */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1.2);
+  --duration-fast:   120ms;
+  --duration-normal: 200ms;
+  --duration-slow:   360ms;
+
+  /* Z-index */
+  --z-base: 0; --z-sticky: 100; --z-nav: 200; --z-overlay: 300; --z-modal: 400; --z-toast: 500;
+
+  /* Gradientes de marca */
+  --gradient-accent: linear-gradient(180deg, #FFA43D 0%, #F26B0F 100%);
+  --gradient-accent-hover: linear-gradient(180deg, #FFB25A 0%, #FF7A24 100%);
+  --gradient-violet: linear-gradient(180deg, #9F7BFF 0%, #6D3BEA 100%);
+}
+
+/* ==========================================================================
+   2. SEMÁNTICOS — TEMA DARK (superficies sólidas)
+   ========================================================================== */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Fondos */
+  --bg-canvas:  var(--neutral-950);
+  --bg-surface: var(--neutral-900);
+  --bg-raised:  var(--neutral-850);
+  --bg-inset:   var(--neutral-1000);
+  --bg-overlay: rgba(0, 0, 0, 0.64);
+  --bg-hover:   rgba(255, 255, 255, 0.05);
+  --bg-active:  rgba(255, 255, 255, 0.08);
+  --bg-selected: rgba(255, 107, 44, 0.14);
+
+  /* Bordes */
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong:  rgba(255, 255, 255, 0.20);
+  --border-accent:  var(--orange-500);
+
+  /* Texto (contraste sobre --bg-canvas) */
+  --text-primary:   var(--neutral-50);
+  --text-secondary: var(--neutral-400);
+  --text-tertiary:  var(--neutral-500);
+  --text-disabled:  var(--neutral-700);
+  --text-accent:    var(--orange-400);
+  --text-link:      var(--orange-400);
+  --text-on-accent: var(--neutral-950); /* NUNCA blanco sobre naranja: 2.8:1 */
+  --text-inverse:   var(--neutral-950);
+
+  /* Acento */
+  --accent:         var(--orange-500);
+  --accent-hover:   var(--orange-400);
+  --accent-pressed: var(--orange-600);
+  --accent-subtle:  rgba(255, 107, 44, 0.14);
+  --accent-fill:    var(--gradient-accent);
+
+  --secondary:        var(--violet-500);
+  --secondary-subtle: rgba(139, 92, 246, 0.16);
+
+  /* Estado */
+  --success: var(--green-500); --success-subtle: rgba(6, 201, 144, 0.14);
+  --danger:  var(--red-500);   --danger-subtle:  rgba(255, 77, 103, 0.14);
+  --warning: var(--yellow-500);--warning-subtle: rgba(255, 197, 51, 0.14);
+  --info:    var(--blue-500);  --info-subtle:    rgba(79, 125, 255, 0.14);
+
+  /* Foco */
+  --focus-ring: 0 0 0 2px var(--bg-canvas), 0 0 0 4px var(--orange-400);
+
+  /* Elevación (en dark se compensa con borde + sombra profunda) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border-subtle);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border-default);
+  --shadow-glow-accent: 0 8px 24px rgba(242, 107, 15, 0.35);
+
+  /* Superficie "card" por defecto del tema */
+  --card-bg:     var(--bg-surface);
+  --card-border: var(--border-default);
+  --card-shadow: var(--shadow-md);
+  --card-blur:   none;
+  --card-radius: var(--radius-lg);
+
+  /* Fondo de página */
+  --page-bg: var(--bg-canvas);
+}
+
+/* ==========================================================================
+   2a. SEMÁNTICOS — TEMA LIGHT (superficies sólidas claras)
+   Mismo vocabulario de tokens que dark: los componentes no cambian.
+   Naranja de relleno idéntico; el texto de acento y los estados usan
+   variantes más oscuras para llegar a AA sobre blanco.
+   ========================================================================== */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-canvas:  var(--neutral-50);
+  --bg-surface: var(--neutral-0);
+  --bg-raised:  var(--neutral-0);
+  --bg-inset:   var(--neutral-100);
+  --bg-overlay: rgba(10, 10, 10, 0.48);
+  --bg-hover:   rgba(10, 10, 10, 0.04);
+  --bg-active:  rgba(10, 10, 10, 0.07);
+  --bg-selected: rgba(255, 107, 44, 0.12);
+
+  --border-subtle:  rgba(10, 10, 10, 0.06);
+  --border-default: rgba(10, 10, 10, 0.12);
+  --border-strong:  rgba(10, 10, 10, 0.24);
+  --border-accent:  var(--orange-600);
+
+  --text-primary:   var(--neutral-950);
+  --text-secondary: var(--neutral-700);
+  --text-tertiary:  var(--neutral-600);   /* solo sobre blanco o #FAFAFA (4.5 a 4.7:1) */
+  --text-disabled:  var(--neutral-400);
+  --text-accent:    var(--orange-700);
+  --text-link:      var(--orange-700);
+  --text-on-accent: var(--neutral-950);
+  --text-inverse:   var(--neutral-50);
+
+  --accent:         var(--orange-500);
+  --accent-hover:   var(--orange-600);
+  --accent-pressed: var(--orange-700);
+  --accent-subtle:  rgba(255, 107, 44, 0.12);
+  --accent-fill:    var(--gradient-accent);
+
+  --secondary:        var(--violet-700);
+  --secondary-subtle: rgba(109, 40, 217, 0.10);
+
+  --success: var(--green-700);  --success-subtle: rgba(4, 120, 87, 0.10);
+  --danger:  var(--red-700);    --danger-subtle:  rgba(200, 30, 58, 0.10);
+  --warning: var(--yellow-700); --warning-subtle: rgba(138, 90, 0, 0.12);
+  --info:    var(--blue-700);   --info-subtle:    rgba(37, 73, 216, 0.10);
+
+  --focus-ring: 0 0 0 2px var(--neutral-0), 0 0 0 4px var(--orange-600);
+
+  /* En light la elevación sí se hace con sombra suave */
+  --shadow-sm: 0 1px 2px rgba(10, 10, 10, 0.08);
+  --shadow-md: 0 4px 12px rgba(10, 10, 10, 0.08), 0 0 0 1px var(--border-subtle);
+  --shadow-lg: 0 12px 32px rgba(10, 10, 10, 0.12), 0 0 0 1px var(--border-default);
+  --shadow-glow-accent: 0 8px 24px rgba(242, 107, 15, 0.28);
+
+  --card-bg:     var(--bg-surface);
+  --card-border: var(--border-default);
+  --card-shadow: var(--shadow-md);
+  --card-blur:   none;
+  --card-radius: var(--radius-lg);
+
+  --page-bg: var(--bg-canvas);
+}
+
+/* ==========================================================================
+   2b. SEMÁNTICOS — TEMA GLASS (translúcido, sobre fondo con color/imagen)
+   Hereda todo de dark y sobrescribe superficies, bordes y blur.
+   Requiere un fondo detrás (imagen, gradiente o blobs de color).
+   ========================================================================== */
+[data-theme="glass"] {
+  color-scheme: dark;
+
+  /* Primitivos de vidrio */
+  --glass-blur-sm: 8px;
+  --glass-blur-md: 16px;
+  --glass-blur-lg: 24px;
+  --glass-blur-xl: 40px;
+  --glass-saturate: 140%;
+
+  --glass-fill-1: rgba(255, 255, 255, 0.04);  /* sutil: filas, chips inactivos */
+  --glass-fill-2: rgba(255, 255, 255, 0.07);  /* tarjetas */
+  --glass-fill-3: rgba(255, 255, 255, 0.11);  /* hover, nav, controles */
+  --glass-fill-4: rgba(255, 255, 255, 0.16);  /* pressed, seleccionado */
+  --glass-tint-warm: rgba(255, 140, 60, 0.08);/* para vidrio sobre fondos cálidos */
+  --glass-scrim: rgba(10, 10, 10, 0.45);      /* oscurece el fondo para legibilidad */
+
+  --glass-border:       rgba(255, 255, 255, 0.14);
+  --glass-border-light: rgba(255, 255, 255, 0.28);  /* borde superior iluminado */
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+
+  /* Fondos */
+  --bg-canvas:  #0A0A0A;
+  --bg-surface: var(--glass-fill-2);
+  --bg-raised:  var(--glass-fill-3);
+  --bg-inset:   rgba(0, 0, 0, 0.28);
+  --bg-overlay: rgba(10, 10, 10, 0.55);
+  --bg-hover:   var(--glass-fill-3);
+  --bg-active:  var(--glass-fill-4);
+  --bg-selected: rgba(255, 107, 44, 0.22);
+
+  /* Bordes */
+  --border-subtle:  rgba(255, 255, 255, 0.08);
+  --border-default: var(--glass-border);
+  --border-strong:  var(--glass-border-light);
+
+  /* Texto: un punto más claro porque el fondo es variable */
+  --text-primary:   var(--neutral-0);
+  --text-secondary: var(--neutral-200);
+  --text-tertiary:  var(--neutral-300);  /* sube 1 escalón: sobre fondos claros baja a 4.3:1 con n400 */
+  --text-disabled:  var(--neutral-600);
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.30);
+  --shadow-md: var(--glass-highlight), var(--glass-shadow);
+  --shadow-lg: var(--glass-highlight), 0 16px 48px rgba(0, 0, 0, 0.55);
+
+  --card-bg:     var(--glass-fill-2);
+  --card-border: var(--glass-border);
+  --card-shadow: var(--shadow-md);
+  --card-blur:   blur(var(--glass-blur-lg)) saturate(var(--glass-saturate));
+  --card-radius: var(--radius-2xl);
+
+  --page-bg: radial-gradient(1200px 600px at 80% -10%, rgba(255, 107, 44, 0.28), transparent 60%),
+             radial-gradient(900px 500px at 0% 100%, rgba(139, 92, 246, 0.16), transparent 60%),
+             var(--neutral-950);
+}
+
+/* Fallback si el navegador no soporta backdrop-filter */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  [data-theme="glass"] {
+    --card-bg: rgba(23, 23, 23, 0.92);
+    --bg-surface: rgba(23, 23, 23, 0.92);
+    --bg-raised: rgba(38, 38, 38, 0.94);
+    --card-blur: none;
+  }
+}
+
+/* Accesibilidad: respetar transparencia reducida / alto contraste */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  [data-theme="glass"] {
+    --card-bg: var(--neutral-900);
+    --bg-surface: var(--neutral-900);
+    --bg-raised: var(--neutral-850);
+    --card-blur: none;
+    --border-default: var(--border-strong);
+  }
+}
+
+/* ==========================================================================
+   3. COMPONENTES (consumen solo tokens semánticos)
+   ========================================================================== */
+body {
+  background: var(--page-bg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  -webkit-backdrop-filter: var(--card-blur);
+  backdrop-filter: var(--card-blur);
+  padding: var(--space-5);
+}
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  height: 44px; padding: 0 var(--space-6);
+  border-radius: var(--radius-full);
+  font: var(--weight-semibold) var(--text-sm)/1 var(--font-body);
+  border: 1px solid transparent; cursor: pointer;
+  transition: background var(--duration-normal) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-normal) var(--ease-standard);
+}
+.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.btn:active { transform: scale(0.98); }
+.btn[disabled] { opacity: .4; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--accent-fill); color: var(--text-on-accent);
+  box-shadow: var(--shadow-glow-accent);
+}
+.btn-primary:hover { background: var(--gradient-accent-hover); }
+
+.btn-secondary {
+  background: var(--bg-raised); color: var(--text-primary);
+  border-color: var(--border-default);
+  -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
+}
+.btn-secondary:hover { background: var(--bg-active); border-color: var(--border-strong); }
+
+.btn-ghost { background: transparent; color: var(--text-secondary); }
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.input {
+  height: 48px; width: 100%; padding: 0 var(--space-4);
+  background: var(--bg-inset); color: var(--text-primary);
+  border: 1px solid var(--border-default); border-radius: var(--radius-full);
+  font: var(--weight-regular) var(--text-sm)/1 var(--font-body);
+  -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
+}
+.input::placeholder { color: var(--text-tertiary); }
+.input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+
+.chip {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-lg);
+  background: var(--bg-surface); border: 1px solid var(--border-default);
+  color: var(--text-secondary); font-size: var(--text-xs); font-weight: var(--weight-medium);
+}
+.chip[aria-selected="true"] { background: var(--bg-selected); border-color: var(--accent); color: var(--text-primary); }
+
+.badge { padding: 2px var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: var(--weight-semibold); }
+.badge-success { background: var(--success-subtle); color: var(--success); }
+.badge-danger  { background: var(--danger-subtle);  color: var(--danger); }
+.badge-warning { background: var(--warning-subtle); color: var(--warning); }
+.badge-info    { background: var(--info-subtle);    color: var(--info); }
+
+.toggle { width: 48px; height: 28px; border-radius: var(--radius-full); background: var(--neutral-700); position: relative; transition: background var(--duration-normal); }
+.toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--neutral-0); transition: transform var(--duration-normal) var(--ease-standard); }
+.toggle[aria-checked="true"] { background: var(--accent); }
+.toggle[aria-checked="true"]::after { transform: translateX(20px); }
+
+.nav-bar {
+  display: flex; justify-content: space-around; padding: var(--space-3) var(--space-4);
+  background: var(--bg-raised); border: 1px solid var(--border-default);
+  border-radius: var(--radius-2xl); box-shadow: var(--shadow-lg);
+  -webkit-backdrop-filter: var(--card-blur); backdrop-filter: var(--card-blur);
+}
+
+
+/* Layout: columna única de 1120px; secciones con etiqueta mono del prefijo de token; escenario de especímenes conmutable dark/glass. */
+:root { color-scheme: dark; }
+html, body { margin: 0; }
+body {
+  background: var(--neutral-950); color: var(--text-primary);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 96px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 72px; }
+h1, h2, h3 { font-family: "Manrope", var(--font-display); text-wrap: balance; margin: 0; letter-spacing: -0.02em; }
+h1 { font-size: clamp(2.2rem, 6vw, 4rem); line-height: 1.02; font-weight: 800; }
+h1 em { font-style: normal; color: var(--orange-400); }
+h2 { font-size: 1.75rem; font-weight: 700; }
+h3 { font-size: 1rem; font-weight: 700; letter-spacing: 0; }
+p { margin: 0; }
+.lede { color: var(--neutral-400); max-width: 60ch; margin-top: 16px; font-size: 1.0625rem; }
+.mono { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.02em; }
+.tag { font-family: var(--font-mono); font-size: 12px; color: var(--orange-400); text-transform: uppercase; letter-spacing: 0.08em; }
+.sec { display: flex; flex-direction: column; gap: 24px; }
+.sec-head { display: flex; flex-direction: column; gap: 8px; }
+.sec-head p { color: var(--neutral-400); max-width: 64ch; }
+
+.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
+.meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 24px; }
+.pill { font-family: var(--font-mono); font-size: 12px; padding: 6px 12px; border-radius: 9999px; border: 1px solid rgba(255,255,255,.12); color: var(--neutral-300); }
+
+/* Escalas de color */
+.scale { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; }
+.sw { border-radius: 12px; padding: 12px 10px; min-height: 96px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid rgba(255,255,255,.08); min-width: 0; }
+.sw b { font-size: 13px; font-weight: 600; }
+.sw span { font-family: var(--font-mono); font-size: 11px; opacity: .85; overflow-wrap: anywhere; }
+.row-label { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.row-label span { color: var(--neutral-500); font-size: 13px; }
+.stack { display: flex; flex-direction: column; gap: 28px; }
+
+/* Tabla */
+.tbl-wrap { overflow-x: auto; border: 1px solid rgba(255,255,255,.1); border-radius: 16px; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,.06); }
+th { font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--neutral-500); text-transform: uppercase; letter-spacing: .08em; background: #000; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.ok { color: var(--green-500); } .mid { color: var(--yellow-500); } .bad { color: var(--red-500); }
+.chipdot { display: inline-block; width: 12px; height: 12px; border-radius: 4px; vertical-align: -1px; margin-right: 8px; border: 1px solid rgba(255,255,255,.2); }
+
+/* Tipografía */
+.type-grid { display: grid; gap: 0; border: 1px solid rgba(255,255,255,.1); border-radius: 16px; overflow: hidden; }
+.type-row { display: grid; grid-template-columns: 150px 1fr; gap: 16px; padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,.06); align-items: baseline; }
+.type-row:last-child { border-bottom: 0; }
+.type-row .k { font-family: var(--font-mono); font-size: 12px; color: var(--neutral-500); }
+.type-row .s { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .type-row { grid-template-columns: 1fr; gap: 4px; } }
+
+/* Escenario */
+.switch { display: inline-flex; padding: 4px; border-radius: 9999px; border: 1px solid rgba(255,255,255,.14); background: #000; align-self: flex-start; }
+.switch button { font: 600 13px/1 var(--font-body); color: var(--neutral-400); background: transparent; border: 0; padding: 10px 20px; border-radius: 9999px; cursor: pointer; }
+.switch button[aria-pressed="true"] { background: var(--gradient-accent); color: var(--neutral-950); }
+.switch button:focus-visible { outline: 2px solid var(--orange-400); outline-offset: 2px; }
+
+.stage { position: relative; overflow: hidden; border-radius: 28px; padding: 32px; background: var(--page-bg); border: 1px solid rgba(255,255,255,.1); isolation: isolate; color: var(--text-primary); }
+.stage[data-theme="glass"]::before, .stage[data-theme="glass"]::after { content: ""; position: absolute; z-index: -1; border-radius: 50%; filter: blur(50px); }
+.stage[data-theme="glass"]::before { width: 360px; height: 360px; background: #FF6B2C; opacity: .55; right: -60px; top: -80px; }
+.stage[data-theme="glass"]::after { width: 300px; height: 300px; background: #7C3AED; opacity: .35; left: 30%; bottom: -120px; }
+.stage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; align-items: start; }
+.stage .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.stage .card { padding: 20px; }
+.stage .cap { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .08em; }
+.btns { display: flex; gap: 12px; flex-wrap: wrap; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { cursor: pointer; font-family: inherit; }
+.price { font-family: "Manrope", var(--font-display); font-weight: 700; color: var(--text-accent); font-variant-numeric: tabular-nums; }
+.prod-img { height: 140px; border-radius: calc(var(--card-radius) - 8px); background: radial-gradient(circle at 50% 40%, #FFA43D 0%, #B8470C 45%, #2A1206 100%); display: grid; place-items: center; font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,.7); }
+.line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border-subtle); font-size: 14px; }
+.add { width: 32px; height: 32px; border-radius: 10px; border: 0; background: var(--gradient-accent); color: var(--neutral-950); font-weight: 700; font-size: 18px; line-height: 1; cursor: pointer; }
+.kpi { background: var(--gradient-violet); border-radius: var(--radius-lg); padding: 16px; color: #fff; }
+.kpi .v { font: 800 30px/1.1 "Manrope", var(--font-display); font-variant-numeric: tabular-nums; margin-top: 6px; }
+.nav-bar button { background: none; border: 0; color: var(--text-tertiary); font: 500 11px/1 var(--font-body); display: flex; flex-direction: column; gap: 6px; align-items: center; cursor: pointer; }
+.nav-bar button[aria-current="page"] { color: var(--text-accent); }
+.nav-bar i { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid currentColor; display: block; }
+.toggle { cursor: pointer; flex: none; }
+
+/* Glass recipe */
+.recipe-bg { border-radius: 24px; padding: 28px; background: radial-gradient(500px 260px at 20% 20%, #FF6B2C, transparent 70%), radial-gradient(420px 260px at 90% 80%, #7C3AED, transparent 70%), #0A0A0A; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; border: 1px solid rgba(255,255,255,.1); }
+.gl { border-radius: 20px; padding: 18px; min-height: 120px; border: 1px solid rgba(255,255,255,.14); box-shadow: inset 0 1px 0 rgba(255,255,255,.18); color: #fff; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+.gl b { font: 700 14px/1.2 "Manrope", var(--font-display); }
+.gl span { font-family: var(--font-mono); font-size: 11px; opacity: .85; }
+
+/* Espaciado y radios */
+.sp-row { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+.sp { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.sp i { display: block; background: var(--orange-500); border-radius: 3px; }
+.rd-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 12px; }
+.rd { height: 88px; background: var(--neutral-850); border: 1px solid rgba(255,255,255,.12); display: flex; align-items: flex-end; padding: 10px; font-family: var(--font-mono); font-size: 11px; color: var(--neutral-300); }
+
+/* Regla crítica */
+.rule { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.rule > div { border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.rule .big { font: 800 26px/1.1 "Manrope", var(--font-display); }
+
+:focus-visible { outline: 2px solid var(--orange-400); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="top">
+      <div>
+        <p class="tag">tokens · dark / glass</p>
+        <h1 style="margin-top:12px">Good system,<br><em>good mood.</em></h1>
+        <p class="lede">Sistema derivado de tus 8 referencias: acento naranja, neutros puros con contraste AAA y dos superficies, sólida (dark) y translúcida (glass). Todo lo de esta página usa los mismos tokens de <span class="mono">tokens.css</span>.</p>
+      </div>
+    </div>
+    <div class="meta">
+      <span class="pill">acento #FF6B2C</span>
+      <span class="pill">neutros #0A0A0A → #FAFAFA</span>
+      <span class="pill">base 4 px</span>
+      <span class="pill">Manrope / Inter</span>
+    </div>
+  </header>
+
+  <section class="sec" aria-labelledby="h-color">
+    <div class="sec-head">
+      <p class="tag">--neutral-* · --orange-* · estado</p>
+      <h2 id="h-color">Color</h2>
+      <p>Los neutros son la escala AAA de tus capturas, ampliada con 500/750/800/850 para cubrir todas las superficies. La cifra bajo cada muestra es el contraste contra el lienzo <span class="mono">#0A0A0A</span>.</p>
+    </div>
+    <div class="stack" id="scales"></div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-rule">
+    <div class="sec-head">
+      <p class="tag">--text-on-accent</p>
+      <h2 id="h-rule">Texto sobre naranja</h2>
+      <p>La referencia de la app de comida usa texto blanco sobre el naranja. Calculado, falla el contraste. El sistema usa texto casi negro.</p>
+    </div>
+    <div class="rule">
+      <div style="background:var(--gradient-accent); color:#0A0A0A">
+        <span class="mono">on-accent #0A0A0A · 6.5 a 10:1</span>
+        <span class="big">Add to Cart</span>
+        <span>Usar siempre en botones y badges naranja.</span>
+      </div>
+      <div style="background:#FF6B2C; color:#fff">
+        <span class="mono">blanco sobre #FF6B2C · 2.8:1 · falla</span>
+        <span class="big">Add to Cart</span>
+        <span>Solo aceptable en texto ≥ 24 px bold si no hay alternativa.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-type">
+    <div class="sec-head">
+      <p class="tag">--font-display · --font-body</p>
+      <h2 id="h-type">Tipografía</h2>
+      <p>Telegraf necesita licencia; Manrope es el sustituto libre más cercano. Inter cubre el papel de SF Pro Text fuera de plataformas Apple.</p>
+    </div>
+    <div class="type-grid">
+      <div class="type-row"><span class="k">display · 56/700</span><span class="s" style="font:800 clamp(2rem,6vw,3.5rem)/1.1 Manrope,sans-serif;letter-spacing:-.02em">Good Food <span style="color:var(--orange-400)">Mood!</span></span></div>
+      <div class="type-row"><span class="k">h1 · 40/700</span><span class="s" style="font:700 2.5rem/1.1 Manrope,sans-serif;letter-spacing:-.02em">Spicy Chicken Burger</span></div>
+      <div class="type-row"><span class="k">h2 · 32/700</span><span class="s" style="font:700 2rem/1.25 Manrope,sans-serif">Transaction History</span></div>
+      <div class="type-row"><span class="k">h3 · 20/600</span><span class="s" style="font:600 1.25rem/1.25 Manrope,sans-serif">Customize</span></div>
+      <div class="type-row"><span class="k">body · 16/400</span><span class="s" style="font:400 1rem/1.5 Inter,sans-serif;color:var(--neutral-300)">Crispy spicy chicken patty with fresh lettuce, tomato, onion and our special sauce.</span></div>
+      <div class="type-row"><span class="k">label · 14/600</span><span class="s" style="font:600 .875rem/1.25 Inter,sans-serif">Order Now</span></div>
+      <div class="type-row"><span class="k">caption · 12/500</span><span class="s" style="font:500 .75rem/1.25 Inter,sans-serif;color:var(--neutral-500)">Compared to last month</span></div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-stage">
+    <div class="sec-head">
+      <p class="tag">data-theme="dark" | "glass"</p>
+      <h2 id="h-stage">Componentes en cada tema</h2>
+      <p>Los mismos componentes con solo cambiar el atributo del contenedor. En glass las superficies dejan ver el fondo; en dark son opacas y se separan por tono y borde; en light se separan por sombra suave.</p>
+    </div>
+    <div class="switch" role="group" aria-label="Tema">
+      <button type="button" id="b-dark" aria-pressed="false">Dark</button>
+      <button type="button" id="b-light" aria-pressed="false">Light</button>
+      <button type="button" id="b-glass" aria-pressed="true">Glass</button>
+    </div>
+
+    <div class="stage" id="stage" data-theme="glass">
+      <div class="stage-grid">
+        <div class="col">
+          <span class="cap">Tarjeta de producto</span>
+          <div class="card">
+            <div class="prod-img">imagen del producto</div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:16px;gap:12px">
+              <h3 style="font-size:1.125rem">Spicy Chicken Burger</h3>
+              <span class="price">$ 6.49</span>
+            </div>
+            <p style="color:var(--text-secondary);font-size:14px;margin-top:6px">Crispy spicy chicken patty with fresh lettuce, tomato and special sauce.</p>
+            <div class="line" style="margin-top:14px"><span>Add Cheese</span><span class="toggle" role="switch" aria-checked="true" tabindex="0" aria-label="Add Cheese"></span></div>
+            <div class="line"><span>Extra Patty</span><span class="toggle" role="switch" aria-checked="false" tabindex="0" aria-label="Extra Patty"></span></div>
+            <div class="line" style="padding-bottom:0"><span class="price">$ 5.49</span><button class="add" type="button" aria-label="Agregar">+</button></div>
+          </div>
+        </div>
+
+        <div class="col">
+          <span class="cap">Botones y campo</span>
+          <div class="card" style="display:flex;flex-direction:column;gap:16px">
+            <div class="btns">
+              <button class="btn btn-primary" type="button">Order Now</button>
+              <button class="btn btn-secondary" type="button">Details</button>
+              <button class="btn btn-ghost" type="button">View All</button>
+            </div>
+            <input class="input" id="q" type="text" placeholder="Search your favorite food" aria-label="Buscar">
+            <div class="chips" id="chips" role="group" aria-label="Categorías">
+              <button class="chip" type="button" aria-selected="true">Burger</button>
+              <button class="chip" type="button" aria-selected="false">Pizza</button>
+              <button class="chip" type="button" aria-selected="false">Chicken</button>
+              <button class="chip" type="button" aria-selected="false">Fries</button>
+            </div>
+            <div class="chips">
+              <span class="badge badge-success">Success</span>
+              <span class="badge badge-warning">Processing</span>
+              <span class="badge badge-danger">Declined</span>
+              <span class="badge badge-info">Info</span>
+            </div>
+          </div>
+          <span class="cap">Navegación</span>
+          <nav class="nav-bar" aria-label="Principal">
+            <button type="button" aria-current="page"><i></i>Home</button>
+            <button type="button"><i></i>Offers</button>
+            <button type="button"><i></i>Orders</button>
+            <button type="button"><i></i>Favorite</button>
+          </nav>
+        </div>
+
+        <div class="col">
+          <span class="cap">KPI y lista</span>
+          <div class="kpi">
+            <span style="font-size:13px;opacity:.9">Total Income</span>
+            <div class="v">$348,261</div>
+            <span class="badge" style="background:rgba(6,201,144,.2);color:#7CF2CC;margin-top:8px;display:inline-block">+12.95 %</span>
+          </div>
+          <div class="card" style="padding:8px 20px">
+            <div class="line" style="border-top:0"><span>TSLA</span><span class="badge badge-warning">Processing</span></div>
+            <div class="line"><span>MTCH</span><span class="badge badge-success">Success</span></div>
+            <div class="line"><span>ARKG</span><span class="badge badge-danger">Declined</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-glass">
+    <div class="sec-head">
+      <p class="tag">--glass-fill-* · --glass-blur-*</p>
+      <h2 id="h-glass">Receta de vidrio</h2>
+      <p>Cuatro niveles de relleno y cuatro de desenfoque. Todas llevan el borde translúcido y el brillo interior superior, que es lo que sugiere cristal. Blur 24 y relleno 7 % para tarjetas; 40 y 11 % para barras flotantes y sheets.</p>
+    </div>
+    <div class="recipe-bg">
+      <div class="gl" style="background:rgba(255,255,255,.04);backdrop-filter:blur(8px) saturate(140%);-webkit-backdrop-filter:blur(8px) saturate(140%)"><b>fill-1 · sutil</b><span>4 % · blur 8</span></div>
+      <div class="gl" style="background:rgba(255,255,255,.07);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%)"><b>fill-2 · tarjeta</b><span>7 % · blur 16 a 24</span></div>
+      <div class="gl" style="background:rgba(255,255,255,.11);backdrop-filter:blur(24px) saturate(140%);-webkit-backdrop-filter:blur(24px) saturate(140%)"><b>fill-3 · control</b><span>11 % · blur 24</span></div>
+      <div class="gl" style="background:rgba(255,255,255,.16);backdrop-filter:blur(40px) saturate(140%);-webkit-backdrop-filter:blur(40px) saturate(140%)"><b>fill-4 · activo</b><span>16 % · blur 40</span></div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-sp">
+    <div class="sec-head">
+      <p class="tag">--space-* · --radius-*</p>
+      <h2 id="h-sp">Espaciado y radios</h2>
+    </div>
+    <div class="sp-row" id="spacing"></div>
+    <div class="rd-row" id="radii"></div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-ct">
+    <div class="sec-head">
+      <p class="tag">WCAG 2.x · calculado</p>
+      <h2 id="h-ct">Contraste de los pares clave</h2>
+      <p>Sobre el lienzo oscuro y, al final, los pares del modo light.</p>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Par</th><th>Ratio</th><th>Nivel</th></tr></thead>
+        <tbody id="ct"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  function lum(h) {
+    h = h.replace('#', '');
+    var c = [0, 2, 4].map(function (i) { var v = parseInt(h.substr(i, 2), 16) / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  function cr(a, b) { var x = lum(a), y = lum(b); var hi = Math.max(x, y), lo = Math.min(x, y); return (hi + 0.05) / (lo + 0.05); }
+  function level(r) { return r >= 7 ? ['AAA', 'ok'] : r >= 4.5 ? ['AA', 'ok'] : r >= 3 ? ['AA grande', 'mid'] : ['No pasa', 'bad']; }
+
+  var scales = [
+    ['Neutros', 'Escala base de dark y glass', [['0','#FFFFFF'],['50','#FAFAFA'],['100','#F5F5F5'],['200','#E5E5E5'],['300','#D4D4D4'],['400','#A3A3A3'],['500','#8A8A8A'],['600','#737373'],['700','#525252'],['750','#404040'],['800','#373737'],['850','#262626'],['900','#171717'],['950','#0A0A0A'],['1000','#000000']]],
+    ['Naranja', 'Acento primario. 500 es el relleno, 400 el texto de acento', [['50','#FFF4ED'],['100','#FFE6D5'],['200','#FFCCAA'],['300','#FFA874'],['400','#FF8A4C'],['500','#FF6B2C'],['600','#F0511A'],['700','#C73E12'],['800','#9E3314'],['900','#7F2D14'],['950','#451407']]],
+    ['Violeta', 'Secundario: gráficos, tarjeta destacada, categorías', [['300','#C4B5FD'],['400','#A78BFA'],['500','#8B5CF6'],['600','#7C3AED'],['700','#6D28D9']]],
+    ['Estado', 'Éxito, error, aviso, información', [['green','#06C990'],['red','#FF4D67'],['yellow','#FFC533'],['blue','#4F7DFF']]]
+  ];
+  var root = document.getElementById('scales');
+  scales.forEach(function (s) {
+    var d = document.createElement('div');
+    var h = '<div class="row-label"><h3>' + s[0] + '</h3><span>' + s[1] + '</span></div><div class="scale">';
+    s[2].forEach(function (c) {
+      var r = cr(c[1], '#0A0A0A');
+      var dark = lum(c[1]) < 0.35;
+      var fg = dark ? '#FAFAFA' : '#0A0A0A';
+      h += '<div class="sw" style="background:' + c[1] + ';color:' + fg + '"><b>' + c[0] + '</b><span>' + c[1] + '<br>' + r.toFixed(1) + ':1</span></div>';
+    });
+    d.innerHTML = h + '</div>';
+    root.appendChild(d);
+  });
+
+  var pairs = [
+    ['text-primary sobre canvas', '#FAFAFA', '#0A0A0A'],
+    ['text-secondary sobre canvas', '#A3A3A3', '#0A0A0A'],
+    ['text-secondary sobre raised', '#A3A3A3', '#262626'],
+    ['text-tertiary sobre canvas', '#8A8A8A', '#0A0A0A'],
+    ['text-accent (naranja 400) sobre canvas', '#FF8A4C', '#0A0A0A'],
+    ['on-accent sobre naranja 500', '#0A0A0A', '#FF6B2C'],
+    ['on-accent sobre fondo del gradiente (arriba)', '#0A0A0A', '#FFA43D'],
+    ['on-accent sobre fondo del gradiente (abajo)', '#0A0A0A', '#F26B0F'],
+    ['Blanco sobre naranja 500', '#FFFFFF', '#FF6B2C'],
+    ['Éxito sobre canvas', '#06C990', '#0A0A0A'],
+    ['Error sobre canvas', '#FF4D67', '#0A0A0A'],
+    ['Aviso sobre canvas', '#FFC533', '#0A0A0A'],
+    ['Info sobre canvas', '#4F7DFF', '#0A0A0A'],
+    ['Violeta 500 sobre canvas', '#8B5CF6', '#0A0A0A'],
+    ['text-disabled sobre canvas (exento)', '#525252', '#0A0A0A'],
+    ['LIGHT · text-primary sobre #FAFAFA', '#0A0A0A', '#FAFAFA'],
+    ['LIGHT · text-secondary sobre #FAFAFA', '#525252', '#FAFAFA'],
+    ['LIGHT · text-tertiary sobre #FFFFFF', '#737373', '#FFFFFF'],
+    ['LIGHT · text-accent (naranja 700) sobre #FFFFFF', '#C73E12', '#FFFFFF'],
+    ['LIGHT · éxito (verde 700) sobre #FFFFFF', '#047857', '#FFFFFF'],
+    ['LIGHT · error (rojo 700) sobre #FFFFFF', '#C81E3A', '#FFFFFF'],
+    ['LIGHT · aviso (ámbar 700) sobre #FFFFFF', '#8A5A00', '#FFFFFF'],
+    ['LIGHT · info (azul 700) sobre #FFFFFF', '#2549D8', '#FFFFFF'],
+    ['LIGHT · naranja 500 como texto sobre #FFFFFF', '#FF6B2C', '#FFFFFF']
+  ];
+  var tb = document.getElementById('ct');
+  pairs.forEach(function (p) {
+    var r = cr(p[1], p[2]); var l = level(r);
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><span class="chipdot" style="background:' + p[1] + '"></span>' + p[0] + '</td><td class="num">' + r.toFixed(1) + ':1</td><td class="' + l[1] + '">' + l[0] + '</td>';
+    tb.appendChild(tr);
+  });
+
+  var sp = document.getElementById('spacing');
+  [[1,4],[2,8],[3,12],[4,16],[5,20],[6,24],[8,32],[10,40],[12,48],[16,64]].forEach(function (s) {
+    var d = document.createElement('div'); d.className = 'sp';
+    d.innerHTML = '<i style="width:' + s[1] + 'px;height:' + s[1] + 'px"></i><span class="mono" style="color:var(--neutral-400)">' + s[0] + '<br>' + s[1] + '</span>';
+    sp.appendChild(d);
+  });
+  var rd = document.getElementById('radii');
+  [['xs',6],['sm',8],['md',12],['lg',16],['xl',20],['2xl',28],['3xl',40],['full',9999]].forEach(function (r) {
+    var d = document.createElement('div'); d.className = 'rd';
+    d.style.borderRadius = (r[1] === 9999 ? 44 : r[1]) + 'px';
+    d.textContent = r[0] + ' · ' + (r[1] === 9999 ? '9999' : r[1]);
+    rd.appendChild(d);
+  });
+
+  var stage = document.getElementById('stage');
+  var bd = document.getElementById('b-dark'), bg = document.getElementById('b-glass'), bl = document.getElementById('b-light');
+  function setTheme(t) {
+    stage.setAttribute('data-theme', t);
+    bd.setAttribute('aria-pressed', String(t === 'dark'));
+    bl.setAttribute('aria-pressed', String(t === 'light'));
+    bg.setAttribute('aria-pressed', String(t === 'glass'));
+  }
+  bd.addEventListener('click', function () { setTheme('dark'); });
+  bl.addEventListener('click', function () { setTheme('light'); });
+  bg.addEventListener('click', function () { setTheme('glass'); });
+
+  document.querySelectorAll('.toggle').forEach(function (t) {
+    function flip() { t.setAttribute('aria-checked', String(t.getAttribute('aria-checked') !== 'true')); }
+    t.addEventListener('click', flip);
+    t.addEventListener('keydown', function (e) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); } });
+  });
+  document.querySelectorAll('#chips .chip').forEach(function (c) {
+    c.addEventListener('click', function () {
+      document.querySelectorAll('#chips .chip').forEach(function (o) { o.setAttribute('aria-selected', String(o === c)); });
+    });
+  });
+  document.querySelectorAll('.nav-bar button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.nav-bar button').forEach(function (o) { if (o === b) o.setAttribute('aria-current', 'page'); else o.removeAttribute('aria-current'); });
+    });
+  });
+})();
+</script>
+
+</body></html>

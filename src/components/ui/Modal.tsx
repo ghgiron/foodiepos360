@@ -5,10 +5,10 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'image';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'image';
 }
 
-export default function Modal({ isOpen = true, onClose, title, children, size = 'lg' }: ModalProps) {
+export default function Modal({ isOpen = true, onClose, title, children, size = '2xl' }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,24 +24,27 @@ export default function Modal({ isOpen = true, onClose, title, children, size = 
   const widthClass = {
     sm: 'max-w-sm',
     md: 'max-w-md',
-    lg: 'max-w-lg',
+    lg: 'max-w-2xl',
     xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
     image: 'max-w-3xl'
   }[size];
 
   return (
-    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
+    <div className="fixed inset-0 bg-overlay backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
       <div 
-        className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[2rem] p-6 w-full ${widthClass} shadow-2xl text-left transform transition-all duration-300 scale-100`}
+        className={`glass bg-raised border border-line rounded-xl p-6 w-full ${widthClass} shadow-lg text-left transform transition-all duration-300 scale-100`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800/80 mb-4">
-          <h3 className="font-headline font-black text-lg text-slate-900 dark:text-white uppercase tracking-wider">
+        <div className="flex items-center justify-between pb-3.5 border-b border-line mb-4">
+          <h3 className="font-headline font-black text-lg text-content uppercase tracking-wider">
             {title}
           </h3>
           <button 
             onClick={onClose} 
-            className="text-slate-400 hover:text-slate-650 dark:hover:text-white cursor-pointer w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            className="text-content-secondary hover:text-content cursor-pointer w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center hover:bg-surface transition-colors interactive-tap"
+            title="Cerrar modal"
+            aria-label="Cerrar modal"
           >
             <span className="material-symbols-outlined text-xl">close</span>
           </button>

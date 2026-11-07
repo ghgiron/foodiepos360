@@ -1,64 +1,240 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+@import "./styles/tokens.css";
+@import "./styles/tokens.pos.css";
+@import "./styles/tokens.classic.css";
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
+
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *, [data-theme="glass"], [data-theme="glass"] *, [data-theme="kds"], [data-theme="kds"] *));
+
+@theme {
+  --color-canvas: var(--bg-canvas);
+  --color-surface: var(--bg-surface);
+  --color-raised: var(--bg-raised);
+  --color-inset: var(--bg-inset);
+  --color-overlay: var(--bg-overlay);
+  --color-line-subtle: var(--border-subtle);
+  --color-line: var(--border-default);
+  --color-line-strong: var(--border-strong);
+  --color-content: var(--text-primary);
+  --color-content-secondary: var(--text-secondary);
+  --color-content-tertiary: var(--text-tertiary);
+  --color-content-disabled: var(--text-disabled);
+  --color-content-accent: var(--text-accent);
+  --color-content-on-accent: var(--text-on-accent);
+  --color-action: var(--action-fill);
+  --color-action-hover: var(--action-hover);
+  --color-action-pressed: var(--action-pressed);
+  --color-action-text: var(--action-text);
+  --color-heat-ok: var(--heat-ok);
+  --color-heat-warm: var(--heat-warm);
+  --color-heat-hot: var(--heat-hot);
+  --color-heat-overdue: var(--heat-overdue);
+
+  --spacing-touch: 56px;
+  --spacing-touch-lg: 64px;
+  --spacing-touch-key: 72px;
+
+  --color-app: var(--bg-app);
+  --color-surface-raised: var(--bg-surface-raised);
+  --color-input: var(--bg-input);
+  --color-primary-text: var(--text-primary);
+  --color-secondary-text: var(--text-secondary);
+  --color-muted-text: var(--text-muted);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-glow: var(--border-glow);
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-pink: var(--accent-pink);
+  --color-accent-orange: var(--accent-orange);
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-card-raised: var(--shadow-card-raised);
+  --radius-input: 8px;
+  --radius-select: 8px;
+  --radius-card: 16px;
+  --radius-card-lg: 20px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-3xl: 28px;
+}
+
+/* ==========================================================================
+   DESIGN TOKENS & SYSTEM THEME (DUAL COLOR SYSTEM & ELEVATION)
+   Per specifications in DESIGN.md & designrules-foodiepos.md
+   ========================================================================== */
 
 :root {
-  --bg-app: #EEF2F6;           /* Gris claro para el lienzo en modo claro */
-  --bg-surface: #FFFFFF;       /* Blanco puro para tarjetas en modo claro */
-  --bg-input: #F1F5F9;         /* Gris slate claro para campos en modo claro */
-  
-  --text-primary: #0F172A;     /* Slate 900 para títulos en modo claro */
-  --text-secondary: #334155;   /* Slate 700 para cuerpo en modo claro */
-  --text-muted: #64748B;       /* Slate 500 para textos secundarios en modo claro */
-  --text-accessible: #000000;  /* Alta legibilidad contrastada */
-  
-  --accent-purple: #8F63F4;   /* Violeta Vertex para estados activos y selección */
-  --accent-pink: #FF4E88;     /* Rosa neón para 'Nuevo Pedido' y alertas críticas */
-  --accent-blue: #3B82F6;     /* Azul para Play/Iniciar */
-  --accent-yellow: #EAB308;   /* Amarillo/Ámbar para Pausa */
-  --accent-green: #10B981;    /* Verde para Listo/Check */
+  color-scheme: light;
 
+  /* --- 1. Surface Elevation System (Level 0 - Level 2) --- */
+  --bg-app: #F1F5F9;             /* Level 0: Soft cool slate-100 anti-glare canvas */
+  --bg-surface: #FFFFFF;         /* Level 1: Pure white for cards & containers */
+  --bg-surface-raised: #F8FAFC;  /* Level 2: Tinted container, modals, elevated sheets */
+  
+  /* --- 2. Typography & Contrast (WCAG 2.1 AAA Compliant) --- */
+  --text-primary: #0F172A;       /* Slate 900 (17.4:1 contrast AAA vs white) */
+  --text-secondary: #475569;     /* Slate 600 (7.04:1 contrast AAA vs white) */
+  --text-muted: #64748B;         /* Slate 500 metadata */
+  --text-accessible: #0F172A;    /* High-contrast base */
+  
+  /* --- 3. Form Inputs & Control Fields (Light Mode) --- */
+  --bg-input: #FFFFFF;
+  --input-bg: #FFFFFF;           /* Pure white background */
+  --input-border: #CBD5E1;       /* Slate 300 crisp border */
+  --input-text: #0F172A;         /* Slate 900 input text */
+  --input-placeholder: #475569;  /* Slate 600 placeholder (7.04:1 AAA) */
+  --border-subtle: #CBD5E1;      /* Hairline border */
+  --border-glow: #E2E8F0;        /* Slate 200 container divider */
+  
+  /* --- 4. Accent Palette & Operational Calls --- */
+  --accent-purple: #8F63F4;     /* Electric Purple: active nav, selection, focus ring */
+  --accent-pink: #FF4E88;       /* Vibrant Rose: "Nuevo Pedido" & urgent calls */
+  --accent-orange: #FF5722;     /* Electric Orange: primary CTAs & checkout in Light Mode */
+  --accent-blue: #3B82F6;       /* Blue: In-transit, flying comanda, Play/Iniciar */
+  --accent-yellow: #D97706;     /* Dark amber: pause, warning, cooking */
+  --accent-amber: #F59E0B;      /* Warm amber state */
+  --accent-green: #059669;      /* Accessible emerald: ready, served, paid */
+  --accent-red: #EF4444;        /* Crimson red: urgent ticket, canceled, alert */
+
+  /* --- 5. Semantic Operational Colors --- */
+  --status-success: #10B981;
+  --status-success-dark: #059669;
+  --status-warning: #F59E0B;
+  --status-warning-dark: #D97706;
+  --status-error: #EF4444;
+  --status-error-dark: #DC2626;
+  --status-info: #3B82F6;
+  --status-purple: #8F63F4;
+
+  /* --- 6. Brand & Backward Compatibility Tokens --- */
   --color-primary: #5850EC;
   --color-accent-pink: #FF4E88;
   --color-purple: #8B5CF6;
-  
   --bg-color: var(--bg-app);
   --card-color: var(--bg-surface);
+  --card-white: rgba(255, 255, 255, 0.95);
   
   --scrollbar-thumb: rgba(88, 80, 236, 0.3);
-  --border-glow: rgba(88, 80, 236, 0.25);
-  
+
+  /* --- 7. Chromatic Shadows & Progressive Elevation (Light Mode) --- */
+  /* Avoid muddy black shadows; use brand/text-slate tinted shadows via color-mix */
+  --shadow-card: 0 8px 24px rgba(15, 23, 42, 0.04);
+  --shadow-card-hover: 0 16px 32px -10px color-mix(in srgb, #0F172A 15%, transparent);
+  --shadow-card-active: 0 4px 12px rgba(15, 23, 42, 0.03);
+  --shadow-card-raised: 0 12px 32px rgba(15, 23, 42, 0.06);
+
   --shadow-indigo-lg: 0 10px 15px -3px rgba(88, 80, 236, 0.25), 0 4px 6px -2px rgba(88, 80, 236, 0.1);
   --shadow-pink-glow: 0 0 15px 5px rgba(255, 78, 136, 0.3);
+  --shadow-purple-glow: 0 0 20px rgba(143, 99, 244, 0.25);
+  --shadow-orange-glow: 0 0 20px rgba(255, 87, 34, 0.25);
   
-  --radius-sm: 10px;
-  --radius-md: 18px;
-  --radius-lg: 30px;
-  --card-white: rgba(255, 255, 255, 0.95);
+  /* --- 8. Radii Geometry Scale (MD: 12px, Max Card: 16px LG) --- */
+  --radius-input: 8px;
+  --radius-select: 8px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-card: 12px;
+  --radius-lg: 16px;
+  --radius-card-lg: 16px;
+  --radius-xl: 16px;
+  --radius-2xl: 16px;
+  --radius-3xl: 16px;
+  --radius-full: 9999px;
 }
 
 .dark {
-  --bg-app: #0A0B1A;           /* Azul noche ultra profundo para el lienzo */
-  --bg-surface: #111229;       /* Tarjetas, Bento Cards y paneles principales */
-  --bg-input: #171938;         /* Cajas de búsqueda y campos de texto */
+  color-scheme: dark;
+
+  /* --- 1. Surface Elevation System (Pure Neutral Dark - #0A0A0A) --- */
+  --bg-app: #0A0A0A;             /* Level 0: Pure Deep Canvas */
+  --bg-canvas: #0A0A0A;
+  --bg-surface: #171717;         /* Level 1: Elevated pure neutral card */
+  --bg-surface-raised: #262626;  /* Level 2: Elevated pure neutral modal/container */
+  --bg-inset: #000000;           /* Level -1: Pitch black deep field */
+  --card-dark: #171717;
   
-  --text-primary: #FAFAFF;     /* Blanco puro de alta legibilidad para títulos */
-  --text-secondary: #C5C9DB;   /* Gris plata nítido para textos de menú y descripciones */
-  --text-muted: #7F849E;       /* Gris para deshabilitados o secundarios */
-  --text-accessible: #FFFFFF;  /* Alta legibilidad en oscuro */
+  /* --- 2. Typography & Contrast (Dark Mode AAA) --- */
+  --text-primary: #FAFAFA;       /* Pure high-contrast Neutral 50 (19:1 AAA) */
+  --text-secondary: #A3A3A3;     /* Muted Neutral 400 (7.8:1 AAA) */
+  --text-muted: #737373;         /* Dimmed Neutral 500 metadata (5.7:1 AA) */
+  --text-accessible: #FAFAFA;    /* High contrast dark base */
   
+  /* --- 3. Form Inputs & Control Fields (Dark Mode) --- */
+  --bg-input: #121212;           /* Pure dark contrast field */
+  --input-bg: #121212;
+  --input-border: #2E2E2E;       /* Pure neutral border */
+  --input-text: #FAFAFA;         /* Neutral 50 text */
+  --input-placeholder: #737373;  /* Neutral 500 placeholder */
+  --border-subtle: #262626;      /* Pure neutral hairline border */
+  --border-default: #333333;
+  --border-strong: #444444;
+  --border-glow: #2E2E2E;
+  
+  /* --- 4. Accent Palette & Operational Calls --- */
+  --accent-purple: #8F63F4;
+  --accent-pink: #FF4E88;
+  --accent-orange: #FF6B2C;
+  --accent-blue: #3B82F6;
+  --accent-yellow: #F59E0B;
+  --accent-amber: #F59E0B;
+  --accent-green: #10B981;
+  --accent-red: #EF4444;
+
+  /* --- 5. Semantic Operational Colors --- */
+  --status-success: #10B981;
+  --status-success-dark: #059669;
+  --status-warning: #F59E0B;
+  --status-warning-dark: #D97706;
+  --status-error: #EF4444;
+  --status-error-dark: #DC2626;
+  --status-info: #3B82F6;
+  --status-purple: #8F63F4;
+
+  /* --- 6. Brand & Compatibility Tokens --- */
   --bg-color: var(--bg-app);
   --card-color: var(--bg-surface);
   
-  --scrollbar-thumb: rgba(143, 99, 244, 0.3);
-  --border-glow: rgba(88, 80, 236, 0.15);
-  --card-dark: rgba(17, 18, 41, 0.95);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.16);
+
+  /* --- 7. Chromatic Shadows & Deep Elevation (Dark Mode) --- */
+  /* Sombras y profundidad multicapa para tarjetas superpuestas */
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-card-hover: 0 12px 32px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --shadow-card-active: 0 2px 8px rgba(0, 0, 0, 0.7);
+  --shadow-card-raised: 0 12px 28px -4px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08);
+
+  --shadow-indigo-lg: 0 10px 20px -3px rgba(143, 99, 244, 0.3);
+  --shadow-pink-glow: 0 0 15px 5px rgba(255, 78, 136, 0.3);
+  --shadow-purple-glow: 0 0 20px rgba(143, 99, 244, 0.25);
+  --shadow-orange-glow: 0 0 20px rgba(255, 87, 34, 0.25);
 }
 
+/* ==========================================================================
+   BASE & RESET RULES
+   ========================================================================== */
+
 @layer base {
-  input[type="text"], input[type="number"], input[type="email"], select, textarea {
-    background-color: var(--card-color);
-    color: inherit;
-    transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s;
+  *:focus-visible {
+    outline: 2px solid var(--accent-purple) !important;
+    outline-offset: 2px !important;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  select,
+  textarea {
+    background-color: var(--input-bg);
+    color: var(--input-text);
+    border-color: var(--input-border);
+    transition: background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+                color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
 
@@ -69,7 +245,8 @@ body {
   box-sizing: border-box;
   background-color: var(--bg-app);
   color: var(--text-primary);
-  transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 h1, h2, h3, h4, .brand-font {
@@ -131,14 +308,127 @@ h1, h2, h3, h4, .brand-font {
   scrollbar-width: none;
 }
 
-/* Receitly Design System Utility Classes */
+/* ==========================================================================
+   MICRO-INTERACTION & TACTILE FEEDBACK SYSTEM
+   Per Section 5.2 of DESIGN.md & designrules-foodiepos.md
+   ========================================================================== */
+
+/* 1. Card Lift: Smooth hover elevation on desktop, tactile active compression on touch */
+.card-lift {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.18s ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+
+.card-lift:active {
+  transform: scale(0.98);
+  box-shadow: var(--shadow-card-active);
+}
+
+/* 2. Button Press: Smooth hover lift with instant haptic tactile compression */
+.btn-press {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              filter 0.15s ease-out,
+              box-shadow 0.15s ease-out;
+  cursor: pointer;
+  user-select: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-press:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+/* 3. Interactive Tap: Sub-100ms tactile compression for high-frequency POS controls (+, -, tables) */
+.interactive-tap {
+  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+
+.interactive-tap:active {
+  transform: scale(0.95);
+}
+
+/* 4. Chip Pills: Rounded capsule filters with active haptic states */
+.chip-pill {
+  border-radius: var(--radius-full);
+  padding: 0.5rem 1.125rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.15s ease-out,
+              color 0.15s ease-out,
+              border-color 0.15s ease-out,
+              box-shadow 0.15s ease-out;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip-pill:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.chip-pill:active {
+  transform: scale(0.96);
+}
+
+/* 5. Tabular Numbers: Stable typography for monetary totals, quantities and tickets */
+.tabular-numbers,
+.num-tabular {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* 6. Accessible Focus Ring */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent-purple) !important;
+  outline-offset: 2px !important;
+}
+
+/* 7. Shadow Utility Classes */
+.shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+.shadow-card-hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.shadow-card-raised {
+  box-shadow: var(--shadow-card-raised);
+}
+
+/* ==========================================================================
+   CARDS & OPERATIONAL CONTAINERS
+   ========================================================================== */
+
 .transition-receitly {
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .btn-receitly {
   min-height: 48px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-full);
   background-color: var(--color-accent-pink);
   color: white;
   padding: 0.5rem 1.5rem;
@@ -155,15 +445,16 @@ h1, h2, h3, h4, .brand-font {
 
 .btn-receitly:hover {
   filter: brightness(1.08);
+  transform: translateY(-2px);
 }
 
 .btn-receitly:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 .btn-receitly-secondary {
   min-height: 48px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-full);
   background-color: transparent;
   color: var(--color-primary);
   border: 1px solid rgba(88, 80, 236, 0.3);
@@ -185,54 +476,74 @@ h1, h2, h3, h4, .brand-font {
   background-color: rgba(143, 99, 244, 0.08);
   border-color: var(--accent-purple);
   color: var(--accent-purple);
+  transform: translateY(-2px);
 }
 
 .btn-receitly-secondary:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
+/* Panel Card with Chromatic Shadow */
 .panel-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-glow);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card, 16px);
   padding: 1.5rem;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease-out;
+  box-shadow: var(--shadow-card);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .panel-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
 }
 
 .dark .panel-card {
   border: 1px solid var(--border-glow);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-card);
 }
 
+.dark .panel-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Glass Card */
 .glass-card {
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border-glow);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card, 16px);
   padding: 1.5rem;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dark .glass-card {
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(23, 23, 23, 0.75);
   border: 1px solid var(--border-glow);
 }
 
-/* Stacking context fixes for active cards containing dropdowns/inputs */
+/* Stacking context and radius containment: enforce MD (12px) and max LG (16px) on cards */
 .glass-card,
 .panel-card,
+div[class*="rounded-2xl"],
 div[class*="rounded-3xl"],
-div[class*="rounded-[var(--radius-lg)]"] {
+section[class*="rounded-2xl"],
+section[class*="rounded-3xl"],
+div[class*="rounded-[var(--radius-card)]"] {
   position: relative;
+  border-radius: var(--radius-card-lg, 16px);
   z-index: 10;
 }
 
 .glass-card:focus-within,
 .panel-card:focus-within,
+div[class*="rounded-2xl"]:focus-within,
 div[class*="rounded-3xl"]:focus-within,
-div[class*="rounded-[var(--radius-lg)]"]:focus-within {
+div[class*="rounded-[var(--radius-card)]"]:focus-within {
   z-index: 50;
 }
 
@@ -244,7 +555,7 @@ tr, button, a, [class*="hover:bg-"] {
               box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-/* Asegurar que las filas de tablas y botones interactivos en hover tengan cambios de fondo sutiles y accesibles */
+/* Filas de tablas y botones interactivos en hover con fondos accesibles */
 tr[class*="hover:bg-"]:hover,
 button[class*="hover:bg-"]:hover,
 div[class*="hover:bg-"]:hover {
@@ -259,19 +570,143 @@ div[class*="hover:bg-"]:hover {
   color: var(--text-primary) !important;
 }
 
-/* Clases de hover con base en la paleta premium de accent-purple */
+/* Hover con acento violeta */
 .hover-accent-purple:hover {
   background-color: rgba(143, 99, 244, 0.15) !important;
   color: var(--accent-purple) !important;
 }
 
+/* ==========================================================================
+   OPERATIONAL STATUS BADGES & KDS UTILITIES
+   ========================================================================== */
+
+.badge-status-ready {
+  background-color: color-mix(in srgb, var(--status-success) 12%, transparent);
+  color: var(--status-success);
+  border: 1px solid color-mix(in srgb, var(--status-success) 28%, transparent);
+}
+
+.badge-status-pending {
+  background-color: color-mix(in srgb, var(--status-warning) 12%, transparent);
+  color: var(--status-warning-dark);
+  border: 1px solid color-mix(in srgb, var(--status-warning) 28%, transparent);
+}
+
+.dark .badge-status-pending {
+  color: var(--status-warning);
+}
+
+.badge-status-urgent {
+  background-color: color-mix(in srgb, var(--status-error) 12%, transparent);
+  color: var(--status-error);
+  border: 1px solid color-mix(in srgb, var(--status-error) 28%, transparent);
+}
+
+.badge-status-transit {
+  background-color: color-mix(in srgb, var(--status-info) 12%, transparent);
+  color: var(--status-info);
+  border: 1px solid color-mix(in srgb, var(--status-info) 28%, transparent);
+}
+
+/* KDS Kitchen Ticket Card Elevation */
+.kds-card {
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-card, 16px);
+  border: 1px solid var(--border-glow);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.18s ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .kds-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+
+/* Animations */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
+  animation: fadeIn 0.3s ease-out forwards;
 }
 
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 
+.animate-scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0.8;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0.8;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-slide-up-fade {
+  animation: slideUpFade 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ==========================================================================
+   ACCESSIBILITY: PREFERS-REDUCED-MOTION GUARDRAIL
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    transform: none !important;
+  }
+}

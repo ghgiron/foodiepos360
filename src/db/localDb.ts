@@ -22,7 +22,8 @@ import type {
   Reservation,
   NotificationTrigger,
   KdsProductPrepHistory,
-  KdsLowStockAlertsHistory
+  KdsLowStockAlertsHistory,
+  StockReservation
 } from '../types';
 
 /**
@@ -54,13 +55,38 @@ export class FoodiePOSDatabase extends Dexie {
   notifications!: Table<NotificationTrigger, string>;
   kdsProductPrepHistory!: Table<KdsProductPrepHistory, string>;
   kdsLowStockAlertsHistory!: Table<KdsLowStockAlertsHistory, string>;
+  stockReservations!: Table<StockReservation, string>;
 
   get reservations(): Table<Reservation, string> {
     return this.reservas;
   }
 
+  get categories(): Table<{ id: string; name: string }, string> {
+    return this.ingredientCategories;
+  }
+
   get orders(): Table<KdsOrderTicket, string> {
     return this.kdsOrderTickets;
+  }
+
+  get customers(): Table<Client, string> {
+    return this.clients;
+  }
+
+  get inventoryMovements(): Table<InventoryLog, string> {
+    return this.inventoryLogs;
+  }
+
+  get wasteLogs(): Table<OperationalLoss, string> {
+    return this.operationalLosses;
+  }
+
+  get stockAlerts(): Table<KdsLowStockAlertsHistory, string> {
+    return this.kdsLowStockAlertsHistory;
+  }
+
+  get sync_outbox(): Table<DomainOutbox, string> {
+    return this.domainOutbox;
   }
 
   constructor() {
@@ -154,6 +180,79 @@ export class FoodiePOSDatabase extends Dexie {
       notifications: 'id, type, targetId, scheduledAt, status',
       kdsProductPrepHistory: 'id, ticketId, recipeId, station, comandaTime, prepCompletedAt, wasEfficient',
       kdsLowStockAlertsHistory: 'id, timestamp, productId, station'
+    });
+
+    this.version(11).stores({
+      inventoryItems: 'id, category, abcClassification, supplierId, updatedAt, operationZone, operationalZone',
+      recipes: 'id, category, bcgClassification, isSubRecipe, updatedAt',
+      dailyBriefings: 'id, date, briefingLeaderId, completedAt',
+      kdsOrderTickets: 'id, orderId, tableId, waiterId, overallStatus, comandaTime',
+      domainOutbox: 'eventId, eventType, status, createdAt, syncedAt',
+      loyaltyPlans: 'id, createdAt',
+      promotionBooks: 'id, sucursalId, isActive, updatedAt',
+      globalConfigs: 'key',
+      allergens: 'name',
+      systemSettings: 'key',
+      fixedAssets: 'id, name, category, location, status, nextMaintenanceDate',
+      assetDamageReports: 'id, assetId, severity, createdAt',
+      suppliers: 'id, name, email',
+      menuCategories: 'id, name',
+      ingredientCategories: 'id, name',
+      supplyCategories: 'id, name',
+      operationalLosses: 'id, ticketId, recipeId, reason, cancelledAt',
+      supplierIncidents: 'id, supplierId, itemId, quality, recordedAt',
+      inventoryLogs: 'id, itemId, type, reason, timestamp',
+      clients: 'id, name, phone, taxId, createdAt',
+      reservas: 'id, tableId, clientId, date, status',
+      notifications: 'id, type, targetId, scheduledAt, status',
+      kdsProductPrepHistory: 'id, ticketId, recipeId, station, comandaTime, prepCompletedAt, wasEfficient',
+      kdsLowStockAlertsHistory: 'id, timestamp, productId, station'
+    });
+
+    this.version(12).stores({
+      inventoryItems: 'id, category, abcClassification, supplierId, updatedAt, operationZone, operationalZone',
+      recipes: 'id, category, bcgClassification, isSubRecipe, updatedAt',
+      dailyBriefings: 'id, date, briefingLeaderId, completedAt',
+      kdsOrderTickets: 'id, orderId, tableId, waiterId, overallStatus, comandaTime',
+      domainOutbox: 'eventId, eventType, status, createdAt, syncedAt',
+      loyaltyPlans: 'id, createdAt',
+      promotionBooks: 'id, sucursalId, isActive, updatedAt',
+      globalConfigs: 'key',
+      allergens: 'name',
+      systemSettings: 'key',
+      fixedAssets: 'id, name, category, location, status, nextMaintenanceDate',
+      assetDamageReports: 'id, assetId, severity, createdAt',
+      suppliers: 'id, name, email',
+      menuCategories: 'id, name',
+      ingredientCategories: 'id, name',
+      supplyCategories: 'id, name',
+      operationalLosses: 'id, ticketId, recipeId, reason, cancelledAt',
+      supplierIncidents: 'id, supplierId, itemId, quality, recordedAt',
+      inventoryLogs: 'id, itemId, type, reason, timestamp',
+      clients: 'id, name, phone, taxId, createdAt',
+      reservas: 'id, tableId, clientId, date, status',
+      notifications: 'id, type, targetId, scheduledAt, status',
+      kdsProductPrepHistory: 'id, ticketId, recipeId, station, comandaTime, prepCompletedAt, wasEfficient',
+      kdsLowStockAlertsHistory: 'id, timestamp, productId, station',
+      stockReservations: 'id, orderId, ticketId, itemId, status, timestamp'
+    }).upgrade(async (tx) => {
+      try {
+        const items = await tx.table('inventoryItems').toArray();
+        for (const item of items) {
+          const current = item.currentStock !== undefined 
+            ? item.currentStock 
+            : (item.realPhysicalStock !== undefined ? item.realPhysicalStock : (item.theoreticalStock || 0));
+          const reserved = item.reservedStock !== undefined ? item.reservedStock : 0;
+          await tx.table('inventoryItems').update(item.id, {
+            currentStock: current,
+            reservedStock: reserved,
+            availableStock: Math.max(0, current - reserved)
+          });
+        }
+        console.log(`[localDb] Upgraded ${items.length} inventoryItems with two-phase staging fields.`);
+      } catch (err) {
+        console.error('Error during Dexie version 12 upgrade:', err);
+      }
     });
 
     console.log('[localDb] Tables configured in constructor:', this.tables.map(t => t.name));

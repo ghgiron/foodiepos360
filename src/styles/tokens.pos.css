@@ -1,0 +1,373 @@
+/* ==========================================================================
+   tokens.pos.css — Perfil POS restaurante
+   Cargar DESPUÉS de tokens.css. Reasigna el sistema base así:
+     · El naranja deja de ser color de marca y queda reservado al CALOR
+       (tiempo de espera y urgencia). No se usa en botones, enlaces ni selección.
+     · La acción principal es crema/blanco (en light, tinta casi negra).
+     · Estados de mesa con color + icono + etiqueta (nunca solo color).
+   Temas: dark · light · glass · kds (cocina, alto contraste, sin vidrio)
+   Efectos: data-effects="reduced" o data-glass="false" desactiva blur.
+   ========================================================================== */
+
+:root {
+  /* Crema (acción principal sobre fondos oscuros) */
+  --cream-50:  #FBF7F0;
+  --cream-100: #F5EFE6;
+  --cream-200: #E8DFD0;
+
+  /* Objetivos táctiles (más grandes que una app normal: manos mojadas, prisa) */
+  --touch-min: 56px;   /* mínimo para cualquier control táctil */
+  --touch-lg:  64px;   /* acción principal, filas de la orden */
+  --touch-key: 72px;   /* teclas del teclado numérico */
+  --touch-gap: 8px;    /* separación mínima entre controles */
+
+  /* Números operativos (cifras tabulares siempre) */
+  --num-md: 1.5rem;    /* 24: número de mesa, cantidades */
+  --num-lg: 2rem;      /* 32: precios de línea, temporizadores */
+  --num-xl: 3rem;      /* 48: total a cobrar */
+
+  /* Temporizador de calor */
+  --heat-pulse-duration: 1.2s;
+}
+
+/* ---------- Acción + calor + estados: DARK (por defecto), GLASS y KDS ---------- */
+:root,
+[data-theme="dark"],
+[data-theme="glass"],
+[data-theme="kds"] {
+  /* Acción principal: Crema (#F5EFE6) con texto tinta (#0A0A0A) */
+  --action-fill:    var(--cream-100);
+  --action-hover:   var(--cream-50);
+  --action-pressed: var(--cream-200);
+  --action-text:    var(--neutral-950);
+
+  /* Reasignación del acento base → acción crema */
+  --accent:         var(--cream-100);
+  --accent-hover:   var(--cream-50);
+  --accent-pressed: var(--cream-200);
+  --accent-subtle:  rgba(245, 239, 230, 0.12);
+  --accent-fill:    var(--cream-100);
+  --text-accent:    var(--text-primary);
+  --text-link:      var(--text-primary);
+  --text-on-accent: var(--neutral-950);
+  --border-accent:  var(--cream-100);
+  --bg-selected:    rgba(245, 239, 230, 0.14);
+  --focus-ring:     0 0 0 2px var(--neutral-950), 0 0 0 4px var(--cream-100);
+  --shadow-glow-accent: 0 6px 20px rgba(0, 0, 0, 0.45);
+
+  /* Escala de calor (única aparición del naranja) */
+  --heat-ok:       var(--neutral-300);   /* dentro de tiempo: sin calor */
+  --heat-warm:     var(--orange-300);    /* ~50 % del tiempo objetivo */
+  --heat-hot:      var(--orange-500);    /* ~80 % del tiempo objetivo */
+  --heat-overdue:  var(--orange-600);    /* superado: relleno sólido + pulso + icono */
+  --heat-warm-subtle:    rgba(255, 168, 116, 0.14);
+  --heat-hot-subtle:     rgba(255, 107, 44, 0.18);
+  --heat-overdue-subtle: rgba(240, 81, 26, 0.26);
+  --heat-overdue-text:   var(--neutral-950);  /* sobre relleno sólido overdue */
+
+  /* Estados de mesa (siempre con icono y etiqueta) */
+  --table-free:     var(--neutral-500);   /* contorno, sin relleno */
+  --table-occupied: var(--neutral-300);   /* relleno neutro */
+  --table-bill:     var(--blue-400);      /* cuenta pedida */
+  --table-ready:    var(--green-500);     /* plato listo para servir */
+  --table-reserved: var(--violet-400);    /* reservada */
+}
+
+/* ---------- LIGHT ---------- */
+[data-theme="light"] {
+  --action-fill:    var(--neutral-950);
+  --action-hover:   var(--neutral-850);
+  --action-pressed: var(--neutral-800);
+  --action-text:    var(--cream-50);
+
+  --accent:         var(--neutral-950);
+  --accent-hover:   var(--neutral-850);
+  --accent-pressed: var(--neutral-800);
+  --accent-subtle:  rgba(10, 10, 10, 0.07);
+  --accent-fill:    var(--neutral-950);
+  --text-accent:    var(--orange-700); /* #C73E12 (5.1:1 AA sobre blanco para badges/acentos puntuales) */
+  --text-link:      var(--neutral-950);
+  --text-on-accent: var(--cream-50);
+  --border-accent:  var(--neutral-950);
+  --bg-selected:    rgba(10, 10, 10, 0.08);
+  --focus-ring:     0 0 0 2px var(--neutral-0), 0 0 0 4px var(--neutral-950);
+  --shadow-glow-accent: var(--shadow-md);
+
+  /* Calor sobre fondos claros: tonos más profundos para llegar a 3:1 en anillos y 5.1:1 en texto */
+  --heat-ok:       var(--neutral-600);
+  --heat-warm:     var(--orange-600);
+  --heat-hot:      var(--orange-700);
+  --heat-overdue:  var(--orange-800);
+  --heat-warm-subtle:    rgba(240, 81, 26, 0.10);
+  --heat-hot-subtle:     rgba(199, 62, 18, 0.12);
+  --heat-overdue-subtle: rgba(158, 51, 20, 0.16);
+  --heat-overdue-text:   var(--neutral-0);
+
+  --table-free:     var(--neutral-600);
+  --table-occupied: var(--neutral-700);
+  --table-bill:     var(--blue-700);
+  --table-ready:    var(--green-700);
+  --table-reserved: var(--violet-700);
+}
+
+/* ---------- GLASS: mismos valores de acción que dark, refuerzo de selección ---------- */
+[data-theme="glass"],
+[data-theme="dark"][data-glass="true"] {
+  --bg-selected: rgba(245, 239, 230, 0.20);
+  --heat-ok: var(--neutral-200);
+}
+
+/* ---------- KDS (pantalla de cocina): alto contraste, sin vidrio, texto grande ---------- */
+[data-theme="kds"],
+.kds-theme-scope {
+  --bg-canvas:  var(--neutral-1000);
+  --bg-surface: var(--neutral-900);
+  --bg-raised:  var(--neutral-850);
+  --text-primary:   var(--neutral-0);
+  --text-secondary: var(--neutral-200);
+  --text-tertiary:  var(--neutral-300);
+  --border-default: rgba(255, 255, 255, 0.22);
+  --card-bg: var(--neutral-900);
+  --card-blur: none;
+  --floating-blur: none;
+  --card-radius: var(--radius-lg);
+  --page-bg: var(--neutral-1000);
+  --heat-ok: var(--neutral-200);
+  --num-md: 2rem;
+  --num-lg: 3rem;
+  --num-xl: 4.5rem;
+  --heat-pulse-duration: 0.9s;
+}
+[data-theme="kds"] body, body[data-theme="kds"] { font-size: 1.25rem; }
+
+/* ---------- Efectos reducidos (hardware lento o desactivación manual de Glass) ---------- */
+[data-effects="reduced"],
+[data-glass="false"] {
+  --card-blur: none;
+  --floating-blur: none;
+  --card-bg: var(--neutral-900);
+  --floating-bg: var(--neutral-900);
+  --bg-surface: var(--neutral-900);
+  --bg-raised: var(--neutral-850);
+  --page-bg: var(--neutral-950);
+}
+[data-effects="reduced"][data-theme="light"],
+[data-glass="false"][data-theme="light"] {
+  --card-bg: var(--neutral-0);
+  --floating-bg: var(--neutral-0);
+  --bg-surface: var(--neutral-0);
+  --bg-raised: var(--neutral-0);
+  --page-bg: var(--neutral-50);
+}
+
+/* ==========================================================================
+   Componentes POS (consumen solo tokens)
+   ========================================================================== */
+
+/* Calor: poner data-heat="ok|warm|hot|overdue" en cualquier contenedor y usar --heat */
+[data-heat="ok"]      { --heat: var(--heat-ok);      --heat-bg: transparent; }
+[data-heat="warm"]    { --heat: var(--heat-warm);    --heat-bg: var(--heat-warm-subtle); }
+[data-heat="hot"]     { --heat: var(--heat-hot);     --heat-bg: var(--heat-hot-subtle); }
+[data-heat="overdue"] { --heat: var(--heat-overdue); --heat-bg: var(--heat-overdue-subtle); }
+
+.heat-badge {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: 32px; padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--heat-bg); color: var(--text-primary);
+  border: 1.5px solid var(--heat);
+  font: var(--weight-bold) var(--text-sm)/1 var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+/* Overdue: relleno sólido + pulso. El icono y el texto "+mm:ss" acompañan siempre. */
+.heat-badge[data-heat="overdue"] {
+  background: var(--heat-overdue); color: var(--heat-overdue-text);
+  animation: heat-pulse var(--heat-pulse-duration) ease-in-out infinite;
+}
+@keyframes heat-pulse { 50% { box-shadow: 0 0 0 6px var(--heat-overdue-subtle); } }
+@media (prefers-reduced-motion: reduce) { .heat-badge[data-heat="overdue"] { animation: none; } }
+
+.table-tile {
+  min-width: var(--touch-lg); min-height: var(--touch-lg);
+  display: flex; flex-direction: column; justify-content: space-between;
+  padding: var(--space-3); border-radius: var(--radius-lg);
+  background: var(--bg-surface); color: var(--text-primary);
+  border: 2px solid var(--border-default);
+}
+.table-tile .num { font: var(--weight-extrabold) var(--num-md)/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.table-tile[data-status="free"]     { border-style: dashed; border-color: var(--table-free); background: transparent; }
+.table-tile[data-status="occupied"] { border-color: var(--table-occupied); }
+.table-tile[data-status="bill"]     { border-color: var(--table-bill); }
+.table-tile[data-status="ready"]    { border-color: var(--table-ready); }
+.table-tile[data-status="reserved"] { border-color: var(--table-reserved); border-style: double; border-width: 4px; }
+/* El calor se dibuja como anillo de tiempo, independiente del estado */
+.table-tile[data-heat="warm"], .table-tile[data-heat="hot"], .table-tile[data-heat="overdue"] {
+  box-shadow: 0 0 0 3px var(--heat); background-image: linear-gradient(var(--heat-bg), var(--heat-bg));
+}
+
+/* Botón principal y controles: tamaño táctil POS */
+.btn { min-height: var(--touch-min); }
+.btn-lg { min-height: var(--touch-lg); padding-inline: var(--space-8); font-size: var(--text-base); }
+.btn-primary { background: var(--action-fill); color: var(--action-text); box-shadow: var(--shadow-md); }
+.btn-primary:hover { background: var(--action-hover); }
+.btn-primary:active { background: var(--action-pressed); }
+.key { width: var(--touch-key); height: var(--touch-key); border-radius: var(--radius-xl);
+  font: var(--weight-bold) var(--num-md)/1 var(--font-display); font-variant-numeric: tabular-nums;
+  background: var(--bg-raised); color: var(--text-primary); border: 1px solid var(--border-default); }
+.total { font: var(--weight-extrabold) var(--num-xl)/1 var(--font-display); font-variant-numeric: tabular-nums; letter-spacing: var(--tracking-tight); }
+
+.input:focus { border-color: var(--action-fill); box-shadow: var(--focus-ring); }
+.chip[aria-selected="true"] { background: var(--bg-selected); border-color: var(--action-fill); color: var(--text-primary); }
+.toggle[aria-checked="true"] { background: var(--action-fill); }
+.toggle[aria-checked="true"]::after { background: var(--action-text); }
+.nav-bar button[aria-current="page"] { color: var(--text-primary); }
+
+/* ==========================================================================
+   PERSONALIZACIÓN DINÁMICA DE APARIENCIA (ACCENTS, FONT-SIZE, CONTRAST)
+   ========================================================================== */
+
+/* 1. PALETA DE ACENTOS Y BOTONES PRIMARIOS */
+[data-accent="cream"]:root,
+[data-accent="cream"][data-theme="dark"],
+[data-accent="cream"][data-theme="glass"],
+[data-accent="cream"][data-theme="kds"],
+[data-accent="cream"] .dark {
+  --action-fill:    var(--cream-100);
+  --action-hover:   var(--cream-50);
+  --action-pressed: var(--cream-200);
+  --action-text:    var(--neutral-950);
+  --accent:         var(--cream-100);
+  --border-accent:  var(--cream-100);
+  --accent-purple:  #8F63F4;
+}
+[data-accent="cream"][data-theme="light"],
+[data-accent="cream"]:not(.dark) {
+  --action-fill:    var(--neutral-950);
+  --action-hover:   var(--neutral-850);
+  --action-pressed: var(--neutral-800);
+  --action-text:    var(--cream-50);
+  --accent:         var(--neutral-950);
+  --border-accent:  var(--neutral-950);
+  --accent-purple:  #5850EC;
+}
+
+/* Naranja Fuego */
+[data-accent="orange"] {
+  --action-fill:    #FF6B2C;
+  --action-hover:   #F0511A;
+  --action-pressed: #C73E12;
+  --action-text:    #FFFFFF;
+  --accent:         #FF6B2C;
+  --accent-fill:    #FF6B2C;
+  --accent-purple:  #FF6B2C;
+  --border-accent:  #FF6B2C;
+  --focus-ring:     0 0 0 2px var(--bg-canvas), 0 0 0 4px #FF6B2C;
+  --bg-selected:    rgba(255, 107, 44, 0.16);
+
+  /* Adaptación de cocina (KDS): el calor pasa a amarillo/ámbar para evitar confusión visual */
+  --heat-warm:            #FBBF24;
+  --heat-hot:             #F59E0B;
+  --heat-overdue:         #D97706;
+  --heat-warm-subtle:     rgba(251, 191, 36, 0.15);
+  --heat-hot-subtle:      rgba(245, 158, 11, 0.20);
+  --heat-overdue-subtle:  rgba(217, 119, 6, 0.28);
+}
+
+/* Rojo Carmesí */
+[data-accent="red"] {
+  --action-fill:    #EF4444;
+  --action-hover:   #DC2626;
+  --action-pressed: #B91C1C;
+  --action-text:    #FFFFFF;
+  --accent:         #EF4444;
+  --accent-fill:    #EF4444;
+  --accent-purple:  #EF4444;
+  --border-accent:  #EF4444;
+  --focus-ring:     0 0 0 2px var(--bg-canvas), 0 0 0 4px #EF4444;
+  --bg-selected:    rgba(239, 68, 68, 0.16);
+
+  /* Adaptación de cocina (KDS): el calor pasa a amarillo/ámbar */
+  --heat-warm:            #FBBF24;
+  --heat-hot:             #F59E0B;
+  --heat-overdue:         #D97706;
+  --heat-warm-subtle:     rgba(251, 191, 36, 0.15);
+  --heat-hot-subtle:      rgba(245, 158, 11, 0.20);
+  --heat-overdue-subtle:  rgba(217, 119, 6, 0.28);
+}
+
+/* Púrpura Eléctrico */
+[data-accent="violet"] {
+  --action-fill:    #8F63F4;
+  --action-hover:   #7C3AED;
+  --action-pressed: #6D28D9;
+  --action-text:    #FFFFFF;
+  --accent:         #8F63F4;
+  --accent-fill:    #8F63F4;
+  --accent-purple:  #8F63F4;
+  --border-accent:  #8F63F4;
+  --focus-ring:     0 0 0 2px var(--bg-canvas), 0 0 0 4px #8F63F4;
+  --bg-selected:    rgba(143, 99, 244, 0.16);
+}
+
+/* Azul Cobalto */
+[data-accent="blue"] {
+  --action-fill:    #3B82F6;
+  --action-hover:   #2563EB;
+  --action-pressed: #1D4ED8;
+  --action-text:    #FFFFFF;
+  --accent:         #3B82F6;
+  --accent-fill:    #3B82F6;
+  --accent-purple:  #3B82F6;
+  --border-accent:  #3B82F6;
+  --focus-ring:     0 0 0 2px var(--bg-canvas), 0 0 0 4px #3B82F6;
+  --bg-selected:    rgba(59, 130, 246, 0.16);
+}
+
+/* Verde Esmeralda */
+[data-accent="green"] {
+  --action-fill:    #10B981;
+  --action-hover:   #059669;
+  --action-pressed: #047857;
+  --action-text:    #FFFFFF;
+  --accent:         #10B981;
+  --accent-fill:    #10B981;
+  --accent-purple:  #10B981;
+  --border-accent:  #10B981;
+  --focus-ring:     0 0 0 2px var(--bg-canvas), 0 0 0 4px #10B981;
+  --bg-selected:    rgba(16, 185, 129, 0.16);
+}
+
+/* 2. ESCALA DE TAMAÑO DE FUENTE DINÁMICA */
+html[data-font-size="compact"] {
+  font-size: 14.4px; /* 90% */
+}
+html[data-font-size="normal"] {
+  font-size: 16px;   /* 100% */
+}
+html[data-font-size="large"] {
+  font-size: 18px;   /* 112.5% */
+}
+html[data-font-size="xlarge"] {
+  font-size: 20px;   /* 125% */
+}
+
+/* 3. MODO DE CONTRASTE ACCESIBLE AAA */
+html[data-contrast="high"] {
+  --border-subtle:  rgba(255, 255, 255, 0.25);
+  --border-default: rgba(255, 255, 255, 0.42);
+  --border-strong:  rgba(255, 255, 255, 0.68);
+  --text-primary:   #FFFFFF;
+  --text-secondary: #E5E5E5;
+  --text-tertiary:  #CCCCCC;
+}
+html[data-contrast="high"][data-theme="light"],
+html[data-contrast="high"]:not(.dark) {
+  --border-subtle:  rgba(0, 0, 0, 0.32);
+  --border-default: rgba(0, 0, 0, 0.55);
+  --border-strong:  rgba(0, 0, 0, 0.88);
+  --text-primary:   #000000;
+  --text-secondary: #171717;
+  --text-tertiary:  #373737;
+  --bg-canvas:      #FFFFFF;
+  --bg-surface:     #FFFFFF;
+}

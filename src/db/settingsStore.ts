@@ -1,6 +1,31 @@
-import { db } from './localDb';
+import { db, enqueueOfflineEvent } from './localDb';
+
+export const DEFAULT_UNIT_EQUIVALENCES: Record<string, { baseEquivalence: number; baseUnit: string }> = {
+  'Kilogramo': { baseEquivalence: 1000, baseUnit: 'g' },
+  'kg': { baseEquivalence: 1000, baseUnit: 'g' },
+  'Gramo': { baseEquivalence: 1, baseUnit: 'g' },
+  'g': { baseEquivalence: 1, baseUnit: 'g' },
+  'Litro': { baseEquivalence: 1000, baseUnit: 'ml' },
+  'l': { baseEquivalence: 1000, baseUnit: 'ml' },
+  'Mililitro': { baseEquivalence: 1, baseUnit: 'ml' },
+  'ml': { baseEquivalence: 1, baseUnit: 'ml' },
+  'Libra': { baseEquivalence: 500, baseUnit: 'g' },
+  'lb': { baseEquivalence: 500, baseUnit: 'g' },
+  'Onza': { baseEquivalence: 29.574, baseUnit: 'ml' },
+  'oz': { baseEquivalence: 29.574, baseUnit: 'ml' },
+  'Botella 750ml': { baseEquivalence: 750, baseUnit: 'ml' },
+  'Botella (750ml)': { baseEquivalence: 750, baseUnit: 'ml' },
+  'Botella 700ml': { baseEquivalence: 700, baseUnit: 'ml' },
+  'Lata 355ml': { baseEquivalence: 355, baseUnit: 'ml' },
+  'Unidad': { baseEquivalence: 1, baseUnit: 'und' },
+  'und': { baseEquivalence: 1, baseUnit: 'und' }
+};
 
 export const DEFAULT_SETTINGS = {
+  currency: 'COP',
+  locale: 'es-CO',
+  enableImpoconsumo: true,
+  impoconsumoRate: 8,
   ipoconsumo_pct: 8,
   error_margin_pct: 5,
   taxPercentage: 8,
@@ -11,7 +36,8 @@ export const DEFAULT_SETTINGS = {
   profitabilityThresholdHigh: 60,
   profitabilityThresholdMedium: 30,
   kds_urgent_threshold_minutes: 15,
-  official_units: ['g', 'kg', 'ml', 'l', 'und'],
+  official_units: ['Gramo', 'Kilogramo', 'Mililitro', 'Litro', 'Libra', 'Onza', 'Unidad'],
+  unit_equivalences: DEFAULT_UNIT_EQUIVALENCES,
   master_categories: ['Combos', 'Burgers', 'Sushi', 'Cocteles', 'Especiales del Chef', 'Entradas', 'Platos Fuertes', 'Postres', 'Bebidas'],
   menu_categories: ['Combos', 'Burgers', 'Sushi', 'Cocteles', 'Especiales del Chef', 'Entradas', 'Platos Fuertes', 'Postres', 'Bebidas'],
   master_allergens: ['Gluten', 'Lácteos', 'Maní', 'Mariscos', 'Huevo', 'Soya', 'Pescado', 'Frutos Secos'],
@@ -68,7 +94,17 @@ export const DEFAULT_SETTINGS = {
     steps: false,
     chefAdvice: false,
     image: false
-  }
+  },
+  payment_terms: ['Contado / Inmediato', 'Crédito 8 días', 'Crédito 15 días', 'Crédito 30 días', 'Crédito 60 días'],
+  quality_ratings: ['Excelente', 'Aceptable', 'Defectuoso'],
+  recipe_difficulties: ['Baja', 'Media', 'Alta'],
+  asset_actions: ['Reparar de inmediato', 'Programar revisión técnica', 'Reemplazar elemento', 'Retirar de servicio'],
+  asset_statuses: ['Nuevo (Operativo)', 'Usado', 'En Mantenimiento', 'Requiere Revisión Urgentemente', 'Retirado de Servicio'],
+  voltages: ['110V', '220V', 'Trifásica'],
+  maintenance_types: ['Preventivo', 'Correctivo'],
+  alert_frequencies: ['Mensual', 'Trimestral', 'Semestral'],
+  inventory_types: ['Producto Único', 'Ingrediente', 'Suministro', 'Activo'],
+  stock_statuses: ['Óptimo', 'Bajo Stock', 'Stock Crítico']
 };
 
 /**
@@ -109,45 +145,20 @@ export async function initializeSettings(): Promise<void> {
           }
         }
       }
-      if (!exists) {
-        await db.systemSettings.put({ key, value });
-        console.log(`[settingsStore] Seeded setting key: ${key}`);
-      } else if (Array.isArray(value) && Array.isArray(exists.value)) {
-        // For array settings, ensure all default values exist
-        let merged;
-        if (key === 'system_branches') {
-          const existingIds = new Set(exists.value.map((item: any) => item.id));
-          merged = [...exists.value];
-          for (const item of (value as any[])) {
-            if (!existingIds.has(item.id)) {
-              merged.push(item);
-            }
-          }
-        } else if (key === 'operating_zones') {
-          const existingNames = new Set(exists.value.map((item: any) => (typeof item === 'string' ? item : item.name)));
-          merged = [...exists.value];
-          for (const item of (value as any[])) {
-            const name = typeof item === 'string' ? item : item.name;
-            if (!existingNames.has(name)) {
-              merged.push(item);
-            }
-          }
-        } else if (key === 'salon_tables') {
-          const existingIds = new Set(exists.value.map((item: any) => item.id));
-          merged = [...exists.value];
-          for (const item of (value as any[])) {
-            if (item && item.id && !existingIds.has(item.id)) {
-              merged.push(item);
-            }
-          }
-        } else {
-          merged = Array.from(new Set([...exists.value, ...value]));
-        }
-        if (merged.length !== exists.value.length) {
-          await db.systemSettings.put({ key, value: merged });
-          console.log(`[settingsStore] Updated array setting key: ${key} to include new defaults`);
+      if (exists && key === 'unit_equivalences') {
+        const stored = exists.value;
+        if (stored && (stored['Onza']?.baseEquivalence === 30 || stored['oz']?.baseEquivalence === 30)) {
+          if (stored['Onza']?.baseEquivalence === 30) stored['Onza'].baseEquivalence = 29.574;
+          if (stored['oz']?.baseEquivalence === 30) stored['oz'].baseEquivalence = 29.574;
+          await db.systemSettings.put({ key, value: stored });
+          console.log('[settingsStore] Updated Onza equivalence to 29.574 ml');
         }
       }
+      if (!exists) {
+        await db.systemSettings.put({ key, value });
+        console.log(`[settingsStore] Seeded initial setting key: ${key}`);
+      }
+      // If setting already exists, preserve user configurations without forced merging
     }
   } catch (err) {
     console.error('[settingsStore] Error seeding systemSettings:', err);
@@ -174,7 +185,14 @@ export async function getSystemSetting<T>(key: string, defaultValue?: T): Promis
  */
 export async function saveSystemSetting(key: string, value: any): Promise<void> {
   try {
-    await db.systemSettings.put({ key, value });
+    const updatedAt = new Date().toISOString();
+    await db.systemSettings.put({ key, value, updatedAt });
+    // Enqueue to domainOutbox for offline-first replication to Firestore
+    await enqueueOfflineEvent('RecordUpdated', {
+      collectionName: 'systemSettings',
+      docId: key,
+      data: { key, value, updatedAt }
+    }).catch(err => console.warn(`[settingsStore] Failed to enqueue setting ${key} to outbox:`, err));
     console.log(`[settingsStore] Saved setting key: ${key} =`, value);
   } catch (err) {
     console.error(`[settingsStore] Error saving systemSetting ${key}:`, err);

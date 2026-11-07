@@ -16,53 +16,238 @@ export interface SucursalStock {
  */
 export type AbcClassification = 'A' | 'B' | 'C';
 
-/**
- * 5.1. InventoryItem (Insumos Maestro con Logistics & Costeo)
- * Representa insumos generales y licores (con tara, densidad, etc. para pesaje).
- */
 export interface InventoryItem {
-  id: string; // e.g. "ins-lic-gin-001"
+  id: string;
   name: string;
-  category: 'Licores' | 'Abarrotes' | 'Carnes' | 'Verduras' | string;
-  purchaseUnit: string; // e.g. "Botella 750ml"
-  countUnit: string; // e.g. "ml", "g", "unidad"
-  yieldFactor: number; // e.g. 1.0 (factor de rendimiento)
-  density: number; // e.g. 0.94 (densidad para licores, agua = 1.0)
-  bottleTareWeightGrams: number; // e.g. 450.0 (peso de botella vacía)
-  purchaseCost: number; // e.g. 95000.00 (costo de compra)
-  averagePrice?: number; // e.g. 92000.00 (precio promedio acumulado)
-  gainPercentage: number; // e.g. 220.0 (porcentaje de ganancia deseado)
+  category: string;
+  purchaseUnit: string;
+  purchaseUnitId?: string;
+  countUnit: string;
+  countUnitId?: string;
+  yieldFactor: number;
+  density: number;
+  bottleTareWeightGrams: number;
+  purchaseCost: number;
+  averagePrice?: number;
+  lastPurchasePrice?: number;
+  gainPercentage: number;
   isTaxable: boolean;
-  taxPercentage: number; // e.g. 8.0 (Impoconsumo o IVA)
-  stockMinLimit: number; // e.g. 2250.0 (ml, g, o unidades mínimas)
-  theoreticalStock: number; // e.g. 5250.0 (ml, g, o unidades teóricas)
-  realPhysicalStock: number; // e.g. 5000.0 (ml, g, o unidades reales medidas)
-  abcClassification: AbcClassification;
-  supplierId: string; // e.g. "prov-diageo-colombia"
-  sucursalStock: SucursalStock[];
-  updatedAt: string; // ISO date string
-  inventoryType?: 'CONSUMABLE' | 'ASSET';
+  taxPercentage: number;
+  stockMinLimit: number;
   stockMaxLimit?: number;
-  fechaVencimiento?: string; // YYYY-MM-DD
+  minStock?: number; // Normalized alias for stockMinLimit
+  maxStock?: number; // Normalized alias for stockMaxLimit
+  theoreticalStock: number;
+  realPhysicalStock: number;
+  currentStock?: number; // Physical stock in warehouse/bodega (staging phase 1/2)
+  reservedStock?: number; // Stock committed in active preparation orders (staged)
+  availableStock?: number; // Calculated virtual stock: currentStock - reservedStock
+  stockByBranch?: Record<string, number>; // Physical stock keyed by branch ID
+  reservedStockByBranch?: Record<string, number>; // Reserved stock keyed by branch ID
+  branchStocks?: Array<{ branchId: string; stock: number; reservedStock?: number }>;
+  abcClassification: AbcClassification;
+  supplierId: string;
+  sucursalStock: SucursalStock[];
+  updatedAt: string | number;
+  resourceType?: 'ingredient' | 'product' | 'supply' | string;
+  categoryId?: string;
+  categoryName?: string;
+  createdAt?: string | number;
+  branchId?: string;
+  inventoryType?: 'CONSUMABLE' | 'ASSET';
+  fechaVencimiento?: string;
+  lote?: string;
   conversionMultiplier?: number;
+  conversionRatio?: number;
+  usageUnit?: string;
+  usageUnitId?: string;
+  unitCostUsage?: number;
+  equivalencia?: number;
   description?: string;
   sellPrice?: number;
   showInOnlineStore?: boolean;
   isActive?: boolean;
   operationZone?: 'Bar' | 'Cocina' | 'Batidos/Jugos' | 'General' | string;
+  operationalZone?: 'cocina' | 'bar' | 'licuadoras' | 'salon_servicio' | 'general_operaciones' | string;
   supplyCategory?: 'Empaques / Desechables' | 'Decoración e Insumos de Barra' | 'Consumibles de Producción' | 'Aseo y Desinfección' | string;
   isPackagingDesechable?: boolean;
   img?: string;
   activo_catalogo?: boolean;
+  isAvailableInCatalog?: boolean;
+  mostrar_en_catalogo?: boolean;
   visible_tienda_online?: boolean;
   cantidadComprada?: number;
+  precioCompra?: number;
   cantidadUtilizable?: number;
+  usable_quantity?: number;
+  usableQuantity?: number;
   mermaPercentage?: number;
   factorCorreccion?: number;
   costoUnitarioBruto?: number;
   costoUnitarioReal?: number;
   manejoLotes?: boolean;
   inventoryObservations?: string;
+}
+
+/**
+ * Standard operational production and dispatch zones.
+ */
+export type OperationalZone = 'cocina' | 'bar' | 'licuadoras' | 'salon_servicio' | 'general_operaciones' | string;
+
+/**
+ * Specific typed inventory subtypes
+ */
+export interface Ingredient extends InventoryItem {
+  operationalZone?: OperationalZone;
+}
+
+export interface UniqueProduct extends InventoryItem {
+  operationalZone?: OperationalZone;
+}
+
+export interface Supply extends InventoryItem {
+  operationalZone?: OperationalZone;
+}
+
+/**
+ * Two-phase inventory staging: Stock reservation record
+ */
+export interface StockReservation {
+  id: string; // e.g. "resv-ord-123-ins-456"
+  orderId: string;
+  ticketId?: string;
+  itemId: string;
+  itemName?: string;
+  resourceType: 'ingredient' | 'product' | 'supply' | 'subrecipe_portion' | string;
+  quantityReserved: number;
+  unit: string;
+  timestamp: string;
+  status: 'staged' | 'committed' | 'released';
+  branchId?: string;
+  isSubRecipePortion?: boolean;
+  subRecipeId?: string;
+}
+
+/**
+ * Calculates current available stock for an inventory item (real physical stock minus committed reservations).
+ */
+export function getAvailableStock(item: InventoryItem): number {
+  const real = item.currentStock !== undefined 
+    ? item.currentStock 
+    : (item.realPhysicalStock !== undefined ? item.realPhysicalStock : (item.theoreticalStock || 0));
+  const reserved = item.reservedStock || 0;
+  return Math.max(0, real - reserved);
+}
+
+/**
+ * Gets real physical stock for an inventory item strictly in the specified branch/sucursal.
+ * Includes resilience fallback to currentStock if stockByBranch is empty, undefined, or missing the active branch key.
+ */
+export function getPhysicalStockInBranch(item: InventoryItem, branchId?: string): number {
+  if (!branchId) {
+    return Number(
+      item.currentStock !== undefined 
+        ? item.currentStock 
+        : (item.realPhysicalStock !== undefined ? item.realPhysicalStock : (item.theoreticalStock || 0))
+    ) || 0;
+  }
+  
+  const targetLower = branchId.toLowerCase().trim();
+
+  // 1. Si item.stockByBranch existe: buscar coincidencia exacta de sede primero (sin sumar el fantasma 'main')
+  if (item.stockByBranch) {
+    const exactEntries = Object.entries(item.stockByBranch).filter(
+      ([k]) => k.toLowerCase().trim() === targetLower
+    );
+    if (exactEntries.length > 0) {
+      return Number(exactEntries[0][1]) || 0;
+    }
+    const mainFallback = Object.entries(item.stockByBranch).find(
+      ([k]) => k.toLowerCase().trim() === 'main'
+    );
+    if (mainFallback) {
+      return Number(mainFallback[1]) || 0;
+    }
+  }
+  
+  // 2. Revisar sucursalStock si existe: buscar coincidencia exacta de sede primero
+  if (Array.isArray(item.sucursalStock) && item.sucursalStock.length > 0) {
+    const exactSucursal = item.sucursalStock.find(
+      s => s.sucursalId?.toLowerCase().trim() === targetLower
+    );
+    if (exactSucursal) {
+      return Number(exactSucursal.stockActual) || 0;
+    }
+    const mainSucursal = item.sucursalStock.find(
+      s => s.sucursalId?.toLowerCase().trim() === 'main'
+    );
+    if (mainSucursal) {
+      return Number(mainSucursal.stockActual) || 0;
+    }
+  }
+
+  // 3. Revisar branchStocks si existe
+  const branchEntry = item.branchStocks?.find(
+    b => b.branchId?.toLowerCase().trim() === targetLower
+  ) || item.branchStocks?.find(
+    b => b.branchId?.toLowerCase().trim() === 'main'
+  );
+  if (branchEntry && typeof branchEntry.stock === 'number') {
+    return Number(branchEntry.stock);
+  }
+
+  // 4. FALLBACK DE RESILIENCIA: Si item.stockByBranch es indefinido o está vacío
+  return Number(
+    item.currentStock !== undefined 
+      ? item.currentStock 
+      : (item.realPhysicalStock !== undefined ? item.realPhysicalStock : (item.theoreticalStock || 0))
+  ) || 0;
+}
+
+/**
+ * Gets reserved (staged) stock for an inventory item strictly in the specified branch/sucursal.
+ */
+export function getReservedStockInBranch(item: InventoryItem, branchId?: string): number {
+  if (!branchId) {
+    return Number(item.reservedStock) || 0;
+  }
+
+  const targetLower = branchId.toLowerCase().trim();
+
+  if (item.reservedStockByBranch) {
+    const exactEntries = Object.entries(item.reservedStockByBranch).filter(
+      ([k]) => k.toLowerCase().trim() === targetLower
+    );
+    if (exactEntries.length > 0) {
+      return Number(exactEntries[0][1]) || 0;
+    }
+    const mainFallback = Object.entries(item.reservedStockByBranch).find(
+      ([k]) => k.toLowerCase().trim() === 'main'
+    );
+    if (mainFallback) {
+      return Number(mainFallback[1]) || 0;
+    }
+  }
+
+  const branchEntry = item.branchStocks?.find(
+    b => b.branchId?.toLowerCase().trim() === targetLower
+  ) || item.branchStocks?.find(
+    b => b.branchId?.toLowerCase().trim() === 'main'
+  );
+  if (branchEntry && typeof branchEntry.reservedStock === 'number') {
+    return Number(branchEntry.reservedStock);
+  }
+
+  return 0;
+}
+
+/**
+ * Calculates current available stock strictly in the specified branch/sucursal.
+ */
+export function getAvailableStockInBranch(item: InventoryItem, branchId?: string): number {
+  const physical = getPhysicalStockInBranch(item, branchId);
+  const reserved = getReservedStockInBranch(item, branchId);
+  return Math.max(0, physical - reserved);
 }
 
 /**
@@ -94,6 +279,7 @@ export interface Recipe {
   yieldFactor: number; // e.g. 1.0 (factor de rendimiento de la receta final)
   cmvPercentage?: number; // Calculated dynamically: (costPrice / sellPrice) * 100
   bcgClassification?: BcgClassification | null;
+  isStar?: boolean; // True if dish is configured as star dish
   ingredients: RecipeIngredient[];
   isSubRecipe: boolean; // true if this is an intermediate preparation (salsas, jarabes)
   updatedAt: string;
@@ -102,7 +288,7 @@ export interface Recipe {
   difficulty?: 'Baja' | 'Media' | 'Alta' | string;
   steps?: string[];
   chefAdvice?: string;
-  packaging?: Array<{ item: string; quantity: number; cost: number }>;
+  packaging?: Array<{ item: string; quantity: number; cost: number; channel?: 'dine_in' | 'delivery' }>;
   supplierId?: string;
   domesticPrice?: number;
   portionCost?: number;
@@ -120,6 +306,72 @@ export interface Recipe {
   productionZone?: string;
   activo_catalogo?: boolean;
   visible_tienda_online?: boolean;
+  stockPortions?: number; // Real physical prepared portions in kitchen/bar
+  reservedPortions?: number; // Portions committed in active staged comandas
+  availablePortions?: number; // Calculated virtual portions: stockPortions - reservedPortions
+  stockPortionsByBranch?: Record<string, number>; // Physical batch portions keyed by branch ID
+  reservedPortionsByBranch?: Record<string, number>; // Reserved batch portions keyed by branch ID
+  stockGrams?: number; // Real physical prepared grams in kitchen/bar
+  stockGramsByBranch?: Record<string, number>; // Physical batch grams keyed by branch ID
+}
+
+/**
+ * Gets real physical prepared portions for a subrecipe strictly in the specified branch.
+ */
+export function getSubRecipePhysicalPortionsInBranch(recipe: Recipe, branchId?: string): number {
+  if (!branchId) {
+    return recipe.stockPortions || 0;
+  }
+  const targetLower = branchId.toLowerCase().trim();
+  if (recipe.stockPortionsByBranch) {
+    const exactEntries = Object.entries(recipe.stockPortionsByBranch).filter(
+      ([k]) => k.toLowerCase().trim() === targetLower
+    );
+    if (exactEntries.length > 0) {
+      return Number(exactEntries[0][1]) || 0;
+    }
+    const mainFallback = Object.entries(recipe.stockPortionsByBranch).find(
+      ([k]) => k.toLowerCase().trim() === 'main'
+    );
+    if (mainFallback) {
+      return Number(mainFallback[1]) || 0;
+    }
+  }
+  return recipe.stockPortions || 0;
+}
+
+/**
+ * Gets reserved staged portions for a subrecipe strictly in the specified branch.
+ */
+export function getSubRecipeReservedPortionsInBranch(recipe: Recipe, branchId?: string): number {
+  if (!branchId) {
+    return recipe.reservedPortions || 0;
+  }
+  const targetLower = branchId.toLowerCase().trim();
+  if (recipe.reservedPortionsByBranch) {
+    const exactEntries = Object.entries(recipe.reservedPortionsByBranch).filter(
+      ([k]) => k.toLowerCase().trim() === targetLower
+    );
+    if (exactEntries.length > 0) {
+      return Number(exactEntries[0][1]) || 0;
+    }
+    const mainFallback = Object.entries(recipe.reservedPortionsByBranch).find(
+      ([k]) => k.toLowerCase().trim() === 'main'
+    );
+    if (mainFallback) {
+      return Number(mainFallback[1]) || 0;
+    }
+  }
+  return recipe.reservedPortions || 0;
+}
+
+/**
+ * Calculates current available prepared portions for a subrecipe strictly in the specified branch.
+ */
+export function getSubRecipeAvailablePortionsInBranch(recipe: Recipe, branchId?: string): number {
+  const physical = getSubRecipePhysicalPortionsInBranch(recipe, branchId);
+  const reserved = getSubRecipeReservedPortionsInBranch(recipe, branchId);
+  return Math.max(0, physical - reserved);
 }
 
 /**
@@ -251,6 +503,8 @@ export interface KdsOrderTicket {
   reserva_id?: string;
   cancelJustification?: string;
   closedAt?: string;
+  branchId?: string; // Active branch ID (e.g. SEDE-SAN-AGUST-N-2044)
+  sucursalId?: string; // Sede alias
 }
 
 export interface KdsProductPrepHistory {
@@ -397,6 +651,15 @@ export interface Allergen {
 export interface SystemSetting {
   key: string;
   value: any;
+  updatedAt?: string;
+}
+
+export * from './settings';
+
+export interface UnitItemConfig {
+  name: string;
+  baseEquivalence: number;
+  baseUnit: 'g' | 'ml' | 'und' | string;
 }
 
 /**
@@ -411,6 +674,7 @@ export interface SystemSettingsConfig {
   min_utility_margin: number;
   kds_urgent_threshold_minutes: number;
   official_units: string[];
+  unit_equivalences?: Record<string, { baseEquivalence: number; baseUnit: string }>;
   master_categories: string[];
   master_allergens: string[];
   required_fields: {
@@ -496,6 +760,7 @@ export interface Supplier {
   name: string;
   contact: string;
   email: string;
+  phone?: string;
   paymentTerms: string;
   categoriesSupplied: string[];
   updatedAt: string;
@@ -529,11 +794,18 @@ export interface InventoryLog {
   id: string;
   itemId: string;
   itemName: string;
-  type: 'Ajuste' | 'Venta' | 'Compra' | string;
+  type: 'Ajuste' | 'Venta' | 'Compra' | 'PURCHASE' | string;
   quantity: number; // positive or negative
   reason?: string; // e.g. Vencimiento, Daño, Error, Cortesía, Merma, etc.
-  user: string; // e.g. "Admin", "Mesero", etc.
+  user: string; // e.g. "Admin", "Mesero", "Foodie Bot", etc.
   timestamp: string;
+  unitPrice?: number;
+  total?: number;
+  supplierId?: string;
+  previousCost?: number;
+  newCost?: number;
+  synced?: boolean;
+  branchId?: string;
 }
 
 export interface Client {

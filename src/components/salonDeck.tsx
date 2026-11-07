@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { db } from '../db/localDb';
 import type { KdsOrderTicket, OrderPaidPayload, Reservation, TableLayout } from '../types';
+import { getEffectiveImpoconsumoRate } from '../types/settings';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { eventBus } from '../events/eventBus';
 import { enqueueOfflineEvent } from '../db/localDb';
@@ -12,6 +13,8 @@ import {
   startReservationService, 
   saveReservationWithValidation
 } from '../services/reservationService';
+import { formatCurrency } from '../utils/formatters';
+import { releaseComandaStock } from '../db/inventoryEngine';
 
 interface SalonDeckProps {
   onSelectTable: (tableName: string, zoneName: string) => void;
@@ -310,6 +313,26 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
     return activeTickets.filter(t => t.tableId === null || t.orderType === 'TAKEAWAY');
   }, [activeTickets]);
 
+  const waitingTablesCount = useMemo(() => {
+    return activeTickets.filter(t => t.overallStatus === 'ORDEN TOMADA' || t.overallStatus === 'PREPARANDO').length;
+  }, [activeTickets]);
+
+  const averageRotationMinutes = useMemo(() => {
+    const completedTickets = liveTickets.filter(t => t.overallStatus === 'ENTREGADO A MESA');
+    if (completedTickets.length === 0) return 0;
+    let totalMin = 0;
+    let count = 0;
+    completedTickets.forEach(t => {
+      if (t.comandaTime) {
+        const end = t.items?.find(i => i.completedAt)?.completedAt || new Date().toISOString();
+        const diffMin = Math.max(1, Math.round((new Date(end).getTime() - new Date(t.comandaTime).getTime()) / 60000));
+        totalMin += diffMin;
+        count++;
+      }
+    });
+    return count > 0 ? Math.round(totalMin / count) : 0;
+  }, [liveTickets]);
+
   return (
     <div className="flex-1 flex flex-col min-h-screen text-[var(--text-secondary)] font-sans">
 
@@ -319,7 +342,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">Plano de Mesas</h1>
-            <span className="bg-slate-200/50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest flex items-center gap-1.5">
+            <span className="bg-slate-200/50 dark:bg-raised text-content-secondary text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500"></span>
               Turno Mañana
             </span>
@@ -372,7 +395,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
             
             <button 
               onClick={refreshAllOrders}
-              className="w-10 h-10 flex items-center justify-center rounded-full border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer bg-transparent"
+              className="w-10 h-10 flex items-center justify-center rounded-full border border-line text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-raised transition-all cursor-pointer bg-transparent"
               title="Actualizar"
             >
               <span className="material-symbols-outlined text-sm">refresh</span>
@@ -385,19 +408,20 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
           <div className="bg-[var(--bg-surface)] p-5 rounded-2xl flex flex-col justify-between border border-[var(--border-glow)] shadow-sm relative overflow-hidden" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
             <div className="absolute right-0 top-0 w-32 h-32 bg-blue-500/5 rounded-bl-full pointer-events-none"></div>
             <div className="flex justify-between items-start">
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Ocupación / Ingresos</span>
-              <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-500">
+              <span className="text-[10px] text-content-secondary font-black uppercase tracking-wider block">Ocupación / Ingresos</span>
+              <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950/80 border border-blue-300 dark:border-blue-800 flex items-center justify-center text-blue-700 dark:text-blue-300">
                 <span className="material-symbols-outlined text-sm">pie_chart</span>
               </div>
             </div>
             <div>
-              <h4 className="text-4xl font-black text-slate-900 dark:text-white mt-1 mb-3">
+              <h4 className="text-4xl font-black text-content mt-1 mb-3">
                 {totalTablesInZone > 0 ? Math.round((activeTablesCount / totalTablesInZone) * 100) : 0}%
               </h4>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-650 dark:text-slate-300">${totalRevenue.toLocaleString('es-CO')} <span className="text-[10px] text-slate-450 font-medium">Hoy</span></span>
-                <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">trending_up</span> 12%
+                <span className="text-sm font-black text-content tabular-numbers tracking-tight">{formatCurrency(totalRevenue, 0)} <span className="text-[10px] text-content-secondary font-bold">Hoy</span></span>
+                <span className={`text-xs font-black flex items-center gap-1 ${totalRevenue > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                  {totalRevenue > 0 && <span className="material-symbols-outlined text-xs">trending_up</span>}
+                  {totalRevenue > 0 ? '+12%' : '0%'}
                 </span>
               </div>
             </div>
@@ -406,17 +430,17 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
           <div className="bg-[var(--bg-surface)] p-5 rounded-2xl flex flex-col justify-between border border-[var(--border-glow)] shadow-sm relative overflow-hidden" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
             <div className="absolute right-0 top-0 w-32 h-32 bg-orange-500/5 rounded-bl-full pointer-events-none"></div>
             <div className="flex justify-between items-start">
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Comensales Totales</span>
-              <div className="w-8 h-8 rounded-full bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-500">
+              <span className="text-[10px] text-content-secondary font-black uppercase tracking-wider block">Comensales Totales</span>
+              <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-950/80 border border-orange-300 dark:border-orange-800 flex items-center justify-center text-orange-700 dark:text-orange-300">
                 <span className="material-symbols-outlined text-sm">groups</span>
               </div>
             </div>
             <div>
-              <h4 className="text-4xl font-black text-slate-900 dark:text-white mt-1 mb-3">
+              <h4 className="text-4xl font-black text-content mt-1 mb-3">
                 {activeTickets.reduce((sum, t) => sum + (t.paxCount || 1), 0)}
               </h4>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-650 dark:text-slate-300">Ticket Prom: <span className="text-slate-900 dark:text-white">${totalRevenue > 0 ? Math.round(totalRevenue / activeTickets.length).toLocaleString('es-CO') : '0.00'}</span></span>
+                <span className="text-sm font-bold text-content-secondary">Ticket Prom: <span className="text-content font-black tabular-numbers tracking-tight">{formatCurrency(totalRevenue > 0 && activeTickets.length > 0 ? Math.round(totalRevenue / activeTickets.length) : 0, 0)}</span></span>
               </div>
             </div>
           </div>
@@ -424,37 +448,40 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
           <div className="bg-[var(--bg-surface)] p-5 rounded-2xl flex flex-col justify-between border border-[var(--border-glow)] shadow-sm relative overflow-hidden" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
             <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/5 rounded-bl-full pointer-events-none"></div>
             <div className="flex justify-between items-start">
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Rotación Promedio</span>
-              <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-500">
+              <span className="text-[10px] text-content-secondary font-black uppercase tracking-wider block">Rotación Promedio</span>
+              <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 flex items-center justify-center text-emerald-700 dark:text-emerald-300">
                 <span className="material-symbols-outlined text-sm">timer</span>
               </div>
             </div>
             <div>
-              <h4 className="text-4xl font-black text-slate-900 dark:text-white mt-1 mb-3">
-                45m
+              <h4 className="text-4xl font-black text-content mt-1 mb-3">
+                {averageRotationMinutes > 0 ? `${averageRotationMinutes}m` : '0m'}
               </h4>
-              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden">
-                <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '60%' }}></div>
+              <div className="w-full bg-raised rounded-full h-1.5 mt-2 overflow-hidden">
+                <div 
+                  className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" 
+                  style={{ width: `${averageRotationMinutes > 0 ? Math.min(100, Math.round((averageRotationMinutes / 60) * 100)) : 0}%` }}
+                ></div>
               </div>
             </div>
           </div>
 
           <div className="bg-[var(--bg-surface)] p-5 rounded-2xl flex flex-col justify-between border border-[var(--border-glow)] shadow-sm" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-4">Estado General</span>
-            <div className="space-y-3 mt-auto font-semibold">
+            <span className="text-[10px] text-content-secondary font-black uppercase tracking-wider block mb-4">Estado General</span>
+            <div className="space-y-3 mt-auto font-bold">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-slate-400"></span>
-                  <span className="text-sm text-slate-650 dark:text-slate-300">Reservas registradas</span>
+                  <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                  <span className="text-sm text-content">Reservas registradas</span>
                 </div>
-                <span className="text-sm font-black text-slate-900 dark:text-white">{dbReservations.length}</span>
+                <span className="text-sm font-black text-content">{dbReservations.length}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-                  <span className="text-sm text-slate-650 dark:text-slate-300">Mesas en Espera</span>
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                  <span className="text-sm text-content">Mesas en Espera</span>
                 </div>
-                <span className="text-sm font-black text-orange-505">3</span>
+                <span className="text-sm font-black text-amber-600 dark:text-amber-400">{waitingTablesCount}</span>
               </div>
             </div>
           </div>
@@ -501,12 +528,12 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
             </div>
 
             {/* View Mode Toggle */}
-            <div className="flex bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl">
+            <div className="flex bg-raised p-1 rounded-xl">
               <button
                 onClick={() => setViewMode('grid')}
                 className={`p-1.5 rounded-lg flex items-center justify-center transition-all cursor-pointer border-none bg-transparent ${
                   viewMode === 'grid'
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                    ? 'bg-white dark:bg-slate-700 text-content shadow-sm'
                     : 'text-slate-400 hover:text-slate-600'
                 }`}
                 title="Vista Cuadrícula"
@@ -517,7 +544,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                 onClick={() => setViewMode('list')}
                 className={`p-1.5 rounded-lg flex items-center justify-center transition-all cursor-pointer border-none bg-transparent ${
                   viewMode === 'list'
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                    ? 'bg-white dark:bg-slate-700 text-content shadow-sm'
                     : 'text-slate-400 hover:text-slate-600'
                 }`}
                 title="Vista Lista"
@@ -541,7 +568,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                 <div 
                   key={ticket.id}
                   onClick={() => onSelectTable(`To-Go: ${ticket.clientId}`, 'Pedidos para llevar')}
-                  className="bg-white dark:bg-[var(--bg-surface)] rounded-[20px] overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-slate-200 dark:border-slate-800 cursor-pointer flex flex-col h-auto min-h-[16rem] pb-4"
+                  className="bg-surface rounded-[20px] overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-line cursor-pointer flex flex-col h-auto min-h-[16rem] pb-4 card-lift"
                 >
                   <div className="px-4 py-2.5 flex justify-between items-center bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400">
                     <span className="text-[11px] font-black tracking-widest uppercase">Para Llevar</span>
@@ -553,7 +580,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                   
                   <div className="p-4 flex-1 flex flex-col">
                     <div>
-                      <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                      <h3 className="text-2xl font-black text-content tracking-tight truncate">
                         {ticket.clientId}
                       </h3>
                       <p className="text-xs text-slate-400 font-semibold mt-1">
@@ -561,15 +588,15 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                       </p>
                     </div>
 
-                    <div className="mt-auto bg-slate-50/50 dark:bg-slate-900/30 rounded-xl p-3 flex flex-col gap-2">
+                    <div className="mt-auto bg-slate-50/50 dark:bg-surface/30 rounded-xl p-3 flex flex-col gap-2">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="font-bold text-slate-700 dark:text-slate-300">Mesero: <span className="text-slate-900 dark:text-white">{ticket.waiterId.split(' ')[0]}</span></span>
+                        <span className="font-bold text-content-secondary">Mesero: <span className="text-content">{ticket.waiterId.split(' ')[0]}</span></span>
                         <span className="text-[10px] text-slate-500 font-semibold">#{ticket.id.slice(-4)}</span>
                       </div>
                       <div className="flex justify-between items-end">
                         <div>
                           <span className="block text-[10px] text-slate-500 mb-0.5">Total Pedido</span>
-                          <span className="text-xl font-black text-slate-900 dark:text-white">${ticketTotal.toLocaleString('es-CO')}</span>
+                          <span className="text-xl font-black text-content tabular-numbers tracking-tight">{formatCurrency(ticketTotal, 0)}</span>
                         </div>
                         <span className="bg-slate-200 dark:bg-slate-700 text-slate-650 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-md font-bold">
                           {ticket.items.reduce((sum, i) => sum + i.quantity, 0)} Items
@@ -578,7 +605,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                     </div>
                   </div>
 
-                  <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-white dark:bg-[var(--bg-surface)]">
+                  <div className="px-4 py-3 border-t border-line flex justify-between items-center bg-surface">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -615,7 +642,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
               .map(res => (
                 <div 
                   key={res.id}
-                  className="bg-slate-900 dark:bg-[#111229] rounded-[20px] overflow-hidden shadow-lg border border-slate-800 dark:border-slate-800 flex flex-col h-auto min-h-[16rem] pb-4 text-white"
+                  className="bg-surface rounded-[20px] overflow-hidden shadow-lg border border-line dark:border-line flex flex-col h-auto min-h-[16rem] pb-4 text-white"
                 >
                   <div className="px-4 py-2.5 flex justify-between items-center bg-purple-600 text-white">
                     <span className="text-[11px] font-black tracking-widest uppercase">Reservada</span>
@@ -647,7 +674,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                               toast.error('Error al cargar detalle de reserva');
                             }
                           }}
-                          className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-purple-400 hover:text-purple-350 transition-colors border-none cursor-pointer flex items-center justify-center shrink-0"
+                          className="w-8 h-8 rounded-full bg-raised hover:bg-slate-700 text-purple-400 hover:text-purple-350 transition-colors border-none cursor-pointer flex items-center justify-center shrink-0"
                           title="Ver Detalle"
                         >
                           <span className="material-symbols-outlined text-[16px]">info</span>
@@ -672,12 +699,12 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                       </div>
                     </div>
 
-                    <div className="flex gap-2 mt-4 pt-3 border-t border-slate-800">
+                    <div className="flex gap-2 mt-4 pt-3 border-t border-line">
                       <button
                         onClick={() => {
                           setReservationToCancel(res.id);
                         }}
-                        className="p-2 bg-slate-800 hover:bg-slate-700 text-rose-500 rounded-xl transition-all cursor-pointer border-none"
+                        className="p-2 bg-raised hover:bg-slate-700 text-rose-500 rounded-xl transition-all cursor-pointer border-none"
                         title="Cancelar Reserva"
                       >
                         <span className="material-symbols-outlined text-sm">delete</span>
@@ -726,30 +753,30 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                   const timeStr = getElapsedTime(activeTicket.comandaTime);
                   
                   let statusBadge = activeTicket.overallStatus;
-                  let headerBg = 'bg-slate-100 dark:bg-slate-800';
-                  let headerText = 'text-slate-550 dark:text-slate-400';
-                  let borderStyle = 'border-slate-200 dark:border-slate-700';
+                  let headerBg = 'bg-raised text-white';
+                  let headerText = 'text-white font-black';
+                  let borderStyle = 'border-line';
 
                   if (activeTicket.overallStatus === 'ORDEN TOMADA') {
                     statusBadge = 'ORDEN TOMADA';
-                    headerBg = 'bg-slate-100 dark:bg-slate-800';
-                    headerText = 'text-slate-550 dark:text-slate-400';
-                    borderStyle = 'border-slate-200 dark:border-slate-700';
+                    headerBg = 'bg-raised text-white';
+                    headerText = 'text-white font-black';
+                    borderStyle = 'border-line';
                   } else if (activeTicket.overallStatus === 'PREPARANDO') {
                     statusBadge = 'PREPARANDO';
-                    headerBg = 'bg-blue-500 dark:bg-blue-600';
-                    headerText = 'text-white';
-                    borderStyle = 'border-blue-500 dark:border-blue-600';
+                    headerBg = 'bg-blue-600 dark:bg-blue-600 text-white';
+                    headerText = 'text-white font-black';
+                    borderStyle = 'border-blue-600 dark:border-blue-600';
                   } else if (activeTicket.overallStatus === 'LISTO PARA MESERO') {
                     statusBadge = 'LISTO PARA MESERO';
-                    headerBg = 'bg-amber-550 dark:bg-amber-600';
-                    headerText = 'text-white';
-                    borderStyle = 'border-amber-500 dark:border-amber-600';
+                    headerBg = 'bg-amber-600 dark:bg-amber-600 text-white';
+                    headerText = 'text-white font-black';
+                    borderStyle = 'border-amber-600 dark:border-amber-600';
                   } else if (activeTicket.overallStatus === 'ENTREGADO A MESA') {
                     statusBadge = 'ENTREGADO A MESA';
-                    headerBg = 'bg-emerald-500 dark:bg-emerald-600';
-                    headerText = 'text-white';
-                    borderStyle = 'border-emerald-500 dark:border-emerald-600';
+                    headerBg = 'bg-emerald-600 dark:bg-emerald-600 text-white';
+                    headerText = 'text-white font-black';
+                    borderStyle = 'border-emerald-600 dark:border-emerald-600';
                   }
 
                   const hasKitchen = activeTicket.items.some(i => i.category === 'KITCHEN');
@@ -762,7 +789,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                         await refreshComanda(table.name);
                         onSelectTable(table.name, table.zone);
                       }}
-                      className={`bg-white dark:bg-[var(--bg-surface)] rounded-[20px] overflow-hidden shadow-sm hover:shadow-md transition-shadow border ${borderStyle} cursor-pointer flex flex-col h-auto min-h-[16rem] pb-4`}
+                      className={`bg-surface rounded-[20px] overflow-hidden shadow-sm hover:shadow-md transition-shadow border ${borderStyle} cursor-pointer flex flex-col h-auto min-h-[16rem] pb-4 card-lift`}
                     >
                       {/* Card Header */}
                       <div className={`px-4 py-2.5 flex justify-between items-center ${headerBg} ${headerText}`}>
@@ -777,34 +804,34 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                       <div className="p-4 flex-1 flex flex-col">
                         <div className="flex justify-between items-start">
                           <div>
-                            <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{table.name}</h3>
-                            <p className="text-xs text-slate-400 font-semibold mt-1">Creado: {formatLocalTime(activeTicket.comandaTime)}</p>
+                            <h3 className="text-3xl font-black text-content tracking-tight">{table.name}</h3>
+                            <p className="text-xs text-content-secondary font-extrabold mt-1">Creado: {formatLocalTime(activeTicket.comandaTime)}</p>
                           </div>
                           <div className="flex gap-1.5">
                              {hasKitchen && (
-                               <div className="w-7 h-7 rounded-full bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center text-orange-500">
+                               <div className="w-7 h-7 rounded-full bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center text-orange-600 dark:text-orange-400">
                                  <span className="material-symbols-outlined text-[14px]">restaurant</span>
                                </div>
                              )}
                              {hasBar && (
-                               <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+                               <div className="w-7 h-7 rounded-full bg-raised flex items-center justify-center text-content-secondary">
                                  <span className="material-symbols-outlined text-[14px]">local_bar</span>
                                </div>
                              )}
                           </div>
                         </div>
 
-                        <div className="mt-auto bg-slate-50/50 dark:bg-slate-900/30 rounded-xl p-3 flex flex-col gap-2">
+                        <div className="mt-auto bg-slate-100 border border-slate-200/80 dark:bg-surface/40 dark:border-line rounded-xl p-3 flex flex-col gap-2">
                           <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-slate-700 dark:text-slate-300">Mesero: <span className="text-slate-900 dark:text-white">{activeTicket.waiterId.split(' ')[0]}</span></span>
-                            <span className="text-[10px] text-slate-500 font-semibold">#{activeTicket.id.slice(-4)}</span>
+                            <span className="font-bold text-content-secondary">Mesero: <span className="text-content font-black">{activeTicket.waiterId.split(' ')[0]}</span></span>
+                            <span className="text-[10px] text-content-secondary font-extrabold">#{activeTicket.id.slice(-4)}</span>
                           </div>
                           <div className="flex justify-between items-end">
                             <div>
-                              <span className="block text-[10px] text-slate-500 mb-0.5">Total Pedido</span>
-                              <span className="text-xl font-black text-slate-900 dark:text-white">${ticketTotal.toLocaleString('es-CO')}</span>
+                              <span className="block text-[10px] text-content-secondary font-bold mb-0.5">Total Pedido</span>
+                              <span className="text-2xl font-black text-content tabular-numbers tracking-tight">{formatCurrency(ticketTotal, 0)}</span>
                             </div>
-                            <span className="bg-slate-200 dark:bg-slate-700 text-slate-650 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                            <span className="bg-neutral-900 text-white dark:bg-raised dark:text-slate-200 text-[10px] px-2.5 py-1 rounded-md font-black">
                               {activeTicket.items.reduce((sum, i) => sum + i.quantity, 0)} Items
                             </span>
                           </div>
@@ -812,7 +839,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                       </div>
 
                       {/* Action Bar */}
-                      <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-white dark:bg-[var(--bg-surface)] gap-2">
+                      <div className="px-4 py-3 border-t border-line flex justify-between items-center bg-surface gap-2">
                         {activeTicket.overallStatus === 'LISTO PARA MESERO' ? (
                           <button
                             onClick={async (e) => {
@@ -843,7 +870,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                             e.stopPropagation();
                             setSelectedBillingTicketId(activeTicket.id);
                           }}
-                          className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 transition-colors border-none cursor-pointer shrink-0"
+                          className="w-7 h-7 rounded-full bg-slate-100 hover:bg-raised dark:hover:bg-slate-700 flex items-center justify-center text-content-secondary transition-colors border-none cursor-pointer shrink-0"
                           title="Cobrar / Ver Detalles"
                         >
                           <span className="material-symbols-outlined text-[16px]">check_circle</span>
@@ -856,7 +883,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                   return (
                     <div
                       key={table.id}
-                      className="bg-slate-900 dark:bg-[#111229] rounded-[20px] overflow-hidden shadow-lg border border-slate-850 dark:border-slate-800 flex flex-col h-auto min-h-[16rem] pb-4 text-white"
+                      className="bg-surface rounded-[20px] overflow-hidden shadow-lg border border-slate-850 dark:border-line flex flex-col h-auto min-h-[16rem] pb-4 text-white"
                     >
                       <div className="px-4 py-2.5 flex justify-between items-center bg-purple-600 text-white">
                         <span className="text-[11px] font-black tracking-widest uppercase">Reservada</span>
@@ -888,7 +915,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                                   toast.error('Error al cargar detalle de reserva');
                                 }
                               }}
-                              className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-400 hover:text-purple-300 transition-colors border-none cursor-pointer flex items-center justify-center shrink-0"
+                              className="p-1.5 rounded-xl bg-raised hover:bg-slate-700 text-purple-400 hover:text-purple-300 transition-colors border-none cursor-pointer flex items-center justify-center shrink-0"
                               title="Ver Detalle"
                             >
                               <span className="material-symbols-outlined text-base">info</span>
@@ -913,7 +940,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                             )}
 
                             {tableReservation.notes && (
-                              <div className="bg-slate-800/40 border border-slate-700/30 rounded-lg p-2">
+                              <div className="bg-raised/40 border border-line-strong/30 rounded-lg p-2">
                                 <span className="text-[9px] text-slate-500 font-bold tracking-widest uppercase mb-0.5 block">Notas Especiales</span>
                                 <p className="text-xs text-slate-300 font-normal italic line-clamp-2">"{tableReservation.notes}"</p>
                               </div>
@@ -962,14 +989,14 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                         await refreshComanda(table.name);
                         onSelectTable(table.name, table.zone);
                       }}
-                      className="bg-white dark:bg-[var(--bg-surface)] rounded-[20px] overflow-hidden border border-slate-200 border-dashed hover:border-solid dark:border-slate-800 cursor-pointer flex flex-col items-center justify-center h-auto min-h-[16rem] group hover:shadow-sm transition-all pb-4 pt-4"
+                      className="bg-surface rounded-[20px] overflow-hidden border border-slate-200 border-dashed hover:border-solid dark:border-line cursor-pointer flex flex-col items-center justify-center h-auto min-h-[16rem] group hover:shadow-sm transition-all pb-4 pt-4"
                     >
-                      <div className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors mb-4">
+                      <div className="w-14 h-14 rounded-full bg-raised flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500 transition-colors mb-4">
                         <span className="material-symbols-outlined text-3xl">add</span>
                       </div>
-                      <h3 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{table.name}</h3>
-                      <p className="text-xs text-slate-400 font-semibold mt-1">{table.description}</p>
-                      <span className="mt-4 bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] px-3 py-1 rounded-md font-bold uppercase tracking-wider group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
+                      <h3 className="text-3xl font-black text-content tracking-tight">{table.name}</h3>
+                      <p className="text-xs text-content-secondary font-extrabold mt-1">{table.description}</p>
+                      <span className="mt-4 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[10px] px-3.5 py-1 rounded-full font-extrabold uppercase tracking-wider transition-colors shadow-sm">
                         Libre
                       </span>
                     </div>
@@ -979,11 +1006,11 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
             </div>
           ) : (
             /* List View Layout */
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800/80 overflow-hidden shadow-sm">
+            <div className="bg-surface rounded-2xl border border-line overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 dark:bg-[var(--card-color)]/50 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-slate-200/60 dark:border-slate-800">
+                    <tr className="bg-slate-50 dark:bg-[var(--card-color)]/50 text-slate-400 text-[11px] font-bold uppercase tracking-wider border-b border-line">
                       <th className="py-4 px-6">Mesa</th>
                       <th className="py-4 px-6">Zona</th>
                       <th className="py-4 px-6">Capacidad</th>
@@ -995,7 +1022,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                       <th className="py-4 px-6"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                  <tbody className="divide-y divide-line text-sm">
                     {filteredTables.map(table => {
                       const normalizedId = table.name.toLowerCase().replace(/\s+/g, '');
                       const activeTicket = ticketsByTableMap.get(normalizedId);
@@ -1008,9 +1035,9 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                             await refreshComanda(table.name);
                             onSelectTable(table.name, table.zone);
                           }}
-                          className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 cursor-pointer transition-colors"
+                          className="hover:bg-slate-50/50 dark:hover:bg-raised/30 cursor-pointer transition-colors"
                         >
-                          <td className="py-4 px-6 font-bold text-slate-800 dark:text-slate-200">{table.name}</td>
+                          <td className="py-4 px-6 font-bold text-content">{table.name}</td>
                           <td className="py-4 px-6 text-slate-505">{table.zone}</td>
                           <td className="py-4 px-6 text-slate-505">{table.capacity} Personas</td>
                           <td className="py-4 px-6">
@@ -1018,7 +1045,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                               (() => {
                                 if (activeTicket.overallStatus === 'ORDEN TOMADA') {
                                   return (
-                                    <span className="inline-flex bg-slate-100 dark:bg-slate-800 text-slate-500 px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                                    <span className="inline-flex bg-raised text-slate-500 px-2.5 py-0.5 rounded-full text-xs font-semibold">
                                       Orden Tomada
                                     </span>
                                   );
@@ -1056,7 +1083,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                                   </span>
                                 )}
                                 {tableReservation.notes && (
-                                  <span className="text-[10px] text-slate-500 dark:text-slate-400 italic line-clamp-1">
+                                  <span className="text-[10px] text-content-secondary italic line-clamp-1">
                                     "{tableReservation.notes}"
                                   </span>
                                 )}
@@ -1076,12 +1103,15 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                           <td className="py-4 px-6 text-slate-505">
                             {activeTicket ? activeTicket.waiterId.split(' ')[0] : '--'}
                           </td>
-                          <td className="py-4 px-6 text-right font-bold text-slate-800 dark:text-slate-200">
+                          <td className="py-4 px-6 text-right font-bold text-content tabular-numbers tracking-tight">
                             {activeTicket
-                              ? `$${activeTicket.items.reduce(
-                                  (sum, item) => sum + (item.quantity * getRecipePrice(item.recipeId, item.category)),
+                              ? formatCurrency(
+                                  activeTicket.items.reduce(
+                                    (sum, item) => sum + (item.quantity * getRecipePrice(item.recipeId, item.category)),
+                                    0
+                                  ),
                                   0
-                                ).toLocaleString('es-CO')}`
+                                )
                               : '--'}
                           </td>
                           <td className="py-4 px-6 text-right">
@@ -1152,7 +1182,8 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
         });
 
         const grossTotal = itemsPayload.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-        const taxRate = 0.08;
+        const effectiveTaxRate = getEffectiveImpoconsumoRate(systemSettings);
+        const taxRate = effectiveTaxRate / 100;
         const taxAmount = grossTotal * taxRate;
         const netAmount = grossTotal - taxAmount;
 
@@ -1240,6 +1271,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
               cancelJustification: wasteReason,
               closedAt: new Date().toISOString()
             });
+            await releaseComandaStock(selectedBillingTicket.id);
             const updated = await db.kdsOrderTickets.get(selectedBillingTicket.id);
             if (updated) await syncTicketToFirebase(updated);
             setSelectedBillingTicketId(null);
@@ -1290,22 +1322,23 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
             cancelJustification: wasteReason,
             closedAt: new Date().toISOString()
           });
+          await releaseComandaStock(selectedBillingTicket.id);
           const updated = await db.kdsOrderTickets.get(selectedBillingTicket.id);
           if (updated) await syncTicketToFirebase(updated);
           setSelectedBillingTicketId(null);
           setCancellingTicket(false);
-          toast.success(`Pedido cancelado. Pérdida registrada: $${totalWasteCost.toLocaleString('es-CO')} COP`);
+          toast.success(`Pedido cancelado. Pérdida registrada: ${formatCurrency(totalWasteCost, 0)} COP`);
         };
 
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-2xl p-8 shadow-2xl relative flex flex-col max-h-[90vh] overflow-y-auto text-slate-800 dark:text-slate-200">
-              <h3 className="text-xl font-headline font-black mb-1 text-slate-900 dark:text-white flex items-center gap-2">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
+            <div className="bg-surface rounded-3xl w-full max-w-2xl p-8 shadow-2xl relative flex flex-col max-h-[90vh] overflow-y-auto text-content">
+              <h3 className="text-xl font-headline font-black mb-1 text-content flex items-center gap-2">
                 <span className="material-symbols-outlined text-[var(--accent-purple)]">receipt_long</span>
                 Facturación y Cierre - {selectedBillingTicket.tableId ? `Mesa ${selectedBillingTicket.tableId}` : `Llevar (${selectedBillingTicket.clientId})`}
               </h3>
               <p className="text-xs text-[var(--text-muted)] mb-4">
-                Comanda creada a las: <strong className="text-slate-800 dark:text-white">{formatLocalTime(selectedBillingTicket.comandaTime)}</strong> • Tiempo transcurrido: <strong className="text-slate-800 dark:text-white">{getElapsedTime(selectedBillingTicket.comandaTime)}</strong>
+                Comanda creada a las: <strong className="text-content">{formatLocalTime(selectedBillingTicket.comandaTime)}</strong> • Tiempo transcurrido: <strong className="text-content">{getElapsedTime(selectedBillingTicket.comandaTime)}</strong>
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-4">
@@ -1322,7 +1355,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                       Cancelar Pedido
                     </button>
                   </div>
-                  <div className="border border-slate-105 dark:border-slate-800 rounded-2xl overflow-hidden">
+                  <div className="border border-slate-105 dark:border-line rounded-2xl overflow-hidden">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-[var(--card-color)]/50 text-slate-400 font-bold uppercase">
@@ -1332,7 +1365,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                           <th className="py-2.5 px-3"></th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      <tbody className="divide-y divide-line">
                         {itemsPayload.map((item, idx) => (
                           <tr key={idx}>
                             <td className="py-2.5 px-3 font-semibold flex items-center gap-1.5">
@@ -1347,8 +1380,8 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                                 </span>
                               )}
                             </td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold">{item.quantity}</td>
-                            <td className="py-2.5 px-3 text-right font-mono">${(item.quantity * item.unitPrice).toLocaleString('es-CO')}</td>
+                            <td className="py-2.5 px-3 text-right font-bold tabular-numbers tracking-tight">{item.quantity}</td>
+                            <td className="py-2.5 px-3 text-right font-bold tabular-numbers tracking-tight">{formatCurrency(item.quantity * item.unitPrice, 0)}</td>
                             <td className="py-2.5 px-3 text-center">
                               <button
                                 type="button"
@@ -1369,19 +1402,19 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                   <div className="p-4 bg-slate-50 dark:bg-[var(--card-color)]/40 rounded-2xl space-y-2 text-xs">
                     <div className="flex justify-between">
                       <span className="text-slate-500">Monto Subtotal:</span>
-                      <span className="font-semibold">${grossTotal.toLocaleString('es-CO')}</span>
+                      <span className="font-semibold tabular-numbers tracking-tight">{formatCurrency(grossTotal, 0)}</span>
                     </div>
                     <div className="flex justify-between text-rose-500">
-                      <span>Impuesto Impoconsumo (8%):</span>
-                      <span>${taxAmount.toLocaleString('es-CO')}</span>
+                      <span>{effectiveTaxRate === 0 ? 'Impuesto Impoconsumo (0% - Exento):' : `Impuesto Impoconsumo (${effectiveTaxRate}%):`}</span>
+                      <span className="tabular-numbers tracking-tight">{formatCurrency(taxAmount, 0)}</span>
                     </div>
-                    <div className="border-t border-dashed border-slate-200 dark:border-slate-700 my-2 pt-2 flex justify-between font-bold text-sm text-slate-900 dark:text-white">
+                    <div className="border-t border-dashed border-line my-2 pt-2 flex justify-between font-bold text-sm text-content">
                       <span>Total Neto (Base):</span>
-                      <span>${netAmount.toLocaleString('es-CO')}</span>
+                      <span className="tabular-numbers tracking-tight">{formatCurrency(netAmount, 0)}</span>
                     </div>
                     <div className="flex justify-between font-black text-base text-[var(--accent-purple)] pt-1">
                       <span>Total a Cobrar:</span>
-                      <span>${grossTotal.toLocaleString('es-CO')}</span>
+                      <span className="tabular-numbers tracking-tight">{formatCurrency(grossTotal, 0)}</span>
                     </div>
                   </div>
                 </div>
@@ -1435,11 +1468,11 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                         { value: 'Tarjeta Credito', label: 'Tarjeta Crédito' },
                         { value: 'Transferencia', label: 'Transferencia (Nequi/Daviplata)' }
                       ]}
-                      className="w-full bg-white dark:bg-[var(--card-color)] border border-[rgba(143,99,244,0.15)] rounded-xl p-3 text-xs text-slate-900 dark:text-white"
+                      className="w-full bg-surface border border-[rgba(143,99,244,0.15)] rounded-xl p-3 text-xs text-content"
                     />
                   </div>
 
-                  <div className="pt-4 flex gap-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="pt-4 flex gap-3 border-t border-line">
                     <button
                       type="button"
                       onClick={() => setSelectedBillingTicketId(null)}
@@ -1460,14 +1493,14 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
 
               {/* merma modal (single item) */}
               {cancellingItem && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-                  <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-150 dark:border-slate-800 text-slate-800 dark:text-slate-200 space-y-4">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
+                  <div className="bg-surface rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-150 dark:border-line text-content space-y-4">
                     <div className="flex items-center gap-2 text-rose-500">
                       <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
                       <h4 className="text-lg font-headline font-black">Confirmar Motivo de Merma</h4>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      El producto <strong className="text-slate-800 dark:text-white">"{cancellingItem.name}"</strong> ya entró en producción (🔥). Al cancelarlo, se registrará una pérdida operativa de <strong>${cancellingItem.cost.toLocaleString('es-CO')} COP</strong> correspondiente al costo de sus ingredientes.
+                    <p className="text-xs text-content-secondary leading-relaxed">
+                      El producto <strong className="text-content">"{cancellingItem.name}"</strong> ya entró en producción (🔥). Al cancelarlo, se registrará una pérdida operativa de <strong className="tabular-numbers tracking-tight">{formatCurrency(cancellingItem.cost, 0)} COP</strong> correspondiente al costo de sus ingredientes.
                     </p>
                     <div>
                       <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Motivo del Descarte</label>
@@ -1475,7 +1508,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                         value={wasteReason}
                         onChange={setWasteReason}
                         options={configuredWasteReasons.map((r: string) => ({ value: r, label: r }))}
-                        className="w-full bg-white dark:bg-[var(--card-color)] border border-[rgba(143,99,244,0.15)] rounded-xl p-3 text-xs text-slate-900 dark:text-white"
+                        className="w-full bg-surface border border-[rgba(143,99,244,0.15)] rounded-xl p-3 text-xs text-content"
                       />
                     </div>
                     <div className="flex gap-3 pt-2">
@@ -1500,13 +1533,13 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
 
               {/* merma modal (entire ticket) */}
               {cancellingTicket && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-                  <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-150 dark:border-slate-800 text-slate-800 dark:text-slate-200 space-y-4">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
+                  <div className="bg-surface rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-150 dark:border-line text-content space-y-4">
                     <div className="flex items-center gap-2 text-rose-500">
                       <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
                       <h4 className="text-lg font-headline font-black">Confirmar Motivo de Merma Comanda</h4>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    <p className="text-xs text-content-secondary leading-relaxed">
                       Esta comanda contiene productos que ya entraron en producción (🔥). Al cancelarla completa, se registrará una pérdida de ingredientes correspondiente a los platos iniciados.
                     </p>
                     <div>
@@ -1515,7 +1548,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                         value={wasteReason}
                         onChange={setWasteReason}
                         options={configuredWasteReasons.map((r: string) => ({ value: r, label: r }))}
-                        className="w-full bg-white dark:bg-[var(--card-color)] border border-[rgba(143,99,244,0.15)] rounded-xl p-3 text-xs text-slate-900 dark:text-white"
+                        className="w-full bg-surface border border-[rgba(143,99,244,0.15)] rounded-xl p-3 text-xs text-content"
                       />
                     </div>
                     <div className="flex gap-3 pt-2">
@@ -1552,6 +1585,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                       cancelJustification: "Todos los ítems removidos antes de producción",
                       closedAt: new Date().toISOString()
                     });
+                    await releaseComandaStock(selectedBillingTicket.id);
                     const updated = await db.kdsOrderTickets.get(selectedBillingTicket.id);
                     if (updated) await syncTicketToFirebase(updated);
                     setSelectedBillingTicketId(null);
@@ -1580,6 +1614,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                     cancelJustification: 'Cancelación de comanda completa antes de producción',
                     closedAt: new Date().toISOString()
                   });
+                  await releaseComandaStock(selectedBillingTicket.id);
                   const updated = await db.kdsOrderTickets.get(selectedBillingTicket.id);
                   if (updated) await syncTicketToFirebase(updated);
                   setSelectedBillingTicketId(null);
@@ -1597,16 +1632,16 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
 
       {/* Reservation Detail Modal */}
       {selectedReservationDetail && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-overlay dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-surface rounded-3xl shadow-xl w-full max-w-md overflow-hidden border border-line flex flex-col max-h-[90vh]">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+            <div className="px-6 py-4 border-b border-line flex items-center justify-between bg-inset">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[var(--accent-purple)]/10 flex items-center justify-center text-[var(--accent-purple)]">
                   <span className="material-symbols-outlined">event_available</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Detalle de la Reserva</h3>
+                  <h3 className="text-lg font-bold text-content">Detalle de la Reserva</h3>
                   <p className="text-xs text-slate-500">Mesa {selectedReservationDetail.tableId} • Estado: {selectedReservationDetail.status}</p>
                 </div>
               </div>
@@ -1621,25 +1656,25 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
             {/* Modal Content */}
             <div className="p-6 space-y-4 overflow-y-auto text-left">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200/40 dark:border-slate-700/50">
+                <div className="bg-inset/30 p-3 rounded-xl border border-slate-200/40 dark:border-line">
                   <span className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1">Cliente</span>
                   <p className="text-xs font-bold text-[var(--text-primary)]">{selectedReservationDetail.clientName}</p>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200/40 dark:border-slate-700/50">
+                <div className="bg-inset/30 p-3 rounded-xl border border-slate-200/40 dark:border-line">
                   <span className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1">Comensales</span>
                   <p className="text-xs font-bold text-[var(--text-primary)]">{selectedReservationDetail.pax} Personas</p>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200/40 dark:border-slate-700/50">
+                <div className="bg-inset/30 p-3 rounded-xl border border-slate-200/40 dark:border-line">
                   <span className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1">Fecha</span>
                   <p className="text-xs font-bold text-[var(--text-primary)]">{selectedReservationDetail.date}</p>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200/40 dark:border-slate-700/50">
+                <div className="bg-inset/30 p-3 rounded-xl border border-slate-200/40 dark:border-line">
                   <span className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1">Hora</span>
                   <p className="text-xs font-bold text-[var(--text-primary)]">{selectedReservationDetail.time}</p>
                 </div>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200/40 dark:border-slate-700/50">
+              <div className="bg-inset/30 p-3 rounded-xl border border-slate-200/40 dark:border-line">
                 <span className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1">Motivo</span>
                 <p className="text-xs font-semibold text-[var(--text-secondary)]">{selectedReservationDetail.reason}</p>
               </div>
@@ -1651,7 +1686,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                 </p>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-800/30 p-3 rounded-xl border border-slate-200/40 dark:border-slate-700/50">
+              <div className="bg-inset/30 p-3 rounded-xl border border-slate-200/40 dark:border-line">
                 <span className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1">Notas:</span>
                 <p className="text-xs font-semibold text-[var(--text-secondary)]">
                   {selectedReservationDetail.notes ? `"${selectedReservationDetail.notes}"` : 'Sin notas adicionales'}
@@ -1660,7 +1695,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-line bg-inset flex justify-end gap-3">
               <button 
                 type="button"
                 onClick={() => setSelectedReservationDetail(null)}
@@ -1696,15 +1731,15 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
 
       {/* Reservation Modal */}
       {showReservationModal && (
-        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+        <div className="fixed inset-0 bg-overlay dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-surface rounded-3xl shadow-xl w-full max-w-lg overflow-hidden border border-line flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-line flex items-center justify-between bg-inset">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[var(--accent-purple)]/10 flex items-center justify-center text-[var(--accent-purple)]">
                   <span className="material-symbols-outlined">event_available</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Nueva Reserva</h3>
+                  <h3 className="text-lg font-bold text-content">Nueva Reserva</h3>
                   <p className="text-xs text-slate-500">Registra y programa recordatorios de la reserva.</p>
                 </div>
               </div>
@@ -1716,13 +1751,13 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
             <div className="p-6 overflow-y-auto space-y-5 flex-1">
               {/* Client Search / Registration Block */}
               {!isResNewClient ? (
-                <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-950/30 rounded-2xl border border-[var(--border-glow)]">
+                <div className="space-y-3 p-4 bg-inset/30 rounded-2xl border border-[var(--border-glow)]">
                   <span className="text-[10px] font-black uppercase text-slate-400 block">Buscador de Clientes *</span>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
                     <input
                       type="text"
-                      className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none transition-all dark:text-white font-semibold"
+                      className="w-full pl-9 pr-4 py-2.5 bg-inset border border-line rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none transition-all dark:text-white font-semibold"
                       placeholder="Buscar cliente registrado..."
                       value={clientSearchQuery}
                       onChange={(e) => setClientSearchQuery(e.target.value)}
@@ -1731,7 +1766,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
 
                   {/* Search Results list */}
                   {clientSearchQuery.trim() !== '' && (
-                    <div className="max-h-32 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-750 rounded-xl bg-white dark:bg-slate-900">
+                    <div className="max-h-32 overflow-y-auto divide-y divide-line border border-slate-200 dark:border-slate-750 rounded-xl bg-surface">
                       {filteredClientsForRes.map(client => (
                         <button
                           key={client.id}
@@ -1741,7 +1776,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                             setResClientId(client.id);
                             setClientSearchQuery('');
                           }}
-                          className="w-full text-left p-2.5 hover:bg-[var(--accent-purple)]/10 text-slate-800 dark:text-slate-200 transition-colors flex flex-col gap-0.5 cursor-pointer border-none bg-transparent"
+                          className="w-full text-left p-2.5 hover:bg-[var(--accent-purple)]/10 text-content transition-colors flex flex-col gap-0.5 cursor-pointer border-none bg-transparent"
                         >
                           <span className="text-xs font-bold">{client.name}</span>
                           <span className="text-[9px] text-slate-400">Cel: {client.phone} • Dir: {client.address}</span>
@@ -1759,7 +1794,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                     <div className="flex items-center justify-between bg-purple-100/40 dark:bg-purple-950/20 px-3.5 py-2.5 rounded-xl border border-purple-200 dark:border-purple-800/40">
                       <div>
                         <span className="text-[9px] text-purple-650 dark:text-purple-400 font-extrabold uppercase tracking-wider block">Cliente Seleccionado</span>
-                        <span className="text-xs font-black text-slate-900 dark:text-white">{resClientName}</span>
+                        <span className="text-xs font-black text-content">{resClientName}</span>
                       </div>
                       <button 
                         type="button"
@@ -1783,8 +1818,8 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                 </div>
               ) : (
                 /* Inline New Client registration */
-                <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-950/30 rounded-2xl border border-[var(--border-glow)] animate-fade-in">
-                  <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">
+                <div className="space-y-4 p-4 bg-inset/30 rounded-2xl border border-[var(--border-glow)] animate-fade-in">
+                  <div className="flex justify-between items-center pb-2 border-b border-line">
                     <span className="text-[10px] font-black uppercase text-slate-400">Nuevo Cliente para Reserva</span>
                     <button 
                       type="button"
@@ -1801,7 +1836,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                       type="text"
                       value={resClientName}
                       onChange={(e) => setResClientName(e.target.value)}
-                      className="w-full rounded-xl border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-xs outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
+                      className="w-full rounded-xl border border-slate-250 dark:border-line-strong bg-inset p-2.5 text-xs outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
                       placeholder="ej. María López"
                     />
                   </div>
@@ -1813,7 +1848,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                         type="text"
                         value={newResPhone}
                         onChange={(e) => setNewResPhone(e.target.value)}
-                        className="w-full rounded-xl border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-xs outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
+                        className="w-full rounded-xl border border-slate-250 dark:border-line-strong bg-inset p-2.5 text-xs outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
                         placeholder="ej. 3001234567"
                       />
                     </div>
@@ -1823,13 +1858,13 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                         type="text"
                         value={newResAddress}
                         onChange={(e) => setNewResAddress(e.target.value)}
-                        className="w-full rounded-xl border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-xs outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
+                        className="w-full rounded-xl border border-slate-250 dark:border-line-strong bg-inset p-2.5 text-xs outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
                         placeholder="ej. Calle 85 # 11-44"
                       />
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-inset border border-line">
                     <span className="text-[11px] font-bold text-[var(--text-primary)]">Factura Electrónica</span>
                     <label className="relative inline-flex items-center cursor-pointer select-none">
                       <input
@@ -1850,7 +1885,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                           type="text"
                           value={newResTaxId}
                           onChange={(e) => setNewResTaxId(e.target.value)}
-                          className="w-full rounded-xl border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-xs outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
+                          className="w-full rounded-xl border border-slate-250 dark:border-line-strong bg-inset p-2.5 text-xs outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
                           placeholder="ej. 109876543-2"
                         />
                       </div>
@@ -1860,7 +1895,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                           type="email"
                           value={newResEmail}
                           onChange={(e) => setNewResEmail(e.target.value)}
-                          className="w-full rounded-xl border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-xs outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
+                          className="w-full rounded-xl border border-slate-250 dark:border-line-strong bg-inset p-2.5 text-xs outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
                           placeholder="ej. maria@gmail.com"
                         />
                       </div>
@@ -1874,25 +1909,24 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Mesa a Asignar *</label>
-                    <select 
-                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white font-semibold"
+                    <CustomSelect 
+                      className="w-full bg-inset border border-line rounded-xl text-xs font-semibold text-content"
                       value={reservationTable ? reservationTable.name : ''}
-                      onChange={(e) => {
-                        const tbl = dynamicTables.find(t => t.name === e.target.value);
+                      onChange={(val) => {
+                        const tbl = dynamicTables.find(t => t.name === val);
                         setReservationTable(tbl || null);
                       }}
-                    >
-                      <option value="">Seleccione Mesa...</option>
-                      {dynamicTables.map(t => (
-                        <option key={t.id} value={t.name}>{t.name} ({t.capacity} pax)</option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: dynamicTables.length > 0 ? 'Seleccione Mesa...' : 'No hay mesas registradas en la zona...' },
+                        ...dynamicTables.map(t => ({ value: t.name, label: `${t.name} (${t.capacity} pax)` }))
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Personas (Pax) *</label>
                     <input
                       type="number"
-                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white font-semibold"
+                      className="w-full px-3 py-2.5 bg-inset border border-line rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white font-semibold"
                       value={resPax}
                       onChange={(e) => setResPax(Number(e.target.value))}
                       min={1}
@@ -1905,7 +1939,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Fecha *</label>
                     <input
                       type="date"
-                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white font-semibold"
+                      className="w-full px-3 py-2.5 bg-inset border border-line rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white font-semibold"
                       value={resDate}
                       onChange={(e) => setResDate(e.target.value)}
                     />
@@ -1914,7 +1948,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Hora *</label>
                     <input
                       type="time"
-                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white font-semibold"
+                      className="w-full px-3 py-2.5 bg-inset border border-line rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white font-semibold"
                       value={resTime}
                       onChange={(e) => setResTime(e.target.value)}
                     />
@@ -1924,23 +1958,24 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Motivo *</label>
-                    <select 
-                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white font-semibold"
+                    <CustomSelect 
+                      className="w-full bg-inset border border-line rounded-xl text-xs font-semibold text-content"
                       value={resReason}
-                      onChange={(e) => setResReason(e.target.value)}
-                    >
-                      <option value="Cena Casual">Cena Casual</option>
-                      <option value="Cumpleaños">Cumpleaños</option>
-                      <option value="Aniversario">Aniversario</option>
-                      <option value="Negocios">Negocios</option>
-                      <option value="Evento Especial">Evento Especial</option>
-                    </select>
+                      onChange={setResReason}
+                      options={[
+                        { value: 'Cena Casual', label: 'Cena Casual' },
+                        { value: 'Cumpleaños', label: 'Cumpleaños' },
+                        { value: 'Aniversario', label: 'Aniversario' },
+                        { value: 'Negocios', label: 'Negocios' },
+                        { value: 'Evento Especial', label: 'Evento Especial' }
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Decoración (Opcional)</label>
                     <input
                       type="text"
-                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white font-semibold"
+                      className="w-full px-3 py-2.5 bg-inset border border-line rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white font-semibold"
                       placeholder="Ej. Globos, Vela, Pétalos"
                       value={resDecoration}
                       onChange={(e) => setResDecoration(e.target.value)}
@@ -1951,7 +1986,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Notas Especiales</label>
                   <textarea
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white min-h-[60px] font-medium"
+                    className="w-full px-3 py-2 bg-inset border border-line rounded-xl text-xs focus:ring-2 focus:ring-[var(--accent-purple)] outline-none dark:text-white min-h-[60px] font-medium"
                     placeholder="Silla para bebé, alergias alimentarias..."
                     value={resNotes}
                     onChange={(e) => setResNotes(e.target.value)}
@@ -1960,7 +1995,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-line bg-inset flex justify-end gap-3">
               <button 
                 type="button"
                 onClick={() => setShowReservationModal(false)}
@@ -2038,9 +2073,9 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
 
       {/* Takeaway Modal */}
       {showTakeawayModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-150 dark:border-slate-800 text-slate-800 dark:text-slate-200 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
+          <div className="bg-surface rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-150 dark:border-line text-content space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
               <div className="flex items-center gap-2 text-[var(--accent-purple)]">
                 <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>shopping_bag</span>
                 <h4 className="text-lg font-headline font-black">Pedido para Llevar</h4>
@@ -2059,7 +2094,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
 
             {!isNewClientMode ? (
               <div className="space-y-4">
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-content-secondary">
                   Busca y selecciona un cliente registrado o crea uno nuevo para iniciar la facturación.
                 </p>
                 
@@ -2077,7 +2112,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                 </div>
 
                 {/* Clients list */}
-                <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-[var(--card-color)]/20">
+                <div className="max-h-48 overflow-y-auto divide-y divide-line border border-line rounded-xl bg-slate-50/50 dark:bg-[var(--card-color)]/20">
                   {filteredClientsForTakeaway.map(client => (
                     <button
                       key={client.id}
@@ -2085,7 +2120,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                         setShowTakeawayModal(false);
                         onSelectTable(`To-Go: ${client.name}`, 'Pedidos para llevar');
                       }}
-                      className="w-full text-left p-3 hover:bg-[var(--accent-purple)]/10 text-slate-800 dark:text-slate-200 transition-colors flex flex-col gap-0.5 cursor-pointer border-none bg-transparent"
+                      className="w-full text-left p-3 hover:bg-[var(--accent-purple)]/10 text-content transition-colors flex flex-col gap-0.5 cursor-pointer border-none bg-transparent"
                     >
                       <span className="text-xs font-bold">{client.name}</span>
                       <span className="text-[10px] text-slate-450 font-semibold">{client.phone} • NIT: {client.taxId || 'No registra'}</span>
@@ -2110,7 +2145,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                       setTakeawayTaxId('');
                       setIsNewClientMode(true);
                     }}
-                    className="w-full py-3 bg-slate-100 dark:bg-[var(--card-color)] text-[var(--text-primary)] hover:bg-slate-200 dark:hover:bg-slate-800 font-black rounded-xl text-xs uppercase tracking-wider text-center cursor-pointer border border-slate-200 dark:border-slate-700"
+                    className="w-full py-3 bg-slate-100 dark:bg-[var(--card-color)] text-[var(--text-primary)] hover:bg-slate-200 dark:hover:bg-raised font-black rounded-xl text-xs uppercase tracking-wider text-center cursor-pointer border border-line"
                   >
                     Nuevo Cliente
                   </button>
@@ -2119,7 +2154,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
             ) : (
               /* Takeaway Client Creation Form */
               <div className="space-y-4">
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-content-secondary">
                   Ingresa la información obligatoria de facturación del nuevo cliente.
                 </p>
 
@@ -2158,7 +2193,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/55 border border-[var(--border-glow)]">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-inset/55 border border-[var(--border-glow)]">
                   <span className="text-xs font-bold text-[var(--text-primary)]">Factura Electrónica</span>
                   <label className="relative inline-flex items-center cursor-pointer select-none">
                     <input
@@ -2196,7 +2231,7 @@ export default function SalonDeck({ onSelectTable, selectedZone, setSelectedZone
                   </div>
                 )}
 
-                <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex gap-3 pt-4 border-t border-line">
                   <button
                     type="button"
                     onClick={() => setIsNewClientMode(false)}

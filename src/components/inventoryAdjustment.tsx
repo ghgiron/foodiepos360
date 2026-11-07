@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 import ConfirmDialog from './ui/ConfirmDialog';
 import CustomSelect from './ui/CustomSelect';
 
+import { useWasteReasons } from '../hooks/useCatalogs';
+
 interface InventoryAdjustmentProps {
   isOpen: boolean;
   onClose: () => void;
@@ -25,24 +27,24 @@ export default function InventoryAdjustment({
   const [justification, setJustification] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Live Query to get all inventory items
+  // Live Query to get all inventory items & reactive waste reasons
   const inventoryItems = useLiveQuery(() => db.inventoryItems.toArray()) || [];
+  const wasteReasons = useWasteReasons();
 
   const itemOptions = useMemo(() => [
-    { value: '', label: '-- Seleccione un insumo --' },
+    { value: '', label: inventoryItems.length > 0 ? '-- Seleccione un insumo --' : 'No hay insumos registrados en inventario...' },
     ...inventoryItems.map(item => ({
       value: item.id,
       label: `${item.name} (Disponible: ${item.realPhysicalStock} ${item.countUnit})`
     }))
   ], [inventoryItems]);
 
-  const outputTypeOptions = [
-    { value: 'Vencimiento', label: 'Vencimiento' },
-    { value: 'Daño', label: 'Daño (Pérdida Financiera)' },
-    { value: 'Error', label: 'Error de Inventario' },
-    { value: 'Cortesía', label: 'Cortesía' },
-    { value: 'Merma', label: 'Merma Operativa' },
-  ];
+  const outputTypeOptions = useMemo(() => {
+    if (wasteReasons.length === 0) {
+      return [{ value: '', label: 'No hay motivos configurados...' }];
+    }
+    return wasteReasons.map(reason => ({ value: reason, label: reason }));
+  }, [wasteReasons]);
 
   // Prefill preselected item if available
   useEffect(() => {
@@ -140,13 +142,13 @@ export default function InventoryAdjustment({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+    <div className="fixed inset-0 bg-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
       <div 
-        className="bg-white dark:bg-slate-900 border border-[rgba(143,99,244,0.15)] rounded-[2rem] p-6 w-full max-w-lg shadow-2xl text-left transform transition-all duration-300 scale-100"
+        className="bg-surface border border-[rgba(143,99,244,0.15)] rounded-[2rem] p-6 w-full max-w-lg shadow-2xl text-left transform transition-all duration-300 scale-100"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6">
-          <h3 className="font-headline font-black text-lg text-slate-900 dark:text-white uppercase tracking-wider">
+          <h3 className="font-headline font-black text-lg text-content uppercase tracking-wider">
             Ajuste de Inventario (Baja Manual)
           </h3>
           <button
@@ -168,7 +170,7 @@ export default function InventoryAdjustment({
               onChange={setSelectedItemId}
               options={itemOptions}
               disabled={!!preselectedItemId}
-              className="w-full rounded-xl border border-slate-200 dark:border-slate-850 dark:bg-slate-950 dark:text-white p-3 text-xs font-bold focus:ring-2 focus:ring-[var(--accent-purple)] outline-none disabled:opacity-60"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-850 dark:bg-canvas dark:text-white p-3 text-xs font-bold focus:ring-2 focus:ring-[var(--accent-purple)] outline-none disabled:opacity-60"
             />
           </div>
 
@@ -182,7 +184,7 @@ export default function InventoryAdjustment({
                 value={outputType}
                 onChange={(val) => setOutputType(val as OutputType)}
                 options={outputTypeOptions}
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-850 dark:bg-slate-950 dark:text-white p-3 text-xs font-bold focus:ring-2 focus:ring-[var(--accent-purple)] outline-none"
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-850 dark:bg-canvas dark:text-white p-3 text-xs font-bold focus:ring-2 focus:ring-[var(--accent-purple)] outline-none"
               />
             </div>
 
@@ -195,7 +197,7 @@ export default function InventoryAdjustment({
                 type="number"
                 value={quantity || ''}
                 onChange={(e) => setQuantity(Math.max(0, parseFloat(e.target.value) || 0))}
-                className="w-full rounded-xl border-slate-200 dark:border-slate-850 dark:bg-slate-950 dark:text-white p-3 text-xs font-semibold focus:ring-2 focus:ring-[var(--accent-purple)] outline-none"
+                className="w-full rounded-xl border-slate-200 dark:border-slate-850 dark:bg-canvas dark:text-white p-3 text-xs font-semibold focus:ring-2 focus:ring-[var(--accent-purple)] outline-none"
                 placeholder={`ej. 5 ${selectedItem?.countUnit || ''}`}
               />
             </div>
@@ -203,9 +205,9 @@ export default function InventoryAdjustment({
 
           {/* Current Stock Reference */}
           {selectedItem && (
-            <div className="p-3.5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-[rgba(143,99,244,0.15)] flex justify-between items-center text-xs font-semibold">
+            <div className="p-3.5 bg-inset rounded-2xl border border-[rgba(143,99,244,0.15)] flex justify-between items-center text-xs font-semibold">
               <span className="text-slate-500">Stock Actual Físico:</span>
-              <span className="font-mono text-slate-800 dark:text-slate-200">
+              <span className="font-mono text-content">
                 {selectedItem.realPhysicalStock} {selectedItem.countUnit}
               </span>
             </div>
@@ -221,7 +223,7 @@ export default function InventoryAdjustment({
               onChange={(e) => setJustification(e.target.value)}
               rows={3}
               required
-              className="w-full rounded-xl border-slate-200 dark:border-slate-850 dark:bg-slate-950 dark:text-white p-3 text-xs font-semibold focus:ring-2 focus:ring-[var(--accent-purple)] outline-none"
+              className="w-full rounded-xl border-slate-200 dark:border-slate-850 dark:bg-canvas dark:text-white p-3 text-xs font-semibold focus:ring-2 focus:ring-[var(--accent-purple)] outline-none"
               placeholder="Explique el motivo detallado de esta baja..."
             />
           </div>
@@ -231,7 +233,7 @@ export default function InventoryAdjustment({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 bg-slate-150 dark:bg-[var(--card-color)] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-750 text-xs font-bold rounded-xl uppercase tracking-wider transition-colors cursor-pointer"
+              className="px-5 py-2.5 bg-slate-150 dark:bg-[var(--card-color)] text-content-secondary hover:bg-slate-200 dark:hover:bg-slate-750 text-xs font-bold rounded-xl uppercase tracking-wider transition-colors cursor-pointer"
             >
               Cancelar
             </button>

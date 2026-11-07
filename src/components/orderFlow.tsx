@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
 import { db } from '../db/localDb';
 import type { Recipe, KdsOrderTicket, KdsOrderTicketItem } from '../types';
+import { getEffectiveImpoconsumoRate } from '../types/settings';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { eventBus } from '../events/eventBus';
 import { calculateGrossMargin, classifyProfitability } from '../utils/finance';
 import Modal from './ui/Modal';
+import CustomSelect from './ui/CustomSelect';
 import toast from 'react-hot-toast';
+import { formatCurrency } from '../utils/formatters';
+import { stageComandaStock, releaseComandaStock } from '../db/inventoryEngine';
+import { calculateAvailabilitySync } from '../services/inventoryBomService';
 
 interface OrderFlowProps {
   selectedTableName: string;
@@ -41,6 +46,21 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
 
   // Fetch active recipes dynamically from IndexedDB
   const recipes = useLiveQuery(() => db.recipes.toArray()) || [];
+  const inventoryItems = useLiveQuery(() => db.inventoryItems.toArray()) || [];
+
+  const systemSettings = useLiveQuery(async () => {
+    const list = await db.systemSettings.toArray();
+    return list.reduce((acc, curr) => {
+      acc[curr.key] = curr.value;
+      return acc;
+    }, {} as Record<string, any>);
+  }) || {};
+
+  const branchesList = systemSettings['system_branches'] || [];
+  const activeBranchFromStorage = typeof window !== 'undefined' ? localStorage.getItem('foodiepos_active_branch_id') : null;
+  const currentBranchId = activeBranchFromStorage || systemSettings['active_branch_id'] || (Array.isArray(branchesList) && branchesList[0]?.id) || 'main';
+  const currentBranchObj = Array.isArray(branchesList) ? branchesList.find((b: any) => b.id === currentBranchId) : null;
+  const currentBranchName = currentBranchObj?.name || (currentBranchId === 'main' ? 'Sede Principal' : currentBranchId);
 
   const loadOrder = async () => {
     const isTakeaway = selectedTableName.startsWith('To-Go');
@@ -154,23 +174,16 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
         isRushHourOrder: false,
         items: comandaItems,
         overallStatus: 'ORDEN TOMADA',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        branchId: currentBranchId,
+        sucursalId: currentBranchId
       };
       console.log(`[IndexedDB Debug] Creating new comanda ticket ${ticketId} for table ${tableNumber}`);
       await db.orders.put(newTicket);
     }
   };
 
-  // Load IndexedDB settings reactively
-  const systemSettings = useLiveQuery(async () => {
-    const list = await db.systemSettings.toArray();
-    return list.reduce((acc, curr) => {
-      acc[curr.key] = curr.value;
-      return acc;
-    }, {} as Record<string, any>);
-  }) || {};
-
-  const taxPercentage = systemSettings['taxPercentage'] !== undefined ? Number(systemSettings['taxPercentage']) : 8;
+  const taxPercentage = getEffectiveImpoconsumoRate(systemSettings);
   const thresholdHigh = systemSettings['profitabilityThresholdHigh'] !== undefined ? Number(systemSettings['profitabilityThresholdHigh']) : 60;
   const thresholdMedium = systemSettings['profitabilityThresholdMedium'] !== undefined ? Number(systemSettings['profitabilityThresholdMedium']) : 30;
   const configuredWasteReasons = systemSettings['waste_reasons'] || [
@@ -207,9 +220,29 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
 
   // Add item to cart (handleAddItem)
   const handleAddToCart = async (recipe: Recipe) => {
+    const isTakeaway = selectedTableName.startsWith('To-Go');
+    const availability = calculateAvailabilitySync(
+      recipe.id,
+      recipes,
+      inventoryItems,
+      isTakeaway ? 'delivery' : 'dine_in',
+      currentBranchId
+    );
+
+    if (!availability.isAvailable) {
+      const branchName = currentBranchName || currentBranchId;
+      toast.error(`Stock insuficiente en ${branchName}: Solo hay ${availability.availableQuantity ?? 0} unidades disponibles de ${availability.missingItemName || 'insumo'}.`);
+      return;
+    }
+
     let newCart: CartItem[] = [];
     const existing = cart.find(item => item.recipe.id === recipe.id);
     if (existing) {
+      if (availability.availablePortions < existing.quantity + 1) {
+        const branchName = currentBranchName || currentBranchId;
+        toast.error(`Stock insuficiente en ${branchName}: Solo hay ${availability.availablePortions} porciones disponibles de ${recipe.name}.`);
+        return;
+      }
       newCart = cart.map(item => 
         item.recipe.id === recipe.id 
           ? { ...item, quantity: item.quantity + 1 } 
@@ -385,6 +418,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
       existingTicket.cancelJustification = 'Comanda vaciada por el usuario';
       existingTicket.closedAt = new Date().toISOString();
       await db.orders.put(existingTicket);
+      await releaseComandaStock(existingTicket.id);
     }
   };
 
@@ -427,6 +461,22 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
     const tableIdMatch = selectedTableName.match(/\d+/);
     const tableNumber = isTakeaway ? null : (tableIdMatch ? parseInt(tableIdMatch[0], 10) : 1);
 
+    // Hard-gate check for all items before dispatching comanda to kitchen
+    for (const cartItem of finalCart) {
+      const avail = calculateAvailabilitySync(
+        cartItem.recipe.id,
+        recipes,
+        inventoryItems,
+        isTakeaway ? 'delivery' : 'dine_in',
+        currentBranchId
+      );
+      if (avail.availablePortions < cartItem.quantity) {
+        const branchName = currentBranchName || currentBranchId;
+        toast.error(`Stock insuficiente en ${branchName}: Solo hay ${avail.availablePortions} porciones disponibles de ${cartItem.recipe.name} (faltan unidades de ${avail.missingItemName || 'insumo'}).`);
+        return;
+      }
+    }
+
     // Check if there is an existing active comanda for this table/client to preserve statuses
     const existingTicket = isTakeaway
       ? await db.orders.filter(t => t.clientId === clientName && t.overallStatus !== 'CERRADA' && t.overallStatus !== 'CANCELADA').first()
@@ -452,6 +502,8 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
 
     if (existingTicket) {
       existingTicket.items = comandaItems;
+      existingTicket.branchId = existingTicket.branchId || currentBranchId;
+      existingTicket.sucursalId = existingTicket.sucursalId || currentBranchId;
       if (!existingTicket.createdAt) {
         existingTicket.createdAt = new Date().toISOString();
       }
@@ -472,13 +524,18 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
         isRushHourOrder: false,
         items: comandaItems,
         overallStatus: 'ORDEN TOMADA',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        branchId: currentBranchId,
+        sucursalId: currentBranchId
       };
       console.log(`[IndexedDB Debug] handleFinalSubmit: Creating new KDS order ticket ${ticketId} for table ${tableNumber}`);
     }
 
     // Save ticket into IndexedDB (Await complete transaction before callback)
     await db.orders.put(ticketToSave);
+
+    // Phase 1 Staging: reserve stock in inventory staging
+    await stageComandaStock(ticketToSave);
 
     // Emit event reactively
     await eventBus.emit('OrderPlaced', ticketToSave);
@@ -489,7 +546,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-screen pt-16 relative bg-slate-50 dark:bg-slate-950">
+    <div className="flex-1 flex flex-col md:flex-row h-screen pt-16 relative bg-inset">
       {/* Product Catalog Section (60%) */}
       <section className="flex-1 p-6 overflow-y-auto transition-receitly">
         <div className="flex items-center justify-between mb-8">
@@ -507,7 +564,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
           <div className="flex gap-2">
             <button
               onClick={refreshComanda}
-              className="flex items-center gap-1.5 px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-650 dark:text-slate-300 rounded-full text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 border border-line text-slate-650 dark:text-slate-300 rounded-full text-xs font-bold hover:bg-slate-100 dark:hover:bg-raised transition-colors"
               title="Refrescar comanda"
             >
               <span className="material-symbols-outlined text-sm">refresh</span>
@@ -515,7 +572,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
             </button>
             <button
               onClick={onCancel}
-              className="flex items-center gap-1.5 px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-full text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 border border-line text-content-secondary rounded-full text-xs font-bold hover:bg-slate-100 dark:hover:bg-raised transition-colors"
             >
               <span className="material-symbols-outlined text-sm">arrow_back</span>
               Volver al Mapa
@@ -531,8 +588,8 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
               onClick={() => setSelectedCategory(cat)}
               className={`px-6 py-2.5 rounded-full text-xs font-extrabold whitespace-nowrap shadow-sm border transition-all ${
                 selectedCategory === cat
-                  ? 'bg-slate-900 dark:bg-slate-700 border-transparent text-white'
-                  : 'bg-white dark:bg-[var(--card-color)] border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100'
+                  ? 'bg-neutral-900 dark:bg-slate-700 border-transparent text-white'
+                  : 'bg-surface border-line text-slate-500 hover:bg-slate-100'
               }`}
             >
               {cat === 'TODOS' ? 'Todos los platos' : cat === 'BAR' ? 'Bebidas & Coctelería' : 'Cocina & Platos Fuertes'}
@@ -542,19 +599,50 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
 
         {/* Menu Items Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
-          {filteredRecipes.map(recipe => (
+          {filteredRecipes.map(recipe => {
+            const availability = calculateAvailabilitySync(
+              recipe.id,
+              recipes,
+              inventoryItems,
+              selectedTableName.startsWith('To-Go') ? 'delivery' : 'dine_in',
+              currentBranchId
+            );
+            const isOutOfStock = !availability.isAvailable;
+
+            return (
             <div
               key={recipe.id}
-              className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800/80 hover:shadow-lg transition-all flex flex-col justify-between"
+              className={`bg-surface rounded-2xl overflow-hidden shadow-sm border transition-all flex flex-col justify-between ${
+                isOutOfStock 
+                  ? 'opacity-80 border-rose-300/40 dark:border-rose-900/40' 
+                  : 'border-line hover:shadow-lg'
+              }`}
             >
               <div className="w-full aspect-square relative overflow-hidden bg-slate-100 dark:bg-[var(--card-color)]">
                 <img
                   src={getImageForRecipe(recipe.id)}
                   alt={recipe.name}
-                  onClick={() => handleAddToCart(recipe)}
-                  className="w-full h-full object-cover cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all duration-300"
+                  onClick={() => {
+                    if (isOutOfStock) {
+                      const branchName = currentBranchName || currentBranchId;
+                      toast.error(`Stock insuficiente en ${branchName}: Solo hay ${availability.availableQuantity ?? 0} unidades disponibles de ${availability.missingItemName || 'insumo'}.`);
+                      return;
+                    }
+                    handleAddToCart(recipe);
+                  }}
+                  className={`w-full h-full object-cover cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all duration-300 ${isOutOfStock ? 'grayscale contrast-75' : ''}`}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/50 to-transparent pointer-events-none"></div>
+
+                {/* Out of Stock Overlay */}
+                {isOutOfStock && (
+                  <div className="absolute inset-0 bg-overlay backdrop-blur-[1px] flex items-center justify-center">
+                    <span className="bg-surface/90 text-rose-300 font-black text-xs px-3 py-1 rounded-lg border border-rose-500/30 uppercase tracking-widest flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">block</span>
+                      Sin Stock
+                    </span>
+                  </div>
+                )}
 
                 {/* Floating Expand/Zoom Button */}
                 <button
@@ -563,7 +651,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
                     e.stopPropagation();
                     setSelectedFullImage(getImageForRecipe(recipe.id));
                   }}
-                  className="absolute top-3 right-3 z-10 w-8 h-8 bg-slate-950/70 hover:bg-slate-950/90 text-white rounded-xl flex items-center justify-center transition-colors cursor-pointer border-none shadow-sm active:scale-95"
+                  className="absolute top-3 right-3 z-10 w-8 h-8 bg-overlay hover:bg-overlay text-white rounded-xl flex items-center justify-center transition-colors cursor-pointer border-none shadow-sm active:scale-95"
                   title="Ampliar imagen"
                 >
                   <span className="material-symbols-outlined text-sm font-bold">zoom_in</span>
@@ -581,7 +669,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
                     const level = classifyProfitability(margin, thresholdHigh, thresholdMedium, !!recipe.isSubRecipe, recipe.sellPrice || 0);
                     return (
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-base leading-tight truncate flex-1">{recipe.name}</h4>
+                        <h4 className="font-extrabold text-content text-base leading-tight truncate flex-1">{recipe.name}</h4>
                         {level !== 'N/A' && level !== 'Sin Venta' && (
                           <div className="group relative shrink-0">
                             <span 
@@ -591,7 +679,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
                               }}
                             />
                             {level === 'Baja' && (
-                              <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block w-48 bg-slate-950 text-white text-[9px] p-2 rounded-lg shadow-xl text-center z-30 font-semibold leading-snug">
+                              <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block w-48 bg-canvas text-white text-[9px] p-2 rounded-lg shadow-xl text-center z-30 font-semibold leading-snug">
                                 Margen por debajo del umbral objetivo. Revisar costeo.
                               </div>
                             )}
@@ -600,32 +688,47 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
                       </div>
                     );
                   })()}
-                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed mb-4">{recipe.description || 'Sin descripción disponible.'}</p>
+                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed mb-4">
+                    {isOutOfStock ? `Insumo agotado: ${availability.missingItemName || 'Sin stock'}` : (recipe.description || 'Sin descripción disponible.')}
+                  </p>
                 </div>
-                <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800/80">
-                  <span className="text-slate-900 dark:text-white font-black text-base">${recipe.sellPrice.toLocaleString('es-CO')}</span>
+                <div className="flex justify-between items-center pt-2 border-t border-line">
+                  <span className="text-content font-black text-base tabular-numbers tracking-tight">{formatCurrency(recipe.sellPrice, 0)}</span>
                   <button
-                    onClick={() => handleAddToCart(recipe)}
-                    className="bg-[var(--accent-pink)] text-white rounded-full p-2.5 shadow-md shadow-[var(--accent-pink)]/15 hover:scale-105 active:scale-95 transition-all flex items-center justify-center"
+                    disabled={isOutOfStock}
+                    onClick={() => {
+                      if (isOutOfStock) {
+                        toast.error(`No es posible ordenar ${recipe.name}: falta stock de ${availability.missingItemName || 'ingrediente'}.`);
+                        return;
+                      }
+                      handleAddToCart(recipe);
+                    }}
+                    className={`rounded-full p-2.5 shadow-md transition-all flex items-center justify-center btn-press border-none ${
+                      isOutOfStock
+                        ? 'bg-raised text-content-tertiary cursor-not-allowed'
+                        : 'bg-[var(--accent-pink)] text-white shadow-[var(--accent-pink)]/15 hover:scale-105 active:scale-95 cursor-pointer'
+                    }`}
+                    title={isOutOfStock ? `Sin stock de ${availability.missingItemName}` : `Agregar ${recipe.name}`}
                   >
-                    <span className="material-symbols-outlined text-lg">add</span>
+                    <span className="material-symbols-outlined text-lg">{isOutOfStock ? 'block' : 'add'}</span>
                   </button>
                 </div>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       </section>
 
       {/* Cart Sidebar Section (40%) */}
-      <section className="w-full md:w-[420px] bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col h-full shadow-2xl relative z-20">
-        <div className="p-6 bg-slate-50 dark:bg-[var(--card-color)]/20 border-b border-slate-200 dark:border-slate-800">
+      <section className="w-full md:w-[420px] bg-surface border-l border-line flex flex-col h-full shadow-2xl relative z-20">
+        <div className="p-6 bg-slate-50 dark:bg-[var(--card-color)]/20 border-b border-line">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-900 dark:bg-[var(--card-color)] text-white rounded-xl flex items-center justify-center font-bold text-lg">
+            <div className="w-10 h-10 bg-neutral-900 dark:bg-[var(--card-color)] text-white rounded-xl flex items-center justify-center font-bold text-lg">
               {selectedTableName}
             </div>
             <div>
-              <h3 className="font-headline font-black text-slate-900 dark:text-white">Comanda Activa</h3>
+              <h3 className="font-headline font-black text-content">Comanda Activa</h3>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Detalles de Facturación</p>
             </div>
           </div>
@@ -643,10 +746,10 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
               const margin = calculateGrossMargin(item.recipe.sellPrice || 0, item.recipe.costPrice || 0, taxPercentage);
               const level = classifyProfitability(margin, thresholdHigh, thresholdMedium, !!item.recipe.isSubRecipe, item.recipe.sellPrice || 0);
               return (
-                <div key={item.recipe.id} className="flex gap-4 items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                <div key={item.recipe.id} className="flex gap-4 items-center justify-between pb-3 border-b border-line">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <h5 className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate flex-1">{item.recipe.name}</h5>
+                      <h5 className="font-bold text-sm text-content truncate flex-1">{item.recipe.name}</h5>
                       {level !== 'N/A' && level !== 'Sin Venta' && (
                         <div className="group relative shrink-0">
                           <span 
@@ -656,7 +759,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
                             }}
                           />
                           {level === 'Baja' && (
-                            <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block w-48 bg-slate-950 text-white text-[9px] p-2 rounded-lg shadow-xl text-center z-30 font-semibold leading-snug">
+                            <div className="absolute bottom-full mb-1 right-0 hidden group-hover:block w-48 bg-canvas text-white text-[9px] p-2 rounded-lg shadow-xl text-center z-30 font-semibold leading-snug">
                               Margen por debajo del umbral objetivo. Revisar costeo.
                             </div>
                           )}
@@ -664,14 +767,14 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-xs text-slate-400">${item.recipe.sellPrice.toLocaleString('es-CO')} c/u</p>
+                      <p className="text-xs text-slate-400 tabular-numbers tracking-tight">{formatCurrency(item.recipe.sellPrice, 0)} c/u</p>
                       <select 
                         value={item.seatNumber || 1}
                         onChange={(e) => {
                           const newCart = cart.map(c => c.recipe.id === item.recipe.id ? { ...c, seatNumber: parseInt(e.target.value) } : c);
                           setCart(newCart);
                         }}
-                        className="text-[10px] bg-slate-100 dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-800 rounded px-1 py-0.5 outline-none text-slate-700 dark:text-slate-300 font-bold"
+                        className="text-[10px] bg-slate-100 dark:bg-[var(--card-color)] border border-line rounded px-1 py-0.5 outline-none text-content-secondary font-bold"
                       >
                         {[1,2,3,4,5,6,7,8].map(n => (
                           <option key={n} value={n}>Silla {n}</option>
@@ -685,16 +788,18 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleRemoveFromCart(item)}
-                      className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-[var(--card-color)] flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300"
+                      className="w-10 h-10 rounded-full bg-slate-100 dark:bg-[var(--card-color)] flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 btn-press text-content-secondary"
+                      aria-label="Disminuir cantidad"
                     >
-                      <span className="material-symbols-outlined text-sm">remove</span>
+                      <span className="material-symbols-outlined text-base">remove</span>
                     </button>
-                    <span className="text-sm font-black text-slate-800 dark:text-slate-200 w-5 text-center">{item.quantity}</span>
+                    <span className="text-sm font-black text-content w-6 text-center tabular-numbers tracking-tight">{item.quantity}</span>
                     <button
                       onClick={() => handleAddToCart(item.recipe)}
-                      className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-[var(--card-color)] flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors text-slate-600 dark:text-slate-300"
+                      className="w-10 h-10 rounded-full bg-slate-100 dark:bg-[var(--card-color)] flex items-center justify-center hover:bg-slate-200 dark:hover:bg-slate-700 btn-press text-content-secondary"
+                      aria-label="Aumentar cantidad"
                     >
-                      <span className="material-symbols-outlined text-sm">add</span>
+                      <span className="material-symbols-outlined text-base">add</span>
                     </button>
                   </div>
                 </div>
@@ -705,14 +810,16 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
 
         {/* Checkout Cart Summary Footer */}
         {cart.length > 0 && (
-          <div className="p-6 bg-slate-50 dark:bg-[var(--card-color)]/20 border-t border-slate-200 dark:border-slate-800 space-y-4">
+          <div className="p-6 bg-slate-50 dark:bg-[var(--card-color)]/20 border-t border-line space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Subtotal</span>
-              <span className="text-sm font-semibold text-slate-900 dark:text-white">${subtotal.toLocaleString('es-CO')}</span>
+              <span className="text-sm font-semibold text-content tabular-numbers tracking-tight">{formatCurrency(subtotal, 0)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Impoconsumo ({taxPercentage}%)</span>
-              <span className="text-sm font-semibold text-slate-900 dark:text-white">${impoconsumo.toLocaleString('es-CO')}</span>
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                {taxPercentage === 0 ? 'Impoconsumo (0% - Exento)' : `Impoconsumo (${taxPercentage}%)`}
+              </span>
+              <span className="text-sm font-semibold text-content tabular-numbers tracking-tight">{formatCurrency(impoconsumo, 0)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Acciones</span>
@@ -749,16 +856,16 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
                 </button>
               </div>
             </div>
-            <div className="flex justify-between items-end border-t border-dashed border-slate-300 dark:border-slate-700 pt-3">
+            <div className="flex justify-between items-end border-t border-dashed border-line pt-3">
               <span className="text-sm font-semibold text-slate-500">Monto Total:</span>
-              <span className="text-2xl font-manrope font-black text-slate-900 dark:text-white">${totalGeneral.toLocaleString('es-CO')}</span>
+              <span className="text-2xl font-black text-content tabular-numbers tracking-tight">{formatCurrency(totalGeneral, 0)}</span>
             </div>
             
             {/* Primary & Secondary Action Buttons Row */}
             <div className="flex flex-col gap-2">
               <button
                 onClick={handleCheckoutClick}
-                className="w-full py-3.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-95 duration-200 cursor-pointer border-none"
+                className="w-full py-3.5 bg-canvas hover:bg-raised text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-95 duration-200 cursor-pointer border-none"
               >
                 <span className="material-symbols-outlined text-base">send</span>
                 Enviar a Cocina
@@ -766,7 +873,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowPrintPreview(true)}
-                  className="flex-1 py-3 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-850 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:scale-[1.01] active:scale-95 transition-all duration-200 cursor-pointer"
+                  className="flex-1 py-3 border border-line text-content-secondary bg-surface hover:bg-slate-50 dark:hover:bg-slate-850 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:scale-[1.01] active:scale-95 transition-all duration-200 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-sm">print</span>
                   Imprimir
@@ -791,8 +898,8 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
 
       {/* DISNEY SUGGESTIVE SALES MODAL (TACTILE LOCK) */}
       {showUpsellModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg p-8 shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden flex flex-col gap-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay backdrop-blur-md animate-fade-in">
+          <div className="bg-surface rounded-3xl w-full max-w-lg p-8 shadow-2xl border border-line relative overflow-hidden flex flex-col gap-6">
             {/* Upsell Header Accent */}
             <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-[var(--accent-purple)] to-[var(--accent-pink)]"></div>
 
@@ -811,7 +918,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
               {/* Option 1: Gin Tonic */}
               <button
                 onClick={() => handleFinalSubmit(true, 'rec-gin-tonic-01')}
-                className="w-full flex gap-3 p-4 bg-slate-50 dark:bg-[var(--card-color)]/30 border border-[rgba(143,99,244,0.15)] rounded-2xl hover:border-[var(--accent-purple)] hover:bg-white dark:hover:bg-slate-800 transition-all text-left group"
+                className="w-full flex gap-3 p-4 bg-slate-50 dark:bg-[var(--card-color)]/30 border border-[rgba(143,99,244,0.15)] rounded-2xl hover:border-[var(--accent-purple)] hover:bg-white dark:hover:bg-raised transition-all text-left group"
               >
                 <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100">
                   <img
@@ -822,7 +929,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
                 </div>
                 <div className="flex-1">
                   <span className="bg-[var(--text-muted)]/15 text-[var(--text-muted)] text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider mb-1 inline-block">50% DESC</span>
-                  <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">Gin Tonic Clásico (Copón)</h4>
+                  <h4 className="font-bold text-sm text-content">Gin Tonic Clásico (Copón)</h4>
                   <p className="text-xs text-slate-400">Ginebra Tanqueray, tónica casa, mist botánico.</p>
                   <p className="text-xs font-bold text-[var(--accent-purple)] mt-1">Agregar por sólo $16.000 COP</p>
                 </div>
@@ -831,7 +938,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
               {/* Option 2: Burrata de Herencia */}
               <button
                 onClick={() => handleFinalSubmit(true, 'rec-burrata-01')}
-                className="w-full flex gap-3 p-4 bg-slate-50 dark:bg-[var(--card-color)]/30 border border-[rgba(143,99,244,0.15)] rounded-2xl hover:border-[var(--accent-purple)] hover:bg-white dark:hover:bg-slate-800 transition-all text-left group"
+                className="w-full flex gap-3 p-4 bg-slate-50 dark:bg-[var(--card-color)]/30 border border-[rgba(143,99,244,0.15)] rounded-2xl hover:border-[var(--accent-purple)] hover:bg-white dark:hover:bg-raised transition-all text-left group"
               >
                 <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100">
                   <img
@@ -842,7 +949,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
                 </div>
                 <div className="flex-1">
                   <span className="bg-teal-500/10 text-teal-600 dark:text-teal-400 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider mb-1 inline-block">PLATO POPULAR</span>
-                  <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">Burrata de Herencia</h4>
+                  <h4 className="font-bold text-sm text-content">Burrata de Herencia</h4>
                   <p className="text-xs text-slate-400">Tomates heirloom marinados y pesto fresco.</p>
                   <p className="text-xs font-bold text-teal-500 mt-1">Agregar por $38.000 COP</p>
                 </div>
@@ -864,7 +971,7 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
 
       {selectedFullImage && (
         <Modal title="Vista de Imagen" onClose={() => setSelectedFullImage(null)}>
-          <div className="flex justify-center items-center p-2 bg-slate-950/10 rounded-2xl">
+          <div className="flex justify-center items-center p-2 bg-canvas/10 rounded-2xl">
             <img 
               src={selectedFullImage} 
               alt="Full Screen Recipe Product" 
@@ -876,26 +983,23 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
 
       {/* Waste Reason Modal */}
       {itemToCancel && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-150 dark:border-slate-800 text-slate-800 dark:text-slate-200 space-y-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
+          <div className="bg-surface rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-150 dark:border-line text-content space-y-4">
             <div className="flex items-center gap-2 text-rose-500">
               <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
               <h4 className="text-lg font-headline font-black">Confirmar Motivo de Merma</h4>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              El producto <strong className="text-slate-800 dark:text-white">"{itemToCancel.recipe.name}"</strong> ya entró en producción. Al cancelarlo, se registrará una pérdida operativa de <strong>${itemToCancel.recipe.costPrice.toLocaleString('es-CO')} COP</strong>.
+            <p className="text-xs text-content-secondary leading-relaxed">
+              El producto <strong className="text-content">"{itemToCancel.recipe.name}"</strong> ya entró en producción. Al cancelarlo, se registrará una pérdida operativa de <strong className="tabular-numbers tracking-tight">{formatCurrency(itemToCancel.recipe.costPrice, 0)} COP</strong>.
             </p>
             <div>
               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Motivo del Descarte</label>
-              <select
+              <CustomSelect
                 value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                className="w-full bg-slate-100 dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-rose-500"
-              >
-                {configuredWasteReasons.map((reason: string) => (
-                  <option key={reason} value={reason}>{reason}</option>
-                ))}
-              </select>
+                onChange={setCancelReason}
+                options={configuredWasteReasons.map((reason: string) => ({ value: reason, label: reason }))}
+                className="w-full bg-slate-100 dark:bg-[var(--card-color)] border border-line rounded-xl p-3 text-xs text-content"
+              />
             </div>
             <div className="flex gap-3 pt-2">
               <button
@@ -918,9 +1022,9 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
       )}
       {/* Billing/Payment Modal */}
       {showBillingModal && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg p-6 shadow-2xl border border-slate-150 dark:border-slate-800 text-slate-800 dark:text-slate-200 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
+          <div className="bg-surface rounded-3xl w-full max-w-lg p-6 shadow-2xl border border-slate-150 dark:border-line text-content space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
               <h3 className="text-xl font-headline font-black text-slate-950 dark:text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-[var(--accent-purple)]">receipt_long</span>
                 Facturación y Cierre - {selectedTableName}
@@ -970,39 +1074,40 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
 
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Medio de Pago</label>
-                <select
+                <CustomSelect
                   value={billingPaymentMethod}
-                  onChange={(e) => setBillingPaymentMethod(e.target.value)}
-                  className="w-full bg-slate-100 dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[var(--accent-purple)]"
-                >
-                  <option value="Efectivo">Efectivo</option>
-                  <option value="Tarjeta Debito">Tarjeta Débito</option>
-                  <option value="Tarjeta Credito">Tarjeta Crédito</option>
-                  <option value="Transferencia">Transferencia (Nequi/Daviplata)</option>
-                </select>
+                  onChange={setBillingPaymentMethod}
+                  options={[
+                    { value: 'Efectivo', label: 'Efectivo' },
+                    { value: 'Tarjeta Debito', label: 'Tarjeta Débito' },
+                    { value: 'Tarjeta Credito', label: 'Tarjeta Crédito' },
+                    { value: 'Transferencia', label: 'Transferencia (Nequi/Daviplata)' }
+                  ]}
+                  className="w-full bg-slate-100 dark:bg-[var(--card-color)] border border-line rounded-xl p-3 text-xs text-content"
+                />
               </div>
 
               {/* Totals Summary */}
-              <div className="p-4 bg-slate-50 dark:bg-[var(--card-color)]/40 rounded-2xl space-y-2 text-xs border border-slate-100 dark:border-slate-800">
+              <div className="p-4 bg-slate-50 dark:bg-[var(--card-color)]/40 rounded-2xl space-y-2 text-xs border border-line">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Monto Subtotal:</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">${subtotal.toLocaleString('es-CO')}</span>
+                  <span className="font-semibold text-content tabular-numbers tracking-tight">{formatCurrency(subtotal, 0)}</span>
                 </div>
                 <div className="flex justify-between text-rose-500">
-                  <span>Impuesto Impoconsumo ({taxPercentage}%):</span>
-                  <span>${impoconsumo.toLocaleString('es-CO')}</span>
+                  <span>{taxPercentage === 0 ? 'Impuesto Impoconsumo (0% - Exento):' : `Impuesto Impoconsumo (${taxPercentage}%):`}</span>
+                  <span className="tabular-numbers tracking-tight">{formatCurrency(impoconsumo, 0)}</span>
                 </div>
-                <div className="border-t border-dashed border-slate-200 dark:border-slate-700 my-2 pt-2 flex justify-between font-bold text-sm text-slate-900 dark:text-white">
+                <div className="border-t border-dashed border-line my-2 pt-2 flex justify-between font-bold text-sm text-content">
                   <span>Total Neto (Base):</span>
-                  <span>${(subtotal - impoconsumo).toLocaleString('es-CO')}</span>
+                  <span className="tabular-numbers tracking-tight">{formatCurrency(subtotal - impoconsumo, 0)}</span>
                 </div>
                 <div className="flex justify-between font-black text-base text-[var(--accent-purple)] pt-1">
                   <span>Total a Cobrar:</span>
-                  <span>${totalGeneral.toLocaleString('es-CO')}</span>
+                  <span className="tabular-numbers tracking-tight">{formatCurrency(totalGeneral, 0)}</span>
                 </div>
               </div>
 
-              <div className="pt-4 flex gap-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="pt-4 flex gap-3 border-t border-line">
                 <button
                   type="button"
                   onClick={() => setShowBillingModal(false)}
@@ -1025,9 +1130,9 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
 
       {/* Print Pre-Factura Modal */}
       {showPrintPreview && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-slate-150 dark:border-slate-800 text-slate-800 dark:text-slate-200 space-y-4 flex flex-col">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
+          <div className="bg-surface rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-slate-150 dark:border-line text-content space-y-4 flex flex-col">
+            <div className="flex items-center justify-between border-b border-line pb-3">
               <div className="flex items-center gap-2 text-[var(--accent-purple)]">
                 <span className="material-symbols-outlined">print</span>
                 <h4 className="text-sm font-headline font-black uppercase tracking-wider">Previsualización de Factura</h4>
@@ -1041,22 +1146,22 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
             </div>
 
             {/* Thermal Ticket Design Container */}
-            <div className="bg-amber-50/50 dark:bg-slate-950 border border-amber-100 dark:border-slate-800 rounded-xl p-4 font-mono text-[10px] text-slate-800 dark:text-slate-300 space-y-3 shadow-inner overflow-y-auto max-h-96">
+            <div className="bg-amber-50/50 dark:bg-canvas border border-amber-100 dark:border-line rounded-xl p-4 font-mono text-[10px] text-slate-800 dark:text-slate-300 space-y-3 shadow-inner overflow-y-auto max-h-96">
               <div className="text-center space-y-1">
-                <h5 className="font-extrabold text-xs text-slate-900 dark:text-white">MALIBU GASTROBAR</h5>
+                <h5 className="font-extrabold text-xs text-content">MALIBU GASTROBAR</h5>
                 <p>Nit: 901.234.567-8</p>
                 <p>Calle 85 # 12-34, Bogotá</p>
                 <p>Tel: (601) 345-6789</p>
               </div>
 
-              <div className="border-t border-dashed border-slate-300 dark:border-slate-700 pt-2 space-y-1">
+              <div className="border-t border-dashed border-line pt-2 space-y-1">
                 <p>Fecha: {new Date().toLocaleDateString('es-CO')}  Hora: {new Date().toLocaleTimeString('es-CO')}</p>
                 <p>Mesero: Alex M. (POS)</p>
                 <p>Destino: {selectedTableName}</p>
               </div>
 
-              <div className="border-t border-b border-dashed border-slate-300 dark:border-slate-700 py-2">
-                <div className="grid grid-cols-6 font-bold text-slate-900 dark:text-white border-b border-dashed border-slate-200 dark:border-slate-800 pb-1 mb-1">
+              <div className="border-t border-b border-dashed border-line py-2">
+                <div className="grid grid-cols-6 font-bold text-content border-b border-dashed border-line pb-1 mb-1">
                   <span className="col-span-3">Item</span>
                   <span className="col-span-1 text-center">Cant</span>
                   <span className="col-span-2 text-right">Total</span>
@@ -1065,18 +1170,18 @@ export default function OrderFlow({ selectedTableName, onOrderSubmitted, onCance
                   {cart.map((item, idx) => (
                     <div key={idx} className="grid grid-cols-6">
                       <span className="col-span-3 truncate">{item.recipe.name}</span>
-                      <span className="col-span-1 text-center">{item.quantity}</span>
-                      <span className="col-span-2 text-right">${(item.quantity * item.recipe.sellPrice).toLocaleString('es-CO')}</span>
+                      <span className="col-span-1 text-center tabular-numbers">{item.quantity}</span>
+                      <span className="col-span-2 text-right tabular-numbers">{formatCurrency(item.quantity * item.recipe.sellPrice, 0)}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               <div className="space-y-1 text-right">
-                <p>Subtotal: ${subtotal.toLocaleString('es-CO')}</p>
-                <p>Impoconsumo ({taxPercentage}%): ${impoconsumo.toLocaleString('es-CO')}</p>
-                <p className="font-bold text-slate-900 dark:text-white text-xs border-t border-dashed border-slate-300 dark:border-slate-700 pt-1 mt-1">
-                  TOTAL A PAGAR: ${totalGeneral.toLocaleString('es-CO')}
+                <p>Subtotal: <span className="tabular-numbers">{formatCurrency(subtotal, 0)}</span></p>
+                <p>{taxPercentage === 0 ? 'Impoconsumo (0% - Exento):' : `Impoconsumo (${taxPercentage}%):`} <span className="tabular-numbers">{formatCurrency(impoconsumo, 0)}</span></p>
+                <p className="font-bold text-content text-xs border-t border-dashed border-line pt-1 mt-1">
+                  TOTAL A PAGAR: <span className="tabular-numbers">{formatCurrency(totalGeneral, 0)}</span>
                 </p>
               </div>
 

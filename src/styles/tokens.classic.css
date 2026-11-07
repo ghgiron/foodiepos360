@@ -1,0 +1,192 @@
+/* ==========================================================================
+   tokens.classic.css — Sistema Clásico Slate / Modern Cinema Dark & Light
+   Activado cuando: [data-design-system="classic-slate"]
+   Preserva la identidad visual previa (fondo Navy Slate, acentos púrpura/fucsia/naranja)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. MODO OSCURO — CLASSIC SLATE (Modern Cinema Dark)
+   -------------------------------------------------------------------------- */
+[data-design-system="classic-slate"]:root,
+[data-design-system="classic-slate"][data-theme="dark"],
+[data-design-system="classic-slate"] .dark,
+[data-design-system="classic-slate"][data-theme="glass"] {
+  color-scheme: dark;
+
+  /* Superficies Neutras Puras (Sin tinte azulado Slate) */
+  --bg-canvas:   #0A0A0A;   /* Level 0: Pure Deep Canvas */
+  --bg-surface:  #171717;   /* Level 1: Elevated pure neutral surface */
+  --bg-raised:   #262626;   /* Level 2: Elevated pure neutral container, modals */
+  --bg-inset:    #000000;   /* Pitch black deep contrast field */
+  --bg-overlay:  rgba(0, 0, 0, 0.75);
+  --bg-hover:    rgba(255, 255, 255, 0.05);
+  --bg-active:   rgba(255, 255, 255, 0.08);
+  --bg-selected: rgba(143, 99, 244, 0.16);
+
+  /* Variables heredadas de compatibilidad */
+  --bg-app:            #0A0A0A;
+  --bg-surface-raised: #262626;
+  --bg-input:          #121212;
+  --input-bg:          #121212;
+  --card-dark:         #171717;
+  --card-color:        #171717;
+  --bg-color:          #0A0A0A;
+
+  /* Bordes Neutros */
+  --border-subtle:  #262626;  /* Neutral hairline border */
+  --border-default: #333333;
+  --border-strong:  #444444;
+  --border-glow:    #262626;
+  --input-border:   #2E2E2E;
+
+  /* Tipografía y Contraste */
+  --text-primary:    #F8FAFC;  /* Pure high-contrast Slate 50 */
+  --text-secondary:  #94A3B8;  /* Muted Slate 400 */
+  --text-tertiary:   #64748B;  /* Dimmed Slate 500 metadata */
+  --text-muted:      #64748B;
+  --text-disabled:   #475569;
+  --text-accessible: #F8FAFC;
+  --input-text:      #F8FAFC;
+  --input-placeholder: #94A3B8;
+
+  /* Acento y Acción Clásica: Púrpura Eléctrico */
+  --action-fill:    #8F63F4;
+  --action-hover:   #7C3AED;
+  --action-pressed: #6D28D9;
+  --action-text:    #FFFFFF;
+
+  --accent:         #8F63F4;
+  --accent-hover:   #A78BFA;
+  --accent-pressed: #7C3AED;
+  --accent-subtle:  rgba(143, 99, 244, 0.16);
+  --accent-fill:    #8F63F4;
+  --text-accent:    #8F63F4;
+  --text-link:      #A78BFA;
+  --text-on-accent: #FFFFFF;
+  --border-accent:  #8F63F4;
+
+  /* Acentos de estado clásicos */
+  --accent-purple: #8F63F4;
+  --accent-pink:   #FF4E88;
+  --accent-orange: #FF5722;
+  --accent-blue:   #3B82F6;
+  --accent-yellow: #F59E0B;
+  --accent-amber:  #F59E0B;
+  --accent-green:  #10B981;
+  --accent-red:    #EF4444;
+
+  --status-success: #10B981;
+  --status-warning: #F59E0B;
+  --status-error:   #EF4444;
+  --status-info:    #3B82F6;
+  --status-purple:  #8F63F4;
+
+  /* Escala de calor en modo clásico (naranja / rojo estándar) */
+  --heat-ok:       #10B981;
+  --heat-warm:     #F59E0B;
+  --heat-hot:      #FF5722;
+  --heat-overdue:  #EF4444;
+
+  /* Foco */
+  --focus-ring: 0 0 0 2px #090D16, 0 0 0 4px #8F63F4;
+
+  /* Sombras oscuras */
+  --shadow-card:        0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-card-hover:  0 12px 28px rgba(0, 0, 0, 0.6);
+  --shadow-glow-accent: 0 0 20px rgba(143, 99, 244, 0.35);
+
+  /* Capas flotantes y Glass clásico */
+  --card-bg:         #0F172A;
+  --card-border:     #1E293B;
+  --floating-bg:     rgba(15, 23, 42, 0.88);
+  --floating-border: #1E293B;
+}
+
+/* --------------------------------------------------------------------------
+   2. MODO CLARO — CLASSIC SLATE (DataPulse Clean)
+   -------------------------------------------------------------------------- */
+[data-design-system="classic-slate"][data-theme="light"] {
+  color-scheme: light;
+
+  /* Superficies Light Clásicas */
+  --bg-canvas:   #F1F5F9;   /* Level 0: Soft cool slate-100 anti-glare canvas */
+  --bg-surface:  #FFFFFF;   /* Level 1: Pure white */
+  --bg-raised:   #F8FAFC;   /* Level 2: Tinted container */
+  --bg-inset:    #FFFFFF;
+  --bg-overlay:  rgba(15, 23, 42, 0.45);
+  --bg-hover:    rgba(15, 23, 42, 0.04);
+  --bg-active:   rgba(15, 23, 42, 0.07);
+  --bg-selected: rgba(88, 80, 236, 0.10);
+
+  /* Variables de compatibilidad */
+  --bg-app:            #F1F5F9;
+  --bg-surface-raised: #F8FAFC;
+  --bg-input:          #FFFFFF;
+  --input-bg:          #FFFFFF;
+  --card-color:        #FFFFFF;
+  --bg-color:          #F1F5F9;
+
+  /* Bordes */
+  --border-subtle:  #E2E8F0;  /* Slate 200 */
+  --border-default: #CBD5E1;  /* Slate 300 crisp border */
+  --border-strong:  #94A3B8;
+  --border-glow:    #E2E8F0;
+  --input-border:   #CBD5E1;
+
+  /* Tipografía y Contraste */
+  --text-primary:    #0F172A;  /* Slate 900 (17.4:1 contrast AAA vs white) */
+  --text-secondary:  #475569;  /* Slate 600 (7.04:1 AAA) */
+  --text-tertiary:   #64748B;  /* Slate 500 metadata */
+  --text-muted:      #64748B;
+  --text-disabled:   #94A3B8;
+  --text-accessible: #0F172A;
+  --input-text:      #0F172A;
+  --input-placeholder: #475569;
+
+  /* Acción Clásica en Light: Cobalt/Indigo (#5850EC) o Púrpura */
+  --action-fill:    #5850EC;
+  --action-hover:   #4F46E5;
+  --action-pressed: #4338CA;
+  --action-text:    #FFFFFF;
+
+  --accent:         #FF5722;  /* Electric Orange en Light */
+  --accent-hover:   #F4511E;
+  --accent-pressed: #E64A19;
+  --accent-subtle:  rgba(255, 87, 34, 0.12);
+  --accent-fill:    #FF5722;
+  --text-accent:    #FF5722;
+  --text-link:      #5850EC;
+  --text-on-accent: #FFFFFF;
+  --border-accent:  #5850EC;
+
+  --accent-purple: #8F63F4;
+  --accent-pink:   #FF4E88;
+  --accent-orange: #FF5722;
+  --accent-blue:   #3B82F6;
+  --accent-yellow: #D97706;
+  --accent-amber:  #F59E0B;
+  --accent-green:  #059669;
+  --accent-red:    #EF4444;
+
+  --status-success: #10B981;
+  --status-warning: #F59E0B;
+  --status-error:   #EF4444;
+  --status-info:    #3B82F6;
+  --status-purple:  #8F63F4;
+
+  --heat-ok:       #059669;
+  --heat-warm:     #D97706;
+  --heat-hot:      #FF5722;
+  --heat-overdue:  #DC2626;
+
+  --focus-ring: 0 0 0 2px #FFFFFF, 0 0 0 4px #5850EC;
+
+  --shadow-card:       0 8px 24px rgba(15, 23, 42, 0.04);
+  --shadow-card-hover: 0 16px 32px -10px color-mix(in srgb, #0F172A 15%, transparent);
+  --shadow-glow-accent: 0 0 20px rgba(88, 80, 236, 0.25);
+
+  --card-bg:         #FFFFFF;
+  --card-border:     #CBD5E1;
+  --floating-bg:     rgba(255, 255, 255, 0.94);
+  --floating-border: #CBD5E1;
+}

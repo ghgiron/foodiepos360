@@ -2,10 +2,13 @@
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/localDb';
+import { deleteRecordFromFirestore, bulkDeleteRecords } from '../services/syncService';
 import type { Supplier } from '../types';
 import SupplierForm from './supplierForm';
 import toast from 'react-hot-toast';
 import ConfirmDialog from './ui/ConfirmDialog';
+import BulkActionBar from './ui/BulkActionBar';
+import { flexibleMultiMatch } from '../utils/searchEngine';
 
 export default function SupplierManagementList() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,6 +23,8 @@ export default function SupplierManagementList() {
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
   const [deleteSupplierId, setDeleteSupplierId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   // Query suppliers from Dexie
   const dbSuppliers = useLiveQuery(() => db.suppliers.toArray()) || [];
@@ -41,13 +46,7 @@ export default function SupplierManagementList() {
   // Filters logic
   const filteredSuppliers = useMemo(() => {
     return dbSuppliers.filter(item => {
-      const matchesSearch = 
-        (item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.contact || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.email || '').toLowerCase().includes(searchTerm.toLowerCase());
-      
-      return matchesSearch;
+      return flexibleMultiMatch([item.name, item.id, item.contact, item.email, (item as any).phone, (item as any).taxId], searchTerm);
     });
   }, [dbSuppliers, searchTerm]);
 
@@ -73,13 +72,28 @@ export default function SupplierManagementList() {
   const confirmDelete = async () => {
     if (!deleteSupplierId) return;
     try {
-      await db.suppliers.delete(deleteSupplierId);
+      await deleteRecordFromFirestore('suppliers', deleteSupplierId);
       toast.success('Proveedor eliminado exitosamente.');
     } catch (err) {
       console.error('Error deleting supplier:', err);
       toast.error('Error al eliminar el proveedor.');
     } finally {
       setDeleteSupplierId(null);
+    }
+  };
+
+  // Bulk Delete Suppliers Handler
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      await bulkDeleteRecords('suppliers', selectedIds);
+      toast.success(`${selectedIds.length} proveedor(es) eliminado(s) exitosamente.`);
+      setSelectedIds([]);
+    } catch (err) {
+      console.error('Error bulk deleting suppliers:', err);
+      toast.error('Error al eliminar los proveedores seleccionados.');
+    } finally {
+      setShowBulkDeleteConfirm(false);
     }
   };
 
@@ -169,7 +183,7 @@ export default function SupplierManagementList() {
       <section className="bg-[var(--bg-surface)] rounded-[2rem] border border-[var(--border-glow)] shadow-sm overflow-hidden">
         
         {/* Header Search */}
-        <div className="p-6 border-b border-[var(--border-glow)] flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/20 dark:bg-slate-900/10">
+        <div className="p-6 border-b border-[var(--border-glow)] flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/20 dark:bg-surface/10">
           <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">
             Listado de Proveedores
           </h3>
@@ -190,6 +204,22 @@ export default function SupplierManagementList() {
           <table className="w-full text-left">
             <thead className="bg-[var(--bg-app)] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-glow)]">
               <tr>
+                <th className="py-4 px-4 w-12 text-center">
+                  <input
+                    type="checkbox"
+                    checked={paginatedSuppliers.length > 0 && paginatedSuppliers.every(item => selectedIds.includes(item.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const pageIds = paginatedSuppliers.map(item => item.id);
+                        setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
+                      } else {
+                        const pageIds = new Set(paginatedSuppliers.map(item => item.id));
+                        setSelectedIds(prev => prev.filter(id => !pageIds.has(id)));
+                      }
+                    }}
+                    className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer accent-purple-600"
+                  />
+                </th>
                 <th className="py-4 px-6">Empresa</th>
                 <th className="py-4 px-4">Contacto</th>
                 <th className="py-4 px-4">Email</th>
@@ -201,14 +231,31 @@ export default function SupplierManagementList() {
             <tbody className="divide-y divide-[var(--border-glow)] text-xs">
               {paginatedSuppliers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 px-6 text-center text-[var(--text-muted)] italic">
+                  <td colSpan={7} className="py-8 px-6 text-center text-[var(--text-muted)] italic">
                     No se encontraron proveedores registrados.
                   </td>
                 </tr>
               ) : (
                 paginatedSuppliers.map(item => (
-                  <tr key={item.id} className="hover:bg-[var(--bg-app)]/30 transition-all">
-                    
+                  <tr 
+                    key={item.id} 
+                    className={`hover:bg-[var(--bg-app)]/30 transition-all ${
+                      selectedIds.includes(item.id) ? 'bg-purple-500/10' : ''
+                    }`}
+                  >
+                    <td className="py-4 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(item.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setSelectedIds(prev =>
+                            prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
+                          );
+                        }}
+                        className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer accent-purple-600"
+                      />
+                    </td>
                     {/* Empresa */}
                     <td className="py-4 px-6 flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-[var(--bg-app)] flex items-center justify-center text-[var(--accent-purple)] shrink-0 border border-[var(--border-glow)]">
@@ -289,7 +336,7 @@ export default function SupplierManagementList() {
         </div>
 
         {/* Pagination Footer */}
-        <div className="p-6 border-t border-[var(--border-glow)] flex items-center justify-between bg-slate-50/20 dark:bg-slate-900/10">
+        <div className="p-6 border-t border-[var(--border-glow)] flex items-center justify-between bg-slate-50/20 dark:bg-surface/10">
           <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase">
             Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredSuppliers.length)} de {filteredSuppliers.length} proveedores
           </span>
@@ -336,6 +383,26 @@ export default function SupplierManagementList() {
           message="¿Estás seguro de que deseas eliminar este proveedor? Esta acción no se puede deshacer."
           onConfirm={confirmDelete}
           onCancel={() => setDeleteSupplierId(null)}
+        />
+      )}
+
+      {/* Floating Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.length}
+        onClearSelection={() => setSelectedIds([])}
+        onBulkDelete={() => setShowBulkDeleteConfirm(true)}
+      />
+
+      {/* Bulk Delete Confirm Dialog */}
+      {showBulkDeleteConfirm && (
+        <ConfirmDialog
+          isOpen={showBulkDeleteConfirm}
+          title="Eliminación Múltiple de Proveedores"
+          message={`¿Estás seguro de que deseas eliminar permanentemente ${selectedIds.length} proveedor(es)? Esta acción eliminará los registros de forma transaccional tanto localmente como en la nube y no se puede deshacer.`}
+          confirmText={`Eliminar ${selectedIds.length} proveedores`}
+          cancelText="Cancelar"
+          onConfirm={handleBulkDelete}
+          onCancel={() => setShowBulkDeleteConfirm(false)}
         />
       )}
     </div>

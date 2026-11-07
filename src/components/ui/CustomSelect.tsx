@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
+import { normalizeUnit } from '../../services/excelImportService';
+import { flexibleMultiMatch } from '../../utils/searchEngine';
 
 export interface CustomSelectOption {
   value: string;
   label: string;
+  id?: string;
+  icon?: React.ReactNode;
 }
 
 interface CustomSelectProps {
@@ -19,7 +23,7 @@ export default function CustomSelect({
   value,
   onChange,
   options,
-  placeholder = 'Seleccione una opción...',
+  placeholder = 'Seleccione...',
   disabled = false,
   className = '',
   searchPlaceholder = 'Buscar...',
@@ -60,11 +64,28 @@ export default function CustomSelect({
     }
   }, [isOpen]);
 
-  const selectedOption = options.find((opt) => opt.value === value);
+  const valStr = String(value || '');
+  const valLower = valStr.trim().toLowerCase();
 
-  // Filter options dynamically
+  const selectedOption = 
+    options.find((opt) => opt.value === value) ||
+    options.find((opt) => opt.id && opt.id === value) ||
+    (valLower ? options.find((opt) => opt.value.toLowerCase() === valLower) : undefined) ||
+    (valLower ? options.find((opt) => opt.id?.toLowerCase() === valLower) : undefined) ||
+    (valLower ? options.find((opt) => opt.label.toLowerCase() === valLower) : undefined) ||
+    (valLower ? options.find((opt) => {
+      try {
+        const normVal = normalizeUnit(valStr);
+        const normOpt = normalizeUnit(opt.value || opt.label);
+        return Boolean(normVal && normOpt && normVal === normOpt);
+      } catch {
+        return false;
+      }
+    }) : undefined);
+
+  // Filter options dynamically with flexibleMultiMatch
   const filteredOptions = options.filter((opt) =>
-    opt.label.toLowerCase().includes(searchQuery.toLowerCase())
+    flexibleMultiMatch([opt.label, opt.value], searchQuery)
   );
 
   const handleSelectOption = (optValue: string) => {
@@ -82,32 +103,56 @@ export default function CustomSelect({
         type="button"
         disabled={disabled}
         onClick={toggleDropdown}
-        className={`w-full flex items-center justify-between transition-all cursor-pointer select-none ${className}`}
+        className={`h-11 w-full flex items-center justify-between px-3.5 py-2.5 rounded-sm border border-line bg-inset text-content text-sm outline-none focus:ring-2 focus:ring-action/25 focus:border-action transition-colors cursor-pointer select-none ${className}`}
       >
-        <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
-        <span className="material-symbols-outlined text-slate-400 select-none text-lg leading-none">
-          {isOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
-        </span>
+        <div className="flex items-center gap-2 truncate">
+          {selectedOption?.icon && <span className="shrink-0 flex items-center">{selectedOption.icon}</span>}
+          <span className={`truncate ${!selectedOption ? 'text-content-tertiary' : 'text-content font-semibold'}`}>
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-1 shrink-0 ml-2">
+          {/* Quick Clear 'X' Button */}
+          {value !== '' && value !== null && value !== undefined && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange('');
+              }}
+              className="w-6 h-6 flex items-center justify-center text-content-tertiary hover:text-danger hover:bg-raised rounded-xs transition-colors cursor-pointer"
+              title="Limpiar selección"
+            >
+              <span className="material-symbols-outlined text-sm">close</span>
+            </span>
+          )}
+
+          <span className="material-symbols-outlined text-content-secondary select-none text-lg leading-none">
+            {isOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+          </span>
+        </div>
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
         <div
-          className="absolute left-0 right-0 mt-2 z-[9999] rounded-xl border border-[rgba(143,99,244,0.2)] bg-[var(--card-white)] dark:bg-[var(--card-dark)] backdrop-blur-[14px] shadow-2xl flex flex-col overflow-hidden text-slate-900 dark:text-white"
+          className="absolute left-0 right-0 mt-1.5 z-[9999] min-w-full w-full rounded-sm border border-line bg-surface shadow-lg flex flex-col overflow-hidden text-content glass"
           style={{ maxHeight: '300px' }}
         >
           {/* Search Input Box */}
           {showSearch && (
-            <div className="p-2.5 border-b border-[rgba(143,99,244,0.15)] bg-slate-50/50 dark:bg-slate-950/20 shrink-0">
-              <div className="flex items-center gap-2 bg-slate-50 dark:bg-[var(--bg-app)] border border-slate-200/60 dark:border-slate-800/80 rounded-lg px-2.5 py-1.5 w-full">
-                <span className="material-symbols-outlined text-slate-400 text-xs select-none">search</span>
+            <div className="p-2 border-b border-line bg-canvas/60 shrink-0">
+              <div className="flex items-center gap-2 bg-inset border border-line rounded-sm px-2.5 py-1.5 w-full">
+                <span className="material-symbols-outlined text-content-tertiary text-xs select-none">search</span>
                 <input
                   ref={searchInputRef}
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className="bg-transparent border-none outline-none text-xs w-full font-semibold placeholder-slate-500 dark:placeholder-slate-500 text-slate-900 dark:text-white"
+                  className="bg-transparent border-none outline-none text-xs w-full font-semibold placeholder:text-content-tertiary text-content"
                 />
               </div>
             </div>
@@ -116,24 +161,27 @@ export default function CustomSelect({
           {/* Scrollable list of options */}
           <div className="overflow-y-auto flex-1 py-1 max-h-48 text-xs font-semibold">
             {filteredOptions.length === 0 ? (
-              <div className="px-4 py-3 text-slate-500 dark:text-slate-400 italic text-center">
+              <div className="px-4 py-3 text-content-secondary italic text-center">
                 No se encontraron resultados
               </div>
             ) : (
               filteredOptions.map((opt) => {
-                const isSelected = opt.value === value;
+                const isSelected = selectedOption ? (opt.value === selectedOption.value) : (opt.value === value);
                 return (
                   <button
-                    key={opt.value}
+                    key={opt.id || opt.value}
                     type="button"
                     onClick={() => handleSelectOption(opt.value)}
-                    className={`w-full px-4 py-2.5 text-left flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-850/60 transition-colors border-none cursor-pointer ${
-                      isSelected ? 'bg-[var(--accent-purple)]/10 text-[var(--accent-purple)] font-bold' : 'text-slate-700 dark:text-slate-300'
+                    className={`w-full px-4 py-2.5 text-left flex items-center justify-between hover:bg-raised transition-colors border-none cursor-pointer ${
+                      isSelected ? 'bg-[var(--bg-selected)] text-content font-bold' : 'text-content-secondary'
                     }`}
                   >
-                    <span className="truncate">{opt.label}</span>
+                    <div className="flex items-center gap-2 truncate">
+                      {opt.icon && <span className="shrink-0 flex items-center">{opt.icon}</span>}
+                      <span className="truncate">{opt.label}</span>
+                    </div>
                     {isSelected && (
-                      <span className="material-symbols-outlined text-sm text-[var(--accent-purple)] font-bold select-none leading-none">
+                      <span className="material-symbols-outlined text-sm text-content font-bold select-none leading-none">
                         check
                       </span>
                     )}

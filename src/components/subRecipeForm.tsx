@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useNavigate } from '../hooks/useNavigate';
 import { db } from '../db/localDb';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { Recipe, InventoryItem } from '../types';
@@ -6,6 +7,14 @@ import { saveSystemSetting, DEFAULT_SETTINGS } from '../db/settingsStore';
 import toast from 'react-hot-toast';
 import ConfirmDialog from './ui/ConfirmDialog';
 import CustomSelect from './ui/CustomSelect';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
+import { formatCurrency } from '../utils/formatters';
+import { calculateRecipeItemUnitCost } from '../utils/costEngine';
+import useFormExitGuard from '../hooks/useFormExitGuard';
+import { normalizeFormValue, areFormValuesEqual } from '../hooks/useFormDirty';
+import DiscardChangesModal from './ui/DiscardChangesModal';
+import { flexibleMultiMatch } from '../utils/searchEngine';
 
 interface SubRecipeFormProps {
   onCancel: () => void;
@@ -14,8 +23,11 @@ interface SubRecipeFormProps {
 }
 
 export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRecipeFormProps) {
+  const navigate = useNavigate();
+  const handleExitCallback = onCancel || (() => navigate(-1));
   // DB items
   const inventoryItems = useLiveQuery(() => db.inventoryItems.toArray()) || [];
+  const dbSupplyCategories = useLiveQuery(() => db.supplyCategories.toArray()) || [];
 
   const existingSubRecipe = useLiveQuery(async () => {
     if (!subRecipeId) return null;
@@ -34,6 +46,9 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
   const officialUnits = systemSettings['official_units'] || ['g', 'kg', 'ml', 'l', 'und'];
   const dbAllergens = systemSettings['master_allergens'] || DEFAULT_SETTINGS.master_allergens || [];
   const reqFields = systemSettings['required_fields'] || DEFAULT_SETTINGS.required_fields;
+  const operationalCostPercentage = systemSettings['operationalCostPercentage'] !== undefined 
+    ? Number(systemSettings['operationalCostPercentage']) 
+    : 14.95;
 
   // Form states (start empty per cleanup requirements)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -43,7 +58,6 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
   const [yieldUnit, setYieldUnit] = useState<string>('gr');
   const [quantityToProduce, setQuantityToProduce] = useState<number>(1);
   const [errorMarginPercentage, setErrorMarginPercentage] = useState<number>(5);
-  const [operatingCost, setOperatingCost] = useState<number>(0);
   const [allergens, setAllergens] = useState<string[]>([]);
 
   // Selected ingredients state
@@ -55,6 +69,73 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showItemDropdown, setShowItemDropdown] = useState<boolean>(false);
+
+  // Autofocus and keyboard refs
+  const quantityInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  const lastAddedIdRef = useRef<string | null>(null);
+
+  // Snapshot for dirty tracking
+  const [initialSnapshot, setInitialSnapshot] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  const currentSnapshotObj = useMemo(() => {
+    return {
+      name,
+      description,
+      yieldQuantity,
+      yieldUnit,
+      quantityToProduce,
+      errorMarginPercentage,
+      allergens,
+      ingredients: ingredients.map(i => ({ id: i.inventoryItemId, q: i.quantity, u: i.unit }))
+    };
+  }, [name, description, yieldQuantity, yieldUnit, quantityToProduce, errorMarginPercentage, allergens, ingredients]);
+
+  // Set initial snapshot once subrecipe is loaded
+  useEffect(() => {
+    if (!subRecipeId) {
+      if (initialSnapshot === null) {
+        setInitialSnapshot(JSON.stringify(normalizeFormValue(currentSnapshotObj)));
+        setIsLoaded(true);
+      }
+    } else if (existingSubRecipe && !isLoaded) {
+      const loadedSnapshot = JSON.stringify(normalizeFormValue({
+        name: existingSubRecipe.name || '',
+        description: existingSubRecipe.description || '',
+        yieldQuantity: existingSubRecipe.yieldQuantity || 150,
+        yieldUnit: existingSubRecipe.yieldUnit || 'gr',
+        quantityToProduce: 1,
+        errorMarginPercentage: Number(systemSettings['error_margin_pct']) || 5,
+        allergens: existingSubRecipe.allergens || [],
+        ingredients: (existingSubRecipe.ingredients || []).map(i => ({ id: i.inventoryItemId, q: i.quantity, u: i.unit }))
+      }));
+      setInitialSnapshot(loadedSnapshot);
+      setIsLoaded(true);
+    }
+  }, [subRecipeId, existingSubRecipe, isLoaded, currentSnapshotObj, initialSnapshot, systemSettings]);
+
+  const isDirty = useMemo(() => {
+    if (!initialSnapshot) return false;
+    return !areFormValuesEqual(currentSnapshotObj, JSON.parse(initialSnapshot));
+  }, [currentSnapshotObj, initialSnapshot]);
+
+  const { showDiscardModal, handleSafeExit, confirmExit, cancelExit } = useFormExitGuard({
+    isDirty,
+    destination: '/recipes',
+    onExitCallback: handleExitCallback
+  });
+
+  // Autofocus on newly added ingredient row
+  useEffect(() => {
+    if (lastAddedIdRef.current) {
+      const el = quantityInputRefs.current[lastAddedIdRef.current];
+      if (el) {
+        el.focus();
+        el.select();
+        lastAddedIdRef.current = null;
+      }
+    }
+  }, [ingredients]);
 
   // New Allergen input state
   const [newAllergen, setNewAllergen] = useState<string>('');
@@ -83,15 +164,38 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
     }
   }, [systemSettings]);
 
-  // Expanded search results with details
+  // Universal helper to detect supply items
+  const isSupplyItem = (item: any) => {
+    if (!item) return false;
+    const resType = (item.resourceType || '').toLowerCase().trim();
+    const type = (item.type || '').toLowerCase().trim();
+    const itemType = (item.itemType || '').toLowerCase().trim();
+    if (resType === 'supply' || type === 'supply' || itemType === 'supply') return true;
+
+    const cat = (item.category || '').toLowerCase().trim();
+    const supplyCat = (item.supplyCategory || '').toLowerCase().trim();
+    if (
+      cat.includes('suministro') || cat.includes('desechable') || cat.includes('empaque') || cat.includes('descartable') || cat.includes('packaging') ||
+      supplyCat.includes('suministro') || supplyCat.includes('desechable') || supplyCat.includes('empaque') || supplyCat.includes('descartable') || supplyCat.includes('packaging')
+    ) return true;
+
+    return dbSupplyCategories.some(sc => {
+      const n = (sc.name || '').toLowerCase().trim();
+      return n && (supplyCat === n || cat === n || supplyCat.includes(n) || cat.includes(n));
+    });
+  };
+
+  // Expanded search results with details (including supplies)
   const filteredItems = useMemo(() => {
-    if (!searchQuery) return [];
-    const q = searchQuery.toLowerCase();
-    return inventoryItems.filter(item => 
-      item.name.toLowerCase().includes(q) &&
-      !ingredients.some(ing => ing.inventoryItemId === item.id)
-    );
-  }, [searchQuery, inventoryItems, ingredients]);
+    if (!searchQuery.trim()) return [];
+    return inventoryItems.filter(item => {
+      if (!flexibleMultiMatch([item.name, item.id, item.category, item.supplyCategory], searchQuery)) return false;
+      const res = (item.resourceType || '').toLowerCase().trim();
+      const tp = ((item as any).type || '').toLowerCase().trim();
+      const isAllowed = !res || res === 'ingredient' || res === 'supply' || tp === 'ingredient' || tp === 'supply' || isSupplyItem(item);
+      return isAllowed && !ingredients.some(ing => ing.inventoryItemId === item.id);
+    });
+  }, [searchQuery, inventoryItems, ingredients, dbSupplyCategories]);
 
   // Dynamic cost calculations
   const ingredientDetails = useMemo(() => {
@@ -104,14 +208,7 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
 
       if (item) {
         nameStr = item.name;
-        if (item.costoUnitarioReal !== undefined) {
-          unitCost = item.costoUnitarioReal;
-        } else {
-          unitCost = item.purchaseCost / (item.countUnit === 'Kilogramo' || item.countUnit === 'Kg' ? 1 : 1000); // cost per unit or gram/ml
-          if (item.countUnit === 'unidad' || item.countUnit === 'Unidad') {
-            unitCost = item.purchaseCost;
-          }
-        }
+        unitCost = calculateRecipeItemUnitCost(item, ing.unit, systemSettings['unit_equivalences']);
       }
 
       const totalCost = unitCost * ing.quantity;
@@ -126,6 +223,7 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
     });
 
     const errorMarginCost = rawSum * (errorMarginPercentage / 100);
+    const operatingCost = rawSum * (operationalCostPercentage / 100);
     const totalProductionCost = rawSum + errorMarginCost + operatingCost;
     const costPerPortion = totalProductionCost * quantityToProduce;
     const yieldQtyNum = Number(yieldQuantity) || 1;
@@ -135,20 +233,22 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
       items: details,
       rawSum,
       errorMarginCost,
+      operatingCost,
       totalProductionCost,
       costPerPortion,
       costPerUnit
     };
-  }, [ingredients, inventoryItems, errorMarginPercentage, operatingCost, quantityToProduce, yieldQuantity]);
+  }, [ingredients, inventoryItems, errorMarginPercentage, operationalCostPercentage, quantityToProduce, yieldQuantity, systemSettings]);
 
   // Ingredients handlers
   const addIngredient = (item: InventoryItem) => {
-    setIngredients([
-      ...ingredients,
+    lastAddedIdRef.current = item.id;
+    setIngredients(prev => [
+      ...prev,
       {
         inventoryItemId: item.id,
         quantity: 10,
-        unit: item.countUnit
+        unit: item.usageUnit || item.countUnit
       }
     ]);
     setSearchQuery('');
@@ -213,10 +313,11 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
     const yieldQtyNum = Number(yieldQuantity) || 150;
 
     const subRecipeData: Recipe = {
+      ...(existingSubRecipe || {}),
       id: subRecipeId || `subrec-${Date.now()}`,
       name: name.trim(),
       description: description.trim(),
-      category: 'BAR',
+      category: existingSubRecipe?.category || 'BAR',
       sellPrice: 0,
       costPrice: ingredientDetails.costPerUnit, 
       portionCost: ingredientDetails.costPerPortion,
@@ -260,19 +361,19 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
   };
 
   return (
-    <div className="p-8 space-y-8 transition-receitly font-sans text-slate-800 dark:text-slate-200">
+    <div className="p-8 space-y-8 transition-receitly font-sans text-content">
       
       {/* Header Row */}
-      <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+      <div className="flex items-center justify-between border-b border-line pb-4">
         <div className="flex items-center gap-3">
           <button 
-            onClick={onCancel}
-            className="text-slate-500 hover:text-slate-700 dark:hover:text-white flex items-center justify-center p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-colors"
+            onClick={handleSafeExit}
+            className="text-slate-500 hover:text-slate-700 dark:hover:text-white flex items-center justify-center p-1.5 rounded-xl border border-line transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-lg">arrow_back</span>
           </button>
           <div>
-            <h1 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+            <h1 className="text-xl font-black text-content leading-tight">
               {subRecipeId ? 'Editar Subreceta' : 'Crear Nueva Subreceta'}
             </h1>
           </div>
@@ -304,43 +405,43 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
         <div className="lg:col-span-8 space-y-6 w-full min-w-0">
           
           {/* 1. Información Básica */}
-          <div className="bg-[var(--bg-surface)] p-6 rounded-3xl shadow-sm border border-[var(--border-glow)] space-y-4">
+          <div className="bg-surface p-6 rounded-2xl shadow-sm border border-line space-y-4">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 bg-[var(--accent-purple)]/10 text-[var(--accent-purple)] rounded-lg flex items-center justify-center">
+              <div className="w-7 h-7 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-lg flex items-center justify-center">
                 <span className="material-symbols-outlined text-sm">info</span>
               </div>
-              <h3 className="text-sm font-black text-[var(--text-primary)] uppercase tracking-wider">Información Básica</h3>
+              <h3 className="text-sm font-black text-content uppercase tracking-wider">Información Básica</h3>
             </div>
 
             <div>
-              <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] block mb-1">Nombre de la Subreceta</label>
-              <input 
+              <label className="text-[10px] font-black uppercase tracking-wider text-content-secondary block mb-1">Nombre de la Subreceta</label>
+              <Input 
                 type="text" 
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="Ej. Salsa de gulupa"
-                className="w-full rounded-xl border border-[var(--border-glow)] bg-[var(--bg-app)] text-[var(--text-primary)] p-3 text-xs focus:ring-1 focus:ring-[var(--accent-purple)] outline-none font-bold"
+                className="w-full rounded-lg border border-line bg-surface text-gray-900 dark:text-slate-100 px-3.5 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-colors"
               />
             </div>
             <div>
-              <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] block mb-1">Descripción</label>
-              <textarea 
+              <label className="text-[10px] font-black uppercase tracking-wider text-content-secondary block mb-1">Descripción</label>
+              <Textarea 
                 rows={3}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 placeholder="Detalles sobre la preparación o uso de esta subreceta..."
-                className="w-full rounded-xl border border-[var(--border-glow)] bg-[var(--bg-app)] text-[var(--text-primary)] p-3 text-xs focus:ring-1 focus:ring-[var(--accent-purple)] outline-none"
+                className="w-full rounded-lg border border-line bg-surface text-gray-900 dark:text-slate-100 px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-colors"
               />
             </div>
 
             {/* Allergens selector */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1.5">Alérgenos</label>
+              <label className="text-[10px] font-black uppercase tracking-wider text-content-secondary block mb-1.5">Alérgenos</label>
               <div className="flex flex-wrap items-center gap-2">
                 {allergens.map(al => (
                   <span 
                     key={al}
-                    className="bg-slate-100 dark:bg-[var(--card-color)] text-slate-700 dark:text-slate-200 text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1.5 border border-slate-200 dark:border-slate-700"
+                    className="bg-slate-100 dark:bg-[var(--card-color)] text-slate-700 dark:text-slate-200 text-[10px] font-black px-2.5 py-1 rounded-lg flex items-center gap-1.5 border border-line"
                   >
                     {al}
                     <button 
@@ -374,7 +475,7 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
                         ))}
                       </div>
                       <div className="border-t border-[var(--border-glow)] pt-2 flex items-center gap-1">
-                        <input
+                        <Input
                           type="text"
                           placeholder="Nuevo..."
                           value={newAllergen}
@@ -396,65 +497,64 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
           </div>
 
           {/* 2. Métricas de Producción */}
-          <div className="bg-[var(--bg-surface)] p-6 rounded-3xl shadow-sm border border-[var(--border-glow)] space-y-4">
+          <div className="bg-surface p-6 rounded-2xl shadow-sm border border-line space-y-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-7 h-7 bg-cyan-50 dark:bg-cyan-950/30 text-cyan-600 dark:text-cyan-400 rounded-lg flex items-center justify-center">
                 <span className="material-symbols-outlined text-sm">equalizer</span>
               </div>
-              <h3 className="text-sm font-black text-[var(--text-primary)] uppercase tracking-wider">Métricas de Producción</h3>
+              <h3 className="text-sm font-black text-content uppercase tracking-wider">Métricas de Producción</h3>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div>
-                <label className="text-[9px] font-black uppercase text-[var(--text-muted)] block mb-1">Cant. Obtenida</label>
-                <input 
+                <label className="text-[9px] font-black uppercase text-content-secondary block mb-1">Cant. Obtenida</label>
+                <Input 
                   type="number" 
                   value={yieldQuantity}
                   onChange={e => setYieldQuantity(e.target.value === '' ? '' : Number(e.target.value))}
                   placeholder="Ej. 150"
-                  className="w-full rounded-xl border border-[var(--border-glow)] bg-[var(--bg-app)] text-[var(--text-primary)] p-2.5 text-xs font-bold outline-none text-center focus:ring-1 focus:ring-[var(--accent-purple)]"
+                  className="w-full rounded-lg border border-line bg-surface text-gray-900 dark:text-slate-100 px-3.5 py-2.5 text-xs font-bold outline-none text-center focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-colors"
                 />
               </div>
               <div>
-                <label className="text-[9px] font-black uppercase text-[var(--text-muted)] block mb-1">U. de Medida</label>
+                <label className="text-[9px] font-black uppercase text-content-secondary block mb-1">U. de Medida</label>
                 <CustomSelect 
                   value={yieldUnit}
                   onChange={setYieldUnit}
                   options={officialUnits.map((unit: string) => ({ value: unit, label: unit }))}
-                  className="w-full bg-[var(--bg-app)] border border-[var(--border-glow)] rounded-xl p-2.5 text-xs font-bold text-[var(--text-primary)]"
                 />
               </div>
               <div>
-                <label className="text-[9px] font-black uppercase text-[var(--text-muted)] block mb-1">A Producir</label>
-                <input 
+                <label className="text-[9px] font-black uppercase text-content-secondary block mb-1">A Producir</label>
+                <Input 
                   type="number" 
                   value={quantityToProduce}
                   onChange={e => setQuantityToProduce(Number(e.target.value) || 0)}
-                  className="w-full rounded-xl border border-[var(--border-glow)] bg-[var(--bg-app)] text-[var(--text-primary)] p-2.5 text-xs font-bold outline-none text-center focus:ring-1 focus:ring-[var(--accent-purple)]"
+                  className="w-full rounded-lg border border-line bg-surface text-gray-900 dark:text-slate-100 px-3.5 py-2.5 text-xs font-bold outline-none text-center focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-colors"
                 />
               </div>
               <div>
-                <label className="text-[9px] font-black uppercase text-[var(--text-muted)] block mb-1">Margen Error (%)</label>
-                <input 
+                <label className="text-[9px] font-black uppercase text-content-secondary block mb-1">Margen Error (%)</label>
+                <Input 
                   type="text" 
                   value={`${errorMarginPercentage}%`}
                   onChange={e => setErrorMarginPercentage(Number(e.target.value.replace('%', '')) || 0)}
-                  className="w-full rounded-xl border border-[var(--border-glow)] bg-[var(--bg-app)] text-[var(--text-primary)] p-2.5 text-xs font-bold outline-none text-center focus:ring-1 focus:ring-[var(--accent-purple)]"
+                  className="w-full rounded-lg border border-line bg-surface text-gray-900 dark:text-slate-100 px-3.5 py-2.5 text-xs font-bold outline-none text-center focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-colors"
                 />
               </div>
             </div>
           </div>
 
           {/* 3. Insumos e Ingredientes */}
-          <div className="bg-[var(--bg-surface)] p-6 rounded-3xl shadow-sm border border-[var(--border-glow)] space-y-4">
+          <div className="bg-surface p-6 rounded-2xl shadow-sm border border-line space-y-4">
             <div className="space-y-3">
-              <h3 className="text-sm font-black text-[var(--text-primary)] uppercase tracking-wider">Insumos e Ingredientes</h3>
+              <h3 className="text-sm font-black text-content uppercase tracking-wider">Insumos e Ingredientes</h3>
               
               {/* Search input dropdown - full width w-full */}
               <div className="relative w-full">
-                <div className="flex items-center gap-2 bg-[var(--bg-app)] border border-[var(--border-glow)] px-3 py-2.5 rounded-xl w-full">
-                  <span className="material-symbols-outlined text-xs text-[var(--text-muted)]">search</span>
-                  <input 
+                <div className="flex items-center gap-2 bg-inset/40 border border-line px-3 py-2.5 rounded-lg w-full">
+                  <span className="material-symbols-outlined text-xs text-content-secondary">search</span>
+                  <Input 
                     type="text" 
                     placeholder="Añadir Insumo..." 
                     value={searchQuery}
@@ -463,14 +563,14 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
                       setShowItemDropdown(true);
                     }}
                     onFocus={() => setShowItemDropdown(true)}
-                    className="bg-transparent border-none outline-none text-xs w-full font-semibold text-[var(--text-primary)]"
+                    className="bg-transparent border-none outline-none text-xs w-full font-semibold text-content shadow-none p-0 h-auto"
                   />
                 </div>
 
                 {/* Expanded search dropdown showing Name, Category, Stock, Unit - dark contrast */}
                 {showItemDropdown && filteredItems.length > 0 && (
-                  <div className="absolute left-0 right-0 top-11 w-full max-h-60 overflow-y-auto bg-[var(--bg-surface)] border border-[var(--border-glow)] rounded-2xl shadow-2xl z-30 divide-y divide-slate-200 dark:divide-slate-800 text-[var(--text-primary)] animate-fade-in">
-                    <div className="p-2.5 bg-[var(--bg-app)] text-[9px] font-black text-[var(--text-muted)] uppercase tracking-wider grid grid-cols-12 gap-1 border-b border-[var(--border-glow)] shrink-0">
+                  <div className="absolute left-0 right-0 top-11 w-full max-h-60 overflow-y-auto bg-surface border border-line rounded-lg shadow-2xl z-30 divide-y divide-gray-100 dark:divide-line text-content animate-fade-in">
+                    <div className="p-2.5 bg-inset text-[9px] font-black text-content-secondary uppercase tracking-wider grid grid-cols-12 gap-1 border-b border-line shrink-0">
                       <div className="col-span-5">Insumo</div>
                       <div className="col-span-3">Categoría</div>
                       <div className="col-span-2 text-right">Stock</div>
@@ -480,12 +580,12 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
                       <button
                         key={item.id}
                         onClick={() => addIngredient(item)}
-                        className="w-full text-left p-3 text-[11px] hover:bg-[var(--bg-app)] font-bold text-[var(--text-primary)] grid grid-cols-12 gap-1 items-center transition-colors border-none cursor-pointer"
+                        className="w-full text-left p-3 text-[11px] hover:bg-slate-50 dark:hover:bg-raised font-bold text-content grid grid-cols-12 gap-1 items-center transition-colors border-none cursor-pointer"
                       >
                         <div className="col-span-5 truncate">{item.name}</div>
-                        <div className="col-span-3 truncate text-[var(--text-muted)] text-[10px]">{item.category}</div>
-                        <div className="col-span-2 text-right text-[var(--text-secondary)]">{item.realPhysicalStock}</div>
-                        <div className="col-span-2 text-right text-[var(--text-muted)]">{item.countUnit}</div>
+                        <div className="col-span-3 truncate text-content-secondary text-[10px]">{item.category}</div>
+                        <div className="col-span-2 text-right text-content-secondary">{item.realPhysicalStock}</div>
+                        <div className="col-span-2 text-right text-slate-400">{item.countUnit}</div>
                       </button>
                     ))}
                   </div>
@@ -494,10 +594,10 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
             </div>
 
             {/* Ingredients Table - scroll-x responsivo */}
-            <div className="overflow-x-auto w-full border border-[var(--border-glow)] rounded-2xl">
+            <div className="overflow-x-auto w-full border border-line rounded-lg">
               <table className="w-full text-left text-xs font-semibold min-w-[600px]">
                 <thead>
-                  <tr className="border-b border-[var(--border-glow)] text-[9px] font-black text-[var(--text-muted)] uppercase tracking-wider bg-[var(--bg-app)]">
+                  <tr className="border-b border-line text-[9px] font-black text-content-tertiary uppercase tracking-wider bg-inset">
                     <th className="p-3">Insumo</th>
                     <th className="p-3 text-center">Cant. Estándar</th>
                     <th className="p-3 text-center">Unidad</th>
@@ -507,23 +607,31 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
                     <th className="p-3 w-10"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[var(--text-secondary)]">
+                <tbody className="divide-y divide-gray-100 dark:divide-line text-content-secondary">
                   {ingredientDetails.items.map(ing => (
                     <tr key={ing.inventoryItemId}>
-                      <td className="p-3 text-[var(--text-primary)] font-bold">{ing.name}</td>
+                      <td className="p-3 text-content font-bold">{ing.name}</td>
                       <td className="p-3 text-center">
-                        <input 
+                        <Input 
+                          ref={el => { quantityInputRefs.current[ing.inventoryItemId] = el; }}
                           type="number"
+                          step="any"
                           value={ing.quantity}
-                          onChange={e => updateQuantity(ing.inventoryItemId, Number(e.target.value) || 0)}
-                          className="w-16 rounded-md bg-[var(--bg-app)] border border-[var(--border-glow)] p-1 text-center font-bold outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
+                          onFocus={e => e.target.select()}
+                          onClick={e => (e.target as HTMLInputElement).select()}
+                          onChange={e => {
+                            const raw = e.target.value.replace(',', '.');
+                            const parsed = raw === '' ? 0 : parseFloat(raw);
+                            updateQuantity(ing.inventoryItemId, isNaN(parsed) ? 0 : parsed);
+                          }}
+                          className="w-20 rounded-lg bg-surface border border-line p-1 text-center font-bold outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 text-content"
                         />
                       </td>
                       <td className="p-3 text-center text-slate-400">{ing.unit}</td>
-                      <td className="p-3 text-right text-slate-800 dark:text-slate-200">${ing.unitCost.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</td>
-                      <td className="p-3 text-center text-slate-700 dark:text-slate-300">{ing.quantity} {ing.unit}</td>
-                      <td className="p-3 text-right text-slate-900 dark:text-white font-bold">
-                        ${ing.totalCost.toLocaleString('es-CO', { maximumFractionDigits: 2 })}
+                      <td className="p-3 text-right text-content">{formatCurrency(ing.unitCost)}</td>
+                      <td className="p-3 text-center text-content-secondary">{ing.quantity} {ing.unit}</td>
+                      <td className="p-3 text-right text-content font-bold">
+                        {formatCurrency(ing.totalCost)}
                       </td>
                       <td className="p-3 text-center">
                         <button 
@@ -549,8 +657,8 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
             {/* Total Section */}
             <div className="flex justify-between items-center pt-4 text-sm font-semibold">
               <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Costo Total Ingredientes</span>
-              <span className="text-slate-900 dark:text-white font-black text-base">
-                ${ingredientDetails.rawSum.toLocaleString('es-CO', { maximumFractionDigits: 2 })}
+              <span className="text-content font-black text-base">
+                {formatCurrency(ingredientDetails.rawSum)}
               </span>
             </div>
           </div>
@@ -561,59 +669,51 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
         <div className="lg:col-span-4 space-y-6 w-full animate-fade-in">
           
           {/* RESULTADOS */}
-          <div className="bg-[var(--bg-surface)] text-[var(--text-primary)] p-6 rounded-3xl shadow-lg space-y-6 border border-[var(--border-glow)]">
-            <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-glow)]">
-              <span className="material-symbols-outlined text-[var(--accent-purple)]">trending_up</span>
+          <div className="bg-surface text-content p-6 rounded-2xl shadow-sm space-y-6 border border-line">
+            <div className="flex items-center gap-2 pb-2 border-b border-line">
+              <span className="material-symbols-outlined text-purple-600 dark:text-purple-400">trending_up</span>
               <h3 className="text-sm font-black uppercase tracking-wider">Resultados</h3>
             </div>
 
             <div className="space-y-4">
               <div className="flex justify-between items-center text-xs font-semibold">
-                <span className="text-[var(--text-secondary)]">Costo total de insumos</span>
-                <span className="font-bold text-[var(--text-primary)]">${ingredientDetails.rawSum.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</span>
+                <span className="text-content-secondary">Costo total de insumos</span>
+                <span className="font-bold text-content">{formatCurrency(ingredientDetails.rawSum)}</span>
               </div>
               <div className="flex justify-between items-center text-xs font-semibold">
-                <span className="text-[var(--text-secondary)]">Margen de error ({errorMarginPercentage}%)</span>
-                <span className="font-bold text-[var(--text-primary)]">${ingredientDetails.errorMarginCost.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</span>
+                <span className="text-content-secondary">Margen de error ({errorMarginPercentage}%)</span>
+                <span className="font-bold text-content">{formatCurrency(ingredientDetails.errorMarginCost)}</span>
               </div>
               <div className="flex justify-between items-center text-xs font-semibold">
-                <span className="text-[var(--text-secondary)]">Costo Operativo</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-[var(--text-muted)] font-bold">$</span>
-                  <input 
-                    type="number" 
-                    value={operatingCost}
-                    onChange={e => setOperatingCost(Number(e.target.value) || 0)}
-                    className="w-16 bg-[var(--bg-app)] border border-[var(--border-glow)] rounded-md px-1.5 py-1 text-right font-bold outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-[var(--text-primary)]"
-                  />
-                </div>
+                <span className="text-content-secondary">Costo Operativo ({operationalCostPercentage}%)</span>
+                <span className="font-bold text-content">{formatCurrency(ingredientDetails.operatingCost)}</span>
               </div>
 
-              <div className="pt-4 border-t border-[var(--border-glow)] flex justify-between items-center">
-                <span className="text-xs font-black text-[var(--text-muted)]">Costo total de producción</span>
-                <span className="text-2xl font-black text-[var(--accent-purple)]">${ingredientDetails.totalProductionCost.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</span>
+              <div className="pt-4 border-t border-line flex justify-between items-center">
+                <span className="text-xs font-black text-content-secondary">Costo total de producción</span>
+                <span className="text-2xl font-black text-purple-600 dark:text-purple-400">{formatCurrency(ingredientDetails.totalProductionCost)}</span>
               </div>
             </div>
 
-            <div className="bg-[var(--bg-app)] p-4 rounded-2xl space-y-3.5 pt-4 border border-[var(--border-glow)]">
-              <span className="text-[9px] font-black tracking-wider uppercase text-[var(--text-muted)] block">Porción y Unidad</span>
+            <div className="bg-inset p-4 rounded-xl space-y-3.5 pt-4 border border-line">
+              <span className="text-[9px] font-black tracking-wider uppercase text-content-tertiary block">Porción y Unidad</span>
               <div className="flex justify-between items-center text-xs font-semibold">
-                <span className="text-[var(--text-secondary)]">Costo por porción</span>
-                <span className="font-extrabold text-sm text-[var(--text-primary)]">${ingredientDetails.costPerPortion.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</span>
+                <span className="text-content-secondary">Costo por porción</span>
+                <span className="font-extrabold text-sm text-content">{formatCurrency(ingredientDetails.costPerPortion)}</span>
               </div>
-              <div className="flex justify-between items-center text-xs font-semibold pt-2.5 border-t border-[var(--border-glow)]">
-                <span className="text-[var(--text-secondary)]">Costo por {yieldUnit}</span>
-                <span className="font-black text-lg text-cyan-400">${ingredientDetails.costPerUnit.toLocaleString('es-CO', { maximumFractionDigits: 2 })}</span>
+              <div className="flex justify-between items-center text-xs font-semibold pt-2.5 border-t border-line">
+                <span className="text-content-secondary">Costo por {yieldUnit}</span>
+                <span className="font-black text-lg text-cyan-700 dark:text-cyan-400 font-mono tabular-nums">{formatCurrency(ingredientDetails.costPerUnit)}</span>
               </div>
             </div>
 
-            <p className="text-[9px] text-[var(--text-muted)] italic mt-2">
+            <p className="text-[9px] text-content-tertiary italic mt-2">
               * El costo por porción se calcula como: Costo Total Producción × Cantidad a Producir. El costo por {yieldUnit} se divide por la cantidad obtenida.
             </p>
 
             <button 
               onClick={handleSave}
-              className="w-full py-3.5 bg-[var(--accent-purple)] hover:bg-[var(--accent-purple)]/90 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer shadow-sm transition-colors text-center block border-none"
+              className="w-full py-3.5 bg-neutral-900 hover:bg-canvas dark:bg-raised dark:hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider rounded-lg cursor-pointer shadow-sm transition-colors text-center block border-none"
             >
               Guardar Subreceta
             </button>
@@ -622,6 +722,14 @@ export default function SubRecipeForm({ onCancel, onSaved, subRecipeId }: SubRec
         </div>
 
       </div>
+
+      <DiscardChangesModal
+        isOpen={showDiscardModal}
+        onContinueEditing={cancelExit}
+        onDiscardAndExit={confirmExit}
+        onConfirm={confirmExit}
+        onCancel={cancelExit}
+      />
 
       {showDeleteConfirm && (
         <ConfirmDialog

@@ -2,10 +2,13 @@
 import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/localDb';
+import { deleteRecordFromFirestore, bulkDeleteRecords } from '../services/syncService';
 import type { Client } from '../types';
 import toast from 'react-hot-toast';
 import ConfirmDialog from './ui/ConfirmDialog';
 import Modal from './ui/Modal';
+import BulkActionBar from './ui/BulkActionBar';
+import { flexibleMultiMatch } from '../utils/searchEngine';
 
 export default function ClientManagement() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,6 +19,8 @@ export default function ClientManagement() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deleteClientId, setDeleteClientId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -44,15 +49,7 @@ export default function ClientManagement() {
   // Filters logic
   const filteredClients = useMemo(() => {
     return dbClients.filter(item => {
-      const query = searchTerm.toLowerCase().trim();
-      if (!query) return true;
-      return (
-        (item.name || '').toLowerCase().includes(query) ||
-        (item.phone || '').toLowerCase().includes(query) ||
-        (item.address || '').toLowerCase().includes(query) ||
-        (item.email || '').toLowerCase().includes(query) ||
-        (item.taxId || '').toLowerCase().includes(query)
-      );
+      return flexibleMultiMatch([item.name, item.phone, item.address, item.email, item.taxId], searchTerm);
     });
   }, [dbClients, searchTerm]);
 
@@ -98,13 +95,28 @@ export default function ClientManagement() {
   const confirmDelete = async () => {
     if (!deleteClientId) return;
     try {
-      await db.clients.delete(deleteClientId);
+      await deleteRecordFromFirestore('clients', deleteClientId);
       toast.success('Cliente eliminado exitosamente.');
     } catch (err) {
       console.error('Error deleting client:', err);
       toast.error('Error al eliminar el cliente.');
     } finally {
       setDeleteClientId(null);
+    }
+  };
+
+  // Bulk Delete Clients Handler
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      await bulkDeleteRecords('clients', selectedIds);
+      toast.success(`${selectedIds.length} cliente(s) eliminado(s) exitosamente.`);
+      setSelectedIds([]);
+    } catch (err) {
+      console.error('Error bulk deleting clients:', err);
+      toast.error('Error al eliminar los clientes seleccionados.');
+    } finally {
+      setShowBulkDeleteConfirm(false);
     }
   };
 
@@ -223,7 +235,7 @@ export default function ClientManagement() {
       <section className="bg-[var(--bg-surface)] rounded-[2rem] border border-[var(--border-glow)] shadow-sm overflow-hidden">
         
         {/* Header Search */}
-        <div className="p-6 border-b border-[var(--border-glow)] flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/20 dark:bg-slate-900/10">
+        <div className="p-6 border-b border-[var(--border-glow)] flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/20 dark:bg-surface/10">
           <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">
             Clientes Registrados
           </h3>
@@ -244,6 +256,22 @@ export default function ClientManagement() {
           <table className="w-full text-left">
             <thead className="bg-[var(--bg-app)] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-glow)]">
               <tr>
+                <th className="py-4 px-4 w-12 text-center">
+                  <input
+                    type="checkbox"
+                    checked={paginatedClients.length > 0 && paginatedClients.every(item => selectedIds.includes(item.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const pageIds = paginatedClients.map(item => item.id);
+                        setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
+                      } else {
+                        const pageIds = new Set(paginatedClients.map(item => item.id));
+                        setSelectedIds(prev => prev.filter(id => !pageIds.has(id)));
+                      }
+                    }}
+                    className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer accent-purple-600"
+                  />
+                </th>
                 <th className="py-4 px-6">Nombre Completo</th>
                 <th className="py-4 px-4">Celular</th>
                 <th className="py-4 px-4">Dirección</th>
@@ -256,14 +284,31 @@ export default function ClientManagement() {
             <tbody className="divide-y divide-[var(--border-glow)] text-xs">
               {paginatedClients.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 px-6 text-center text-[var(--text-muted)] italic">
+                  <td colSpan={8} className="py-8 px-6 text-center text-[var(--text-muted)] italic">
                     No se encontraron clientes registrados.
                   </td>
                 </tr>
               ) : (
                 paginatedClients.map(item => (
-                  <tr key={item.id} className="hover:bg-[var(--bg-app)]/30 transition-all">
-                    
+                  <tr 
+                    key={item.id} 
+                    className={`hover:bg-[var(--bg-app)]/30 transition-all ${
+                      selectedIds.includes(item.id) ? 'bg-purple-500/10' : ''
+                    }`}
+                  >
+                    <td className="py-4 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(item.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setSelectedIds(prev =>
+                            prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
+                          );
+                        }}
+                        className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer accent-purple-600"
+                      />
+                    </td>
                     {/* Nombre */}
                     <td className="py-4 px-6 flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-[var(--bg-app)] flex items-center justify-center text-[var(--accent-purple)] shrink-0 border border-[var(--border-glow)]">
@@ -292,7 +337,7 @@ export default function ClientManagement() {
                           Sí (DIAN)
                         </span>
                       ) : (
-                        <span className="inline-flex bg-slate-100 dark:bg-slate-800 text-slate-500 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                        <span className="inline-flex bg-raised text-slate-500 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
                           No
                         </span>
                       )}
@@ -348,7 +393,7 @@ export default function ClientManagement() {
         </div>
 
         {/* Pagination Footer */}
-        <div className="p-6 border-t border-[var(--border-glow)] flex items-center justify-between bg-slate-50/20 dark:bg-slate-900/10">
+        <div className="p-6 border-t border-[var(--border-glow)] flex items-center justify-between bg-slate-50/20 dark:bg-surface/10">
           <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase">
             Mostrando {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredClients.length)} de {filteredClients.length} clientes
           </span>
@@ -435,7 +480,7 @@ export default function ClientManagement() {
             </div>
 
             {/* FE Toggle */}
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-[var(--border-glow)]">
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-inset border border-[var(--border-glow)]">
               <div>
                 <span className="text-xs font-bold text-[var(--text-primary)] block">¿Requiere Factura Electrónica?</span>
                 <span className="text-[10px] text-[var(--text-muted)]">Habilita campos requeridos por la DIAN (Email, NIT)</span>
@@ -447,7 +492,7 @@ export default function ClientManagement() {
                   onChange={(e) => setElectronicInvoice(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-200 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent-purple)]"></div>
+                <div className="w-11 h-6 bg-raised peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent-purple)]"></div>
               </label>
             </div>
 
@@ -478,7 +523,7 @@ export default function ClientManagement() {
               </div>
             )}
 
-            <div className="pt-4 flex gap-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="pt-4 flex gap-3 border-t border-line">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
@@ -505,6 +550,26 @@ export default function ClientManagement() {
           message="¿Estás seguro de que deseas eliminar este cliente? Se borrará su historial de facturación local."
           onConfirm={confirmDelete}
           onCancel={() => setDeleteClientId(null)}
+        />
+      )}
+
+      {/* Floating Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.length}
+        onClearSelection={() => setSelectedIds([])}
+        onBulkDelete={() => setShowBulkDeleteConfirm(true)}
+      />
+
+      {/* Bulk Delete Confirm Dialog */}
+      {showBulkDeleteConfirm && (
+        <ConfirmDialog
+          isOpen={showBulkDeleteConfirm}
+          title="Eliminación Múltiple de Clientes"
+          message={`¿Estás seguro de que deseas eliminar permanentemente ${selectedIds.length} cliente(s)? Esta acción eliminará los registros de forma transaccional tanto localmente como en la nube y no se puede deshacer.`}
+          confirmText={`Eliminar ${selectedIds.length} clientes`}
+          cancelText="Cancelar"
+          onConfirm={handleBulkDelete}
+          onCancel={() => setShowBulkDeleteConfirm(false)}
         />
       )}
     </div>

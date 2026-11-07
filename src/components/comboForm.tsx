@@ -2,9 +2,12 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { db } from '../db/localDb';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { Recipe } from '../types';
+import { getEffectiveImpoconsumoRate } from '../types/settings';
 import ImageUploader from './ImageUploader';
 import { toast } from 'react-hot-toast';
 import CustomSelect from './ui/CustomSelect';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
 
 interface ComboFormProps {
   onCancel: () => void;
@@ -32,7 +35,7 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
     }, {} as Record<string, any>);
   }) || {};
 
-  const taxPercentage = systemSettings['taxPercentage'] !== undefined ? Number(systemSettings['taxPercentage']) : 8;
+  const taxPercentage = getEffectiveImpoconsumoRate(systemSettings);
   const minUtilityMargin = systemSettings['min_utility_margin'] !== undefined ? Number(systemSettings['min_utility_margin']) : 35;
 
   // Menu Categories list EXCLUSIVELY from IndexedDB
@@ -475,19 +478,19 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
   };
 
   return (
-    <div className="p-8 space-y-8 transition-receitly font-sans text-slate-800 dark:text-slate-200">
+    <div className="p-8 space-y-8 transition-receitly font-sans text-content">
       
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+      <div className="flex items-center justify-between border-b border-line pb-4">
         <div className="flex items-center gap-3">
           <button 
             onClick={onCancel}
-            className="text-slate-500 hover:text-slate-700 dark:hover:text-white flex items-center justify-center p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
+            className="text-slate-500 hover:text-slate-700 dark:hover:text-white flex items-center justify-center p-1.5 rounded-xl border border-line transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-lg">arrow_back</span>
           </button>
           <div>
-            <h1 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+            <h1 className="text-xl font-black text-content leading-tight">
               {comboId ? 'Editar Combo' : 'Crear Nuevo Combo'}
             </h1>
           </div>
@@ -522,58 +525,57 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
         <div className="lg:col-span-8 space-y-6 w-full min-w-0">
           
           {/* 1. Información Básica */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+          <div className="bg-surface p-6 rounded-2xl shadow-sm border border-line space-y-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="material-symbols-outlined text-[var(--accent-purple)] text-lg">info</span>
-              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Información Básica</h3>
+              <h3 className="text-sm font-black text-content uppercase tracking-wider">Información Básica</h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block mb-1">Nombre del Combo</label>
-                <input 
+                <label className="text-[10px] font-black uppercase text-content-secondary block mb-1">Nombre del Combo</label>
+                <Input 
                   type="text" 
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="Ej. Super Pack Familiar"
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[var(--card-color)] text-slate-900 dark:text-white p-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-[var(--accent-purple)]/20"
+                  className="w-full rounded-lg border border-line bg-surface text-gray-900 dark:text-slate-100 px-3.5 py-2.5 text-xs font-bold outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-colors"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block mb-1">Categoría</label>
+                <label className="text-[10px] font-black uppercase text-content-secondary block mb-1">Categoría</label>
                 <CustomSelect 
                   value={category}
                   onChange={setCategory}
                   options={categoryOptions.map(cat => ({ value: cat, label: cat }))}
-                  className="w-full bg-slate-50 dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-bold text-slate-900 dark:text-white"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block mb-1">Descripción del Combo</label>
-              <textarea 
+              <label className="text-[10px] font-black uppercase text-content-secondary block mb-1">Descripción del Combo</label>
+              <Textarea 
                 rows={3}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 placeholder="Describe los beneficios y qué incluye este combo para tus clientes..."
-                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-[var(--card-color)] text-slate-900 dark:text-white p-2.5 text-xs outline-none focus:ring-2 focus:ring-[var(--accent-purple)]/20"
+                className="w-full rounded-lg border border-line bg-surface text-gray-900 dark:text-slate-100 px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-colors"
               />
             </div>
           </div>
 
           {/* 2. Productos Incluidos */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+          <div className="bg-surface p-6 rounded-2xl shadow-sm border border-line space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[var(--accent-purple)] text-lg">restaurant_menu</span>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Productos Incluidos</h3>
+                <h3 className="text-sm font-black text-content uppercase tracking-wider">Productos Incluidos</h3>
               </div>
               {/* Search selector */}
               <div ref={ingredientSearchRef} className="relative flex-1 max-w-md shrink-0">
-                <div className="flex items-center gap-2 bg-slate-50 dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl">
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-[var(--card-color)] border border-line px-3 py-1.5 rounded-xl">
                   <span className="material-symbols-outlined text-xs text-slate-500">search</span>
-                  <input 
+                  <Input 
                     type="text" 
                     placeholder="Buscar plato o bebida..." 
                     value={searchQuery}
@@ -582,18 +584,18 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                       setShowDropdown(true);
                     }}
                     onFocus={() => setShowDropdown(true)}
-                    className="bg-transparent border-none outline-none text-xs w-full text-slate-800 dark:text-slate-200 font-semibold"
+                    className="bg-transparent border-none outline-none text-xs w-full text-content font-semibold"
                   />
                 </div>
 
                 {showDropdown && searchResults.length > 0 && (
-                  <div className="absolute right-0 top-10 w-full max-h-56 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-30 divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="absolute right-0 top-10 w-full max-h-56 overflow-y-auto bg-surface border border-line rounded-xl shadow-xl z-30 divide-y divide-line">
                     {searchResults.map(res => (
                       <button
                         key={res.id}
                         type="button"
                         onClick={() => handleAddItem(res)}
-                        className="w-full text-left p-2.5 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-slate-800 dark:text-slate-200 flex justify-between items-center cursor-pointer"
+                        className="w-full text-left p-2.5 text-xs hover:bg-slate-50 dark:hover:bg-raised font-bold text-content flex justify-between items-center cursor-pointer"
                       >
                         <div className="truncate pr-2">
                           <span className="block truncate">{res.name}</span>
@@ -608,10 +610,10 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
             </div>
 
             {/* List Table */}
-            <div className="overflow-x-auto w-full border border-slate-200 dark:border-slate-800 rounded-2xl">
+            <div className="overflow-x-auto w-full border border-line rounded-2xl">
               <table className="w-full text-left text-xs font-semibold min-w-[500px]">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider bg-slate-50 dark:bg-slate-900/50">
+                  <tr className="border-b border-line text-[9px] font-black text-content-tertiary uppercase tracking-wider bg-inset">
                     <th className="p-3">Producto</th>
                     <th className="p-3 text-center">Costo Unit.</th>
                     <th className="p-3 text-center">PVP Unit.</th>
@@ -620,7 +622,7 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                     <th className="p-3 w-10"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-650 dark:text-slate-350">
+                <tbody className="divide-y divide-line text-content-secondary">
                   {calculationDetails.items.map(ci => (
                     <tr key={ci.id}>
                       <td className="p-3 flex items-center gap-2">
@@ -628,7 +630,7 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                           <img 
                             src={ci.img} 
                             alt={ci.name} 
-                            className="w-8 h-8 rounded-lg object-cover bg-slate-100 dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-700 shrink-0" 
+                            className="w-8 h-8 rounded-lg object-cover bg-slate-100 dark:bg-[var(--card-color)] border border-line shrink-0" 
                           />
                         ) : (
                           <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-[var(--card-color)] flex items-center justify-center text-slate-400 shrink-0">
@@ -636,7 +638,7 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                           </div>
                         )}
                         <div className="truncate">
-                          <span className="font-bold text-slate-900 dark:text-white block truncate">{ci.name}</span>
+                          <span className="font-bold text-content block truncate">{ci.name}</span>
                           <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider block">{ci.category}</span>
                         </div>
                       </td>
@@ -651,7 +653,7 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                           >
                             -
                           </button>
-                          <span className="font-bold w-6 text-center text-slate-900 dark:text-white">{ci.quantity}</span>
+                          <span className="font-bold w-6 text-center text-content">{ci.quantity}</span>
                           <button 
                             type="button"
                             onClick={() => handleUpdateQty(ci.id, ci.quantity + 1)}
@@ -661,7 +663,7 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                           </button>
                         </div>
                       </td>
-                      <td className="p-3 text-right text-slate-900 dark:text-white font-bold">
+                      <td className="p-3 text-right text-content font-bold">
                         ${ci.totalCost.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
                       </td>
                       <td className="p-3 text-center">
@@ -688,7 +690,7 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
 
             <div className="flex justify-between items-center pt-2">
               <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Costo Consolidado</span>
-              <span className="text-slate-900 dark:text-white font-black text-base">
+              <span className="text-content font-black text-base">
                 ${calculationDetails.originalCostSum.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
               </span>
             </div>
@@ -707,17 +709,17 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
           </div>
 
           {/* 3. Suministros de Domicilio (Reubicado e idéntico a Recetas) */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+          <div className="bg-surface p-6 rounded-2xl shadow-sm border border-line space-y-4">
             <div className="flex items-center gap-2 pb-1">
               <span className="material-symbols-outlined text-[var(--accent-purple)] text-lg">inventory_2</span>
-              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Suministros de Domicilio</h3>
+              <h3 className="text-sm font-black text-content uppercase tracking-wider">Suministros de Domicilio</h3>
             </div>
             
             {/* Search Input Dropdown */}
             <div ref={packagingSearchRef} className="relative w-full">
-              <div className="flex items-center gap-2 bg-slate-50 dark:bg-[var(--bg-input)] border border-slate-200 dark:border-slate-700 px-3 py-2.5 rounded-xl w-full">
-                <span className="material-symbols-outlined text-xs text-slate-500 dark:text-slate-400">search</span>
-                <input 
+              <div className="flex items-center gap-2 bg-slate-50 dark:bg-[var(--bg-input)] border border-line px-3 py-2.5 rounded-xl w-full">
+                <span className="material-symbols-outlined text-xs text-content-secondary">search</span>
+                <Input 
                   type="text" 
                   placeholder="Agregar Suministro (nombre o SKU)..." 
                   value={pkgSearchQuery}
@@ -726,14 +728,14 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                     setShowPkgDropdown(true);
                   }}
                   onFocus={() => setShowPkgDropdown(true)}
-                  className="bg-transparent border-none outline-none text-xs w-full font-semibold text-slate-800 dark:text-slate-200"
+                  className="bg-transparent border-none outline-none text-xs w-full font-semibold text-content"
                 />
               </div>
 
               {/* Dropdown flotante con z-[100] */}
               {showPkgDropdown && filteredPkgItems.length > 0 && (
-                <div className="absolute left-0 right-0 top-11 w-full max-h-60 overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[100] divide-y divide-slate-200 dark:divide-slate-800 text-slate-800 dark:text-slate-100">
-                  <div className="p-2.5 bg-slate-50 dark:bg-slate-950 text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider grid grid-cols-12 gap-1 border-b border-slate-200 dark:border-slate-800 shrink-0">
+                <div className="absolute left-0 right-0 top-11 w-full max-h-60 overflow-y-auto bg-surface border border-line rounded-2xl shadow-2xl z-[100] divide-y divide-line text-content">
+                  <div className="p-2.5 bg-inset text-[9px] font-black text-content-secondary uppercase tracking-wider grid grid-cols-12 gap-1 border-b border-line shrink-0">
                     <div className="col-span-5">Nombre</div>
                     <div className="col-span-3">Categoría</div>
                     <div className="col-span-2 text-right">Costo</div>
@@ -744,10 +746,10 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                       key={res.id}
                       type="button"
                       onClick={() => handleSelectPackagingItem(res)}
-                      className="w-full text-left p-3 text-[11px] hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-slate-800 dark:text-slate-200 grid grid-cols-12 gap-1 items-center transition-colors border-none cursor-pointer"
+                      className="w-full text-left p-3 text-[11px] hover:bg-slate-50 dark:hover:bg-raised font-bold text-content grid grid-cols-12 gap-1 items-center transition-colors border-none cursor-pointer"
                     >
                       <div className="col-span-5 truncate">{res.name}</div>
-                      <div className="col-span-3 truncate text-slate-500 dark:text-slate-400 text-[10px]">{res.category}</div>
+                      <div className="col-span-3 truncate text-content-secondary text-[10px]">{res.category}</div>
                       <div className="col-span-2 text-right text-slate-500 dark:text-slate-350">${res.purchaseCost.toLocaleString('es-CO')}</div>
                       <div className="col-span-2 text-right text-slate-400">{res.realPhysicalStock}</div>
                     </button>
@@ -756,10 +758,10 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
               )}
             </div>
             
-            <div className="overflow-x-auto w-full border border-slate-200 dark:border-slate-800 rounded-2xl">
+            <div className="overflow-x-auto w-full border border-line rounded-2xl">
               <table className="w-full text-left text-xs font-semibold min-w-[500px]">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider bg-slate-50 dark:bg-slate-900/50">
+                  <tr className="border-b border-line text-[9px] font-black text-content-tertiary uppercase tracking-wider bg-inset">
                     <th className="p-3">Ítem de Suministro (Desde Inventario)</th>
                     <th className="p-3 text-center">Cantidad</th>
                     <th className="p-3 text-right">Costo Unitario</th>
@@ -767,27 +769,27 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                     <th className="p-3 w-10"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-650 dark:text-slate-350">
+                <tbody className="divide-y divide-line text-content-secondary">
                   {packaging.map((pkg, index) => (
                     <tr key={index}>
-                      <td className="p-3 text-slate-900 dark:text-white font-bold">{pkg.item}</td>
+                      <td className="p-3 text-content font-bold">{pkg.item}</td>
                       <td className="p-3 text-center">
-                        <input
+                        <Input
                           type="number"
                           value={pkg.quantity}
                           onChange={(e) => handleUpdatePackagingQty(index, Number(e.target.value) || 0)}
-                          className="w-16 rounded-md bg-slate-50 dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-700 p-1 text-center font-bold outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-slate-800 dark:text-white text-xs"
+                          className="w-16 rounded-md bg-slate-50 dark:bg-[var(--card-color)] border border-line p-1 text-center font-bold outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-content text-xs"
                         />
                       </td>
                       <td className="p-3 text-right">
-                        <input
+                        <Input
                           type="number"
                           value={pkg.cost}
                           onChange={(e) => handleUpdatePackagingCost(index, Number(e.target.value) || 0)}
-                          className="w-20 rounded-md bg-slate-50 dark:bg-[var(--card-color)] border border-slate-200 dark:border-slate-700 p-1 text-right font-bold outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-slate-800 dark:text-white text-xs"
+                          className="w-20 rounded-md bg-slate-50 dark:bg-[var(--card-color)] border border-line p-1 text-right font-bold outline-none focus:ring-1 focus:ring-[var(--accent-purple)] text-content text-xs"
                         />
                       </td>
-                      <td className="p-3 text-right text-slate-900 dark:text-white font-bold">
+                      <td className="p-3 text-right text-content font-bold">
                         ${(pkg.cost * pkg.quantity).toLocaleString('es-CO', { maximumFractionDigits: 0 })}
                       </td>
                       <td className="p-3 text-center">
@@ -813,9 +815,9 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
               </table>
             </div>
             
-            <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-800 text-sm font-semibold">
+            <div className="flex justify-between items-center pt-2 border-t border-line text-sm font-semibold">
               <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">Costo Total Suministros (Domicilio)</span>
-              <span className="text-slate-900 dark:text-white font-black text-base">
+              <span className="text-content font-black text-base">
                 ${calculationDetails.packagingCost.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
               </span>
             </div>
@@ -836,61 +838,61 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
           />
 
           {/* Resumen Financiero */}
-          <div className="bg-[#121829] dark:bg-slate-900 text-white p-6 rounded-3xl shadow-lg space-y-5">
-            <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+          <div className="bg-white border border-line text-slate-900 shadow-sm dark:bg-surface dark:text-white p-6 rounded-2xl space-y-5">
+            <div className="flex items-center gap-2 pb-2 border-b border-line">
               <span className="material-symbols-outlined text-[var(--accent-purple)]">payments</span>
               <h3 className="text-sm font-black uppercase tracking-wider">Resumen Financiero</h3>
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center text-xs text-slate-400 font-semibold">
+              <div className="flex justify-between items-center text-xs text-content-secondary font-semibold">
                 <span>Costo Total Consolidado</span>
-                <span className="text-sm font-black text-white">${calculationDetails.originalCostSum.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</span>
+                <span className="text-sm font-black font-mono text-content tabular-nums">${calculationDetails.originalCostSum.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</span>
               </div>
               
-              <div className="flex justify-between items-center text-xs text-slate-400 font-semibold border-b border-white/5 pb-2">
+              <div className="flex justify-between items-center text-xs text-content-secondary font-semibold border-b border-slate-100 dark:border-white/5 pb-2">
                 <span>Precio de Venta Consolidado</span>
-                <span className="text-xs font-black text-slate-300">${calculationDetails.originalPvpSum.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</span>
+                <span className="text-xs font-black font-mono text-content-secondary tabular-nums">${calculationDetails.originalPvpSum.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</span>
               </div>
 
               <div>
-                <label className="text-[9px] font-black uppercase text-slate-400 block mb-1">Precio de Venta Combo (Mesa)</label>
-                <div className="flex items-center bg-white/5 rounded-xl px-3 py-2 border border-white/10 focus-within:border-[var(--accent-purple)]/50">
+                <label className="text-[9px] font-black uppercase text-content-secondary block mb-1">Precio de Venta Combo (Mesa)</label>
+                <div className="flex items-center bg-slate-50 dark:bg-white/5 rounded-xl px-3 py-2 border border-slate-200 dark:border-white/10 focus-within:border-[var(--accent-purple)]/50">
                   <span className="text-slate-400 font-bold text-sm">$</span>
-                  <input 
+                  <Input 
                     type="number"
                     value={sellPrice}
                     onChange={e => setSellPrice(e.target.value === '' ? '' : Number(e.target.value))}
                     placeholder="Ej. 28500"
-                    className="bg-transparent border-none outline-none text-white text-sm font-black w-full text-right"
+                    className="bg-transparent border-none outline-none text-content text-sm font-black font-mono w-full text-right tabular-nums"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[9px] font-black uppercase text-slate-500 block mb-1">Precio de Venta Combo (Domi)</label>
-                <div className="flex items-center bg-white/5 rounded-xl px-3 py-2 border border-white/10 focus-within:border-[var(--accent-purple)]/50">
+                <label className="text-[9px] font-black uppercase text-content-secondary block mb-1">Precio de Venta Combo (Domi)</label>
+                <div className="flex items-center bg-slate-50 dark:bg-white/5 rounded-xl px-3 py-2 border border-slate-200 dark:border-white/10 focus-within:border-[var(--accent-purple)]/50">
                   <span className="text-slate-400 font-bold text-sm">$</span>
-                  <input 
+                  <Input 
                     type="number"
                     value={domesticPrice}
                     onChange={e => setDomesticPrice(e.target.value === '' ? '' : Number(e.target.value))}
                     placeholder="Ej. 31500"
-                    className="bg-transparent border-none outline-none text-white text-sm font-black w-full text-right"
+                    className="bg-transparent border-none outline-none text-content text-sm font-black font-mono w-full text-right tabular-nums"
                   />
                 </div>
               </div>
 
               {/* Utilidades e Indicadores */}
-              <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
+              <div className="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-white/10 pt-4">
                 {/* Mesa Card */}
-                <div className={`p-2.5 rounded-xl border ${calculationDetails.isMesaCritical ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-white/5 border-white/5 text-cyan-400'}`}>
-                  <span className="text-[8px] text-slate-400 block uppercase font-black tracking-wider">Margen Mesa</span>
-                  <span className="text-lg font-black block">{Math.round(calculationDetails.mesaMarginPct)}%</span>
-                  <span className="text-[8px] text-slate-300 block mt-0.5">${Math.round(calculationDetails.mesaUtility).toLocaleString('es-CO', { maximumFractionDigits: 0 })} util.</span>
+                <div className={`p-2.5 rounded-xl border ${calculationDetails.isMesaCritical ? 'bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400' : 'bg-slate-50 border-slate-200 text-cyan-700 dark:bg-white/5 dark:border-white/5 dark:text-cyan-400'}`}>
+                  <span className="text-[8px] text-content-secondary block uppercase font-black tracking-wider">Margen Mesa</span>
+                  <span className="text-lg font-black font-mono block tabular-nums">{Math.round(calculationDetails.mesaMarginPct)}%</span>
+                  <span className="text-[8px] text-content-secondary font-semibold block mt-0.5">${Math.round(calculationDetails.mesaUtility).toLocaleString('es-CO', { maximumFractionDigits: 0 })} util.</span>
                   
                   {/* Progress bar */}
-                  <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden mt-1.5">
+                  <div className="h-1 w-full bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden mt-1.5">
                     <div 
                       className={`h-full ${calculationDetails.isMesaCritical ? 'bg-rose-500' : 'bg-cyan-500'}`} 
                       style={{ width: `${Math.max(0, Math.min(100, calculationDetails.mesaMarginPct))}%` }}
@@ -899,13 +901,13 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                 </div>
 
                 {/* Domi Card */}
-                <div className={`p-2.5 rounded-xl border ${calculationDetails.isDomiCritical ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-white/5 border-white/5 text-[var(--accent-purple)]'}`}>
-                  <span className="text-[8px] text-slate-400 block uppercase font-black tracking-wider">Margen Domi</span>
-                  <span className="text-lg font-black block">{Math.round(calculationDetails.domiMarginPct)}%</span>
-                  <span className="text-[8px] text-slate-300 block mt-0.5">${Math.round(calculationDetails.domiUtility).toLocaleString('es-CO', { maximumFractionDigits: 0 })} util.</span>
+                <div className={`p-2.5 rounded-xl border ${calculationDetails.isDomiCritical ? 'bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400' : 'bg-slate-50 border-slate-200 text-purple-700 dark:bg-white/5 dark:border-white/5 dark:text-[var(--accent-purple)]'}`}>
+                  <span className="text-[8px] text-content-secondary block uppercase font-black tracking-wider">Margen Domi</span>
+                  <span className="text-lg font-black font-mono block tabular-nums">{Math.round(calculationDetails.domiMarginPct)}%</span>
+                  <span className="text-[8px] text-content-secondary font-semibold block mt-0.5">${Math.round(calculationDetails.domiUtility).toLocaleString('es-CO', { maximumFractionDigits: 0 })} util.</span>
                   
                   {/* Progress bar */}
-                  <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden mt-1.5">
+                  <div className="h-1 w-full bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden mt-1.5">
                     <div 
                       className={`h-full ${calculationDetails.isDomiCritical ? 'bg-rose-500' : 'bg-[var(--accent-purple)]'}`} 
                       style={{ width: `${Math.max(0, Math.min(100, calculationDetails.domiMarginPct))}%` }}
@@ -940,7 +942,7 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
       </div>
 
       {/* 3. Motor de Consolidación de Impacto en Inventario */}
-      <div className="bg-[#121829] text-white p-6 rounded-3xl shadow-sm border border-slate-800 space-y-4 w-full">
+      <div className="bg-white border border-line text-slate-900 shadow-sm dark:bg-surface dark:text-white p-6 rounded-2xl space-y-4 w-full">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-[var(--accent-purple)]">analytics</span>
           <h3 className="text-sm font-black uppercase tracking-wider">Impacto en Inventario al Vender 1 Combo</h3>
@@ -960,16 +962,16 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                 const isCritical = remains < ing.limit;
 
                 return (
-                  <div key={ing.name} className="p-3 bg-white/5 rounded-2xl border border-white/5 flex flex-col justify-between h-20">
+                  <div key={ing.name} className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200/80 dark:border-white/5 flex flex-col justify-between h-20">
                     <div className="flex justify-between items-start gap-1">
-                      <span className="text-xs font-bold text-white truncate max-w-[120px]">{ing.name}</span>
+                      <span className="text-xs font-bold text-content truncate max-w-[120px]">{ing.name}</span>
                       <span className="text-xs font-black text-rose-500 shrink-0">-{ing.quantity.toLocaleString('es-CO', { maximumFractionDigits: 1 })} {ing.unit}</span>
                     </div>
                     <div className="w-full mt-2">
-                      <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-1 w-full bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
                         <div className={`h-full ${isCritical ? 'bg-[var(--text-muted)]' : 'bg-emerald-500'}`} style={{ width: `${Math.max(0, Math.min(100, (remains / (ing.currentStock || 1)) * 100))}%` }}></div>
                       </div>
-                      <span className={`text-[8px] font-bold block mt-1 ${isCritical ? 'text-[var(--text-muted)]' : 'text-slate-400'}`}>
+                      <span className={`text-[8px] font-bold block mt-1 ${isCritical ? 'text-[var(--text-muted)]' : 'text-content-secondary'}`}>
                         {remains.toLocaleString('es-CO', { maximumFractionDigits: 0 })} {ing.unit} rest. {isCritical ? '(Crítico)' : ''}
                       </span>
                     </div>
@@ -991,16 +993,16 @@ export default function ComboForm({ onCancel, onSaved, comboId }: ComboFormProps
                 const isCritical = remains < pkg.limit;
 
                 return (
-                  <div key={pkg.name} className="p-3 bg-white/5 rounded-2xl border border-white/5 flex flex-col justify-between h-20">
+                  <div key={pkg.name} className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200/80 dark:border-white/5 flex flex-col justify-between h-20">
                     <div className="flex justify-between items-start gap-1">
-                      <span className="text-xs font-bold text-white truncate max-w-[120px]">{pkg.name}</span>
+                      <span className="text-xs font-bold text-content truncate max-w-[120px]">{pkg.name}</span>
                       <span className="text-xs font-black text-rose-500 shrink-0">-{pkg.quantity.toLocaleString('es-CO', { maximumFractionDigits: 1 })} {pkg.unit}</span>
                     </div>
                     <div className="w-full mt-2">
-                      <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                      <div className="h-1 w-full bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
                         <div className={`h-full ${isCritical ? 'bg-[var(--text-muted)]' : 'bg-emerald-500'}`} style={{ width: `${Math.max(0, Math.min(100, (remains / (pkg.currentStock || 1)) * 100))}%` }}></div>
                       </div>
-                      <span className={`text-[8px] font-bold block mt-1 ${isCritical ? 'text-[var(--text-muted)]' : 'text-slate-400'}`}>
+                      <span className={`text-[8px] font-bold block mt-1 ${isCritical ? 'text-[var(--text-muted)]' : 'text-content-secondary'}`}>
                         {remains.toLocaleString('es-CO', { maximumFractionDigits: 0 })} {pkg.unit} rest. {isCritical ? '(Crítico)' : ''}
                       </span>
                     </div>

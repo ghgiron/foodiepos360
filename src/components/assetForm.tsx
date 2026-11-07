@@ -1,15 +1,26 @@
-// src/components/assetForm.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db } from '../db/localDb';
 import type { FixedAsset, DamageReport, AssetBreakAudit } from '../types';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getDropdownOptions } from '../utils/dataHelper';
 import ImageUploader from './ImageUploader';
 import SupplierForm from './supplierForm';
 import Modal from './ui/Modal';
 import ConfirmDialog from './ui/ConfirmDialog';
 import toast from 'react-hot-toast';
 import CustomSelect from './ui/CustomSelect';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
+
+import {
+  useAssetActions,
+  useAssetStatuses,
+  useVoltages,
+  useMaintenanceTypes,
+  useAlertFrequencies,
+  useAssetCategories,
+  useAssetLocations,
+  useSystemBranches
+} from '../hooks/useCatalogs';
 
 interface AssetFormProps {
   view: 'create' | 'edit' | 'damage_report';
@@ -21,21 +32,20 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
   const isEdit = view === 'edit';
   const isDamage = view === 'damage_report';
 
-  // Load system settings dynamically from IndexedDB systemSettings table
-  const systemSettings = useLiveQuery(async () => {
-    const list = await db.systemSettings.toArray();
-    return list.reduce((acc, curr) => {
-      acc[curr.key] = curr.value;
-      return acc;
-    }, {} as Record<string, any>);
-  }) || {};
+  const assetCategoriesList = useAssetCategories();
+  const assetLocationsList = useAssetLocations();
+  const systemBranches = useSystemBranches();
+  const assetActionsList = useAssetActions();
+  const assetStatusesList = useAssetStatuses();
+  const voltagesList = useVoltages();
+  const maintenanceTypesList = useMaintenanceTypes();
+  const alertFrequenciesList = useAlertFrequencies();
 
-  const assetCategoriesList = getDropdownOptions('asset_categories', systemSettings);
-  const assetLocationsList = getDropdownOptions('asset_locations', systemSettings);
-  const allBranches = getDropdownOptions('system_branches', systemSettings) as Array<{ id: string; name: string; active?: boolean }>;
-  const systemBranches = useMemo(() => {
-    return allBranches.filter(b => b.active !== false);
-  }, [allBranches]);
+  const recommendedActionOptions = useMemo(() => assetActionsList.map(a => ({ value: a, label: a })), [assetActionsList]);
+  const statusOptions = useMemo(() => assetStatusesList.map(s => ({ value: s, label: s })), [assetStatusesList]);
+  const voltageOptions = useMemo(() => voltagesList.map(v => ({ value: v, label: v })), [voltagesList]);
+  const maintenanceTypeOptions = useMemo(() => maintenanceTypesList.map(m => ({ value: m, label: m })), [maintenanceTypesList]);
+  const alertFrequencyOptions = useMemo(() => alertFrequenciesList.map(af => ({ value: af, label: af })), [alertFrequenciesList]);
 
   // --- GENERAL ASSET STATES ---
   const [name, setName] = useState('');
@@ -57,7 +67,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
     if (assetLocationsList.length > 0 && !assetLocationsList.includes(location)) {
       setLocation(assetLocationsList[0]);
     }
-  }, [systemSettings, assetCategoriesList, assetLocationsList, category, location]);
+  }, [assetCategoriesList, assetLocationsList, category, location]);
   const [purchaseCost, setPurchaseCost] = useState<number | ''>('');
   const [description, setDescription] = useState('');
   const [unitOfMeasure, setUnitOfMeasure] = useState('Unidades');
@@ -397,7 +407,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                       Fecha del Hallazgo
                     </label>
-                    <input
+                    <Input
                       type="date"
                       required
                       value={discoveryDate}
@@ -410,7 +420,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                       Hora
                     </label>
-                    <input
+                    <Input
                       type="time"
                       required
                       value={discoveryTime}
@@ -465,7 +475,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                   <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                     Descripción del Daño
                   </label>
-                  <textarea
+                  <Textarea
                     required
                     value={damageDescription}
                     onChange={(e) => setDamageDescription(e.target.value)}
@@ -506,7 +516,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     type="button"
                     onClick={() => setAffectsOperation(!affectsOperation)}
                     className={`w-11 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none border-none cursor-pointer ${
-                      affectsOperation ? 'bg-[var(--accent-purple)]' : 'bg-slate-200 dark:bg-slate-900'
+                      affectsOperation ? 'bg-[var(--accent-purple)]' : 'bg-inset'
                     }`}
                   >
                     <div
@@ -524,12 +534,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                   <CustomSelect
                     value={recommendedAction}
                     onChange={setRecommendedAction}
-                    options={[
-                      { value: 'Reparar de inmediato', label: 'Reparar de inmediato' },
-                      { value: 'Programar revisión técnica', label: 'Programar revisión técnica' },
-                      { value: 'Reemplazar elemento', label: 'Reemplazar elemento' },
-                      { value: 'Retirar de servicio', label: 'Retirar de servicio' }
-                    ]}
+                    options={recommendedActionOptions}
                     className="w-full bg-[var(--bg-app)] border border-[var(--border-glow)] rounded-xl p-3 text-xs font-bold text-[var(--text-primary)]"
                   />
                 </div>
@@ -538,7 +543,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
 
             {/* Popup alert when report submitted */}
             {reportSentPopup && (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-900 dark:bg-slate-955 text-white rounded-2xl p-5 border border-slate-700 shadow-2xl flex flex-col items-center justify-center gap-3 z-50 animate-fade-in w-72">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-neutral-900 dark:bg-slate-955 text-white rounded-2xl p-5 border border-line-strong shadow-2xl flex flex-col items-center justify-center gap-3 z-50 animate-fade-in w-72">
                 <span className="material-symbols-outlined text-4xl text-emerald-450 animate-bounce">check_circle</span>
                 <div className="text-center">
                   <h4 className="font-extrabold text-sm uppercase tracking-wider text-emerald-400">Reporte Enviado</h4>
@@ -570,7 +575,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                       Nombre del Elemento
                     </label>
-                    <input
+                    <Input
                       type="text"
                       required
                       value={name}
@@ -584,7 +589,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                       Código Interno (Inventario)
                     </label>
-                    <input
+                    <Input
                       type="text"
                       value={assetId}
                       onChange={(e) => setAssetId(e.target.value)}
@@ -637,7 +642,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                   <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                     Descripción Detallada
                   </label>
-                  <textarea
+                  <Textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     className="w-full bg-[var(--bg-app)] border border-[var(--border-glow)] rounded-xl p-3.5 text-xs font-semibold focus:ring-1 focus:ring-[var(--accent-purple)] outline-none text-[var(--text-primary)] placeholder-slate-400"
@@ -661,7 +666,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                       Unidad de Medida
                     </label>
-                    <input
+                    <Input
                       type="text"
                       value={unitOfMeasure}
                       onChange={(e) => setUnitOfMeasure(e.target.value)}
@@ -674,7 +679,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                       Costo Unitario ($)
                     </label>
-                    <input
+                    <Input
                       type="number"
                       required
                       value={purchaseCost}
@@ -689,7 +694,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                       Proveedor
                     </label>
                     <div className="relative">
-                      <input
+                      <Input
                         type="text"
                         value={supplierSearch}
                         onChange={(e) => {
@@ -748,7 +753,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                       Fecha de Compra
                     </label>
-                    <input
+                    <Input
                       type="date"
                       value={purchaseDate}
                       onChange={(e) => setPurchaseDate(e.target.value)}
@@ -772,7 +777,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                       Stock Inicial / Actual
                     </label>
-                    <input
+                    <Input
                       type="number"
                       required
                       value={stockActual}
@@ -786,7 +791,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                       Alerta Stock Mínimo
                     </label>
-                    <input
+                    <Input
                       type="number"
                       required
                       value={stockMinLimit}
@@ -803,13 +808,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     <CustomSelect
                       value={status}
                       onChange={setStatus}
-                      options={[
-                        { value: 'Operativo', label: 'Nuevo (Operativo)' },
-                        { value: 'Usado', label: 'Usado' },
-                        { value: 'En Mantenimiento', label: 'En Mantenimiento' },
-                        { value: 'Requiere Revisión Urgentemente', label: 'Requiere Revisión Urgentemente' },
-                        { value: 'Retirado de Servicio', label: 'Retirado de Servicio' }
-                      ]}
+                      options={statusOptions}
                       className="w-full bg-[var(--bg-app)] border border-[var(--border-glow)] rounded-xl p-3 text-xs font-bold text-[var(--text-primary)]"
                     />
                   </div>
@@ -831,7 +830,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                       <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                         Marca
                       </label>
-                      <input
+                      <Input
                         type="text"
                         required
                         value={brand}
@@ -845,7 +844,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                       <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                         Modelo
                       </label>
-                      <input
+                      <Input
                         type="text"
                         required
                         value={model}
@@ -859,7 +858,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                       <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                         Serial
                       </label>
-                      <input
+                      <Input
                         type="text"
                         required
                         value={serialNumber}
@@ -876,11 +875,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                       <CustomSelect
                         value={voltage}
                         onChange={setVoltage}
-                        options={[
-                          { value: '110V', label: '110V' },
-                          { value: '220V', label: '220V' },
-                          { value: 'Trifásica', label: 'Trifásica' }
-                        ]}
+                        options={voltageOptions}
                         className="w-full bg-[var(--bg-app)] border border-[var(--border-glow)] rounded-xl p-3 text-xs font-bold text-[var(--text-primary)]"
                       />
                     </div>
@@ -898,7 +893,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                         <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                           Próxima Fecha de Revisión
                         </label>
-                        <input
+                        <Input
                           type="date"
                           value={nextMaintenanceDate}
                           onChange={(e) => setNextMaintenanceDate(e.target.value)}
@@ -913,10 +908,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                         <CustomSelect
                           value={maintenanceType}
                           onChange={setMaintenanceType}
-                          options={[
-                            { value: 'Preventivo', label: 'Preventivo' },
-                            { value: 'Correctivo', label: 'Correctivo' }
-                          ]}
+                          options={maintenanceTypeOptions}
                           className="w-full bg-[var(--bg-app)] border border-[var(--border-glow)] rounded-xl p-3 text-xs font-bold text-[var(--text-primary)]"
                         />
                       </div>
@@ -928,11 +920,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                         <CustomSelect
                           value={alertFrequency}
                           onChange={setAlertFrequency}
-                          options={[
-                            { value: 'Mensual', label: 'Mensual' },
-                            { value: 'Trimestral', label: 'Trimestral' },
-                            { value: 'Semestral', label: 'Semestral' }
-                          ]}
+                          options={alertFrequencyOptions}
                           className="w-full bg-[var(--bg-app)] border border-[var(--border-glow)] rounded-xl p-3 text-xs font-bold text-[var(--text-primary)]"
                         />
                       </div>
@@ -942,7 +930,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                       <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                         Observaciones del Técnico
                       </label>
-                      <textarea
+                      <Textarea
                         value={technicianRemarks}
                         onChange={(e) => setTechnicianRemarks(e.target.value)}
                         className="w-full bg-[var(--bg-app)] border border-[var(--border-glow)] rounded-xl p-3 text-xs font-semibold focus:ring-1 focus:ring-[var(--accent-purple)] outline-none text-[var(--text-primary)] placeholder-slate-400"
@@ -969,7 +957,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                       <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                         Tipo de Material
                       </label>
-                      <input
+                      <Input
                         type="text"
                         value={materialType}
                         onChange={(e) => setMaterialType(e.target.value)}
@@ -983,7 +971,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                         <label className="block text-[10px] font-extrabold uppercase tracking-widest text-[var(--text-muted)] mb-1.5">
                           Capacidad
                         </label>
-                        <input
+                        <Input
                           type="text"
                           value={capacity}
                           onChange={(e) => setCapacity(e.target.value)}
@@ -1005,7 +993,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-[var(--bg-app)] p-4 rounded-2xl border border-[var(--border-glow)]">
                       <div>
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">Fecha</label>
-                        <input
+                        <Input
                           type="date"
                           value={breakDate}
                           onChange={(e) => setBreakDate(e.target.value)}
@@ -1014,7 +1002,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                       </div>
                       <div>
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">Cant. Bajas</label>
-                        <input
+                        <Input
                           type="number"
                           value={breakQty}
                           onChange={(e) => setBreakQty(e.target.value === '' ? '' : Number(e.target.value))}
@@ -1024,7 +1012,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
                       </div>
                       <div>
                         <label className="block text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">Motivo / Notas</label>
-                        <input
+                        <Input
                           type="text"
                           value={breakReason}
                           onChange={(e) => setBreakReason(e.target.value)}
@@ -1149,7 +1137,7 @@ export default function AssetForm({ view, asset, onBack }: AssetFormProps) {
       </form>
 
       {showSupplierModal && (
-        <Modal title="Crear Proveedor" onClose={() => setShowSupplierModal(false)}>
+        <Modal title="Crear Proveedor" onClose={() => setShowSupplierModal(false)} size="2xl">
           <SupplierForm 
             onCancel={() => setShowSupplierModal(false)} 
             onSaved={(newId) => {

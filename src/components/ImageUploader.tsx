@@ -71,19 +71,19 @@ export default function ImageUploader({
   };
 
   return (
-    <div className={`bg-white dark:bg-slate-900 border border-slate-300/60 dark:border-slate-800 p-6 rounded-3xl shadow-sm ${className}`}>
+    <div className={`bg-surface border border-slate-300/60 dark:border-line p-6 rounded-3xl shadow-sm ${className}`}>
       <span className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-3">
         {label}
       </span>
       
       {value ? (
-        <div className="relative w-full aspect-square rounded-2xl overflow-hidden group bg-slate-50 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-850">
+        <div className="relative w-full aspect-square rounded-2xl overflow-hidden group bg-inset border border-slate-200/50 dark:border-slate-850">
           <img
             src={value}
             alt="Vista previa de imagen"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+          <div className="absolute inset-0 bg-overlay opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -105,10 +105,10 @@ export default function ImageUploader({
           onClick={() => fileInputRef.current?.click()}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl py-8 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-850/30 transition-colors cursor-pointer text-center"
+          className="border-2 border-dashed border-line rounded-2xl py-8 flex flex-col items-center justify-center text-content-tertiary hover:bg-slate-50 dark:hover:bg-slate-850/30 transition-colors cursor-pointer text-center"
         >
           <span className="material-symbols-outlined text-3xl mb-1.5 text-slate-400">cloud_upload</span>
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Subir o arrastrar imagen</span>
+          <span className="text-xs font-bold text-content-secondary">Subir o arrastrar imagen</span>
           <span className="text-[10px] text-slate-500 mt-1">{helperText}</span>
         </div>
       )}

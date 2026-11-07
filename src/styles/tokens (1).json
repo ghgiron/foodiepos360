@@ -1,0 +1,214 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "$description": "Dark + Glass design tokens (W3C Design Tokens format). Primitivos + semánticos por tema.",
+  "primitive": {
+    "neutral": {
+      "$type": "color",
+      "0": { "$value": "#FFFFFF" }, "50": { "$value": "#FAFAFA" }, "100": { "$value": "#F5F5F5" },
+      "200": { "$value": "#E5E5E5" }, "300": { "$value": "#D4D4D4" }, "400": { "$value": "#A3A3A3" },
+      "500": { "$value": "#8A8A8A" }, "600": { "$value": "#737373" }, "700": { "$value": "#525252" },
+      "750": { "$value": "#404040" }, "800": { "$value": "#373737" }, "850": { "$value": "#262626" },
+      "900": { "$value": "#171717" }, "950": { "$value": "#0A0A0A" }, "1000": { "$value": "#000000" }
+    },
+    "orange": {
+      "$type": "color",
+      "50": { "$value": "#FFF4ED" }, "100": { "$value": "#FFE6D5" }, "200": { "$value": "#FFCCAA" },
+      "300": { "$value": "#FFA874" }, "400": { "$value": "#FF8A4C" }, "500": { "$value": "#FF6B2C" },
+      "600": { "$value": "#F0511A" }, "700": { "$value": "#C73E12" }, "800": { "$value": "#9E3314" },
+      "900": { "$value": "#7F2D14" }, "950": { "$value": "#451407" }
+    },
+    "violet": {
+      "$type": "color",
+      "300": { "$value": "#C4B5FD" }, "400": { "$value": "#A78BFA" }, "500": { "$value": "#8B5CF6" },
+      "600": { "$value": "#7C3AED" }, "700": { "$value": "#6D28D9" }
+    },
+    "green":  { "$type": "color", "400": { "$value": "#34E0A9" }, "500": { "$value": "#06C990" }, "600": { "$value": "#05A576" }, "700": { "$value": "#047857" } },
+    "red":    { "$type": "color", "400": { "$value": "#FF7A8E" }, "500": { "$value": "#FF4D67" }, "600": { "$value": "#E0304C" }, "700": { "$value": "#C81E3A" } },
+    "yellow": { "$type": "color", "400": { "$value": "#FFE27A" }, "500": { "$value": "#FFC533" }, "600": { "$value": "#E0A50F" }, "700": { "$value": "#8A5A00" } },
+    "blue":   { "$type": "color", "400": { "$value": "#7FA2FF" }, "500": { "$value": "#4F7DFF" }, "600": { "$value": "#2E5BF0" }, "700": { "$value": "#2549D8" } }
+  },
+  "icon": {
+    "$description": "Librería: Lucide (lucide.dev)",
+    "size": { "$type": "dimension", "sm": { "$value": "16px" }, "md": { "$value": "20px" }, "lg": { "$value": "24px" } },
+    "stroke": { "$type": "number", "$value": 1.5 }
+  },
+  "gradient": {
+    "accent":       { "$type": "gradient", "$value": "linear-gradient(180deg, #FFA43D 0%, #F26B0F 100%)" },
+    "accent-hover": { "$type": "gradient", "$value": "linear-gradient(180deg, #FFB25A 0%, #FF7A24 100%)" },
+    "violet":       { "$type": "gradient", "$value": "linear-gradient(180deg, #9F7BFF 0%, #6D3BEA 100%)" }
+  },
+  "typography": {
+    "fontFamily": {
+      "$type": "fontFamily",
+      "display": { "$value": ["Manrope", "Plus Jakarta Sans", "system-ui", "sans-serif"] },
+      "body":    { "$value": ["Inter", "SF Pro Text", "-apple-system", "system-ui", "sans-serif"] },
+      "mono":    { "$value": ["ui-monospace", "SF Mono", "JetBrains Mono", "monospace"] }
+    },
+    "fontSize": {
+      "$type": "dimension",
+      "xs": { "$value": "12px" }, "sm": { "$value": "14px" }, "base": { "$value": "16px" },
+      "lg": { "$value": "18px" }, "xl": { "$value": "20px" }, "2xl": { "$value": "24px" },
+      "3xl": { "$value": "32px" }, "4xl": { "$value": "40px" }, "5xl": { "$value": "56px" }
+    },
+    "fontWeight": {
+      "$type": "fontWeight",
+      "regular": { "$value": 400 }, "medium": { "$value": 500 }, "semibold": { "$value": 600 },
+      "bold": { "$value": 700 }, "extrabold": { "$value": 800 }
+    },
+    "lineHeight": { "$type": "number", "tight": { "$value": 1.1 }, "snug": { "$value": 1.25 }, "normal": { "$value": 1.5 } },
+    "styles": {
+      "display":  { "$type": "typography", "$value": { "fontFamily": "{typography.fontFamily.display}", "fontSize": "{typography.fontSize.5xl}", "fontWeight": 700, "lineHeight": 1.1, "letterSpacing": "-0.02em" } },
+      "h1":       { "$type": "typography", "$value": { "fontFamily": "{typography.fontFamily.display}", "fontSize": "{typography.fontSize.4xl}", "fontWeight": 700, "lineHeight": 1.1, "letterSpacing": "-0.02em" } },
+      "h2":       { "$type": "typography", "$value": { "fontFamily": "{typography.fontFamily.display}", "fontSize": "{typography.fontSize.3xl}", "fontWeight": 700, "lineHeight": 1.25, "letterSpacing": "-0.01em" } },
+      "h3":       { "$type": "typography", "$value": { "fontFamily": "{typography.fontFamily.display}", "fontSize": "{typography.fontSize.xl}", "fontWeight": 600, "lineHeight": 1.25 } },
+      "body":     { "$type": "typography", "$value": { "fontFamily": "{typography.fontFamily.body}", "fontSize": "{typography.fontSize.base}", "fontWeight": 400, "lineHeight": 1.5 } },
+      "body-sm":  { "$type": "typography", "$value": { "fontFamily": "{typography.fontFamily.body}", "fontSize": "{typography.fontSize.sm}", "fontWeight": 400, "lineHeight": 1.5 } },
+      "label":    { "$type": "typography", "$value": { "fontFamily": "{typography.fontFamily.body}", "fontSize": "{typography.fontSize.sm}", "fontWeight": 600, "lineHeight": 1.25 } },
+      "caption":  { "$type": "typography", "$value": { "fontFamily": "{typography.fontFamily.body}", "fontSize": "{typography.fontSize.xs}", "fontWeight": 500, "lineHeight": 1.25 } }
+    }
+  },
+  "space": {
+    "$type": "dimension",
+    "1": { "$value": "4px" }, "2": { "$value": "8px" }, "3": { "$value": "12px" }, "4": { "$value": "16px" },
+    "5": { "$value": "20px" }, "6": { "$value": "24px" }, "8": { "$value": "32px" }, "10": { "$value": "40px" },
+    "12": { "$value": "48px" }, "16": { "$value": "64px" }
+  },
+  "radius": {
+    "$type": "dimension",
+    "xs": { "$value": "6px" }, "sm": { "$value": "8px" }, "md": { "$value": "12px" }, "lg": { "$value": "16px" },
+    "xl": { "$value": "20px" }, "2xl": { "$value": "28px" }, "3xl": { "$value": "40px" }, "full": { "$value": "9999px" }
+  },
+  "motion": {
+    "duration": { "$type": "duration", "fast": { "$value": "120ms" }, "normal": { "$value": "200ms" }, "slow": { "$value": "360ms" } },
+    "easing": {
+      "$type": "cubicBezier",
+      "standard":   { "$value": [0.2, 0, 0, 1] },
+      "emphasized": { "$value": [0.3, 0, 0, 1.2] }
+    }
+  },
+  "glass": {
+    "blur": { "$type": "dimension", "sm": { "$value": "8px" }, "md": { "$value": "16px" }, "lg": { "$value": "24px" }, "xl": { "$value": "40px" } },
+    "saturate": { "$type": "number", "$value": 1.4 },
+    "fill": {
+      "$type": "color",
+      "1": { "$value": "rgba(255,255,255,0.04)" }, "2": { "$value": "rgba(255,255,255,0.07)" },
+      "3": { "$value": "rgba(255,255,255,0.11)" }, "4": { "$value": "rgba(255,255,255,0.16)" },
+      "tint-warm": { "$value": "rgba(255,140,60,0.08)" }, "scrim": { "$value": "rgba(10,10,10,0.45)" }
+    },
+    "border": { "$type": "color", "default": { "$value": "rgba(255,255,255,0.14)" }, "light": { "$value": "rgba(255,255,255,0.28)" } },
+    "highlight": { "$type": "shadow", "$value": { "color": "rgba(255,255,255,0.18)", "offsetX": "0px", "offsetY": "1px", "blur": "0px", "spread": "0px", "inset": true } }
+  },
+  "theme": {
+    "dark": {
+      "bg": {
+        "canvas":  { "$type": "color", "$value": "{primitive.neutral.950}" },
+        "surface": { "$type": "color", "$value": "{primitive.neutral.900}" },
+        "raised":  { "$type": "color", "$value": "{primitive.neutral.850}" },
+        "inset":   { "$type": "color", "$value": "{primitive.neutral.1000}" },
+        "overlay": { "$type": "color", "$value": "rgba(0,0,0,0.64)" },
+        "hover":   { "$type": "color", "$value": "rgba(255,255,255,0.05)" },
+        "active":  { "$type": "color", "$value": "rgba(255,255,255,0.08)" },
+        "selected":{ "$type": "color", "$value": "rgba(255,107,44,0.14)" }
+      },
+      "border": {
+        "$type": "color",
+        "subtle":  { "$value": "rgba(255,255,255,0.06)" },
+        "default": { "$value": "rgba(255,255,255,0.10)" },
+        "strong":  { "$value": "rgba(255,255,255,0.20)" },
+        "accent":  { "$value": "{primitive.orange.500}" }
+      },
+      "text": {
+        "$type": "color",
+        "primary":   { "$value": "{primitive.neutral.50}" },
+        "secondary": { "$value": "{primitive.neutral.400}" },
+        "tertiary":  { "$value": "{primitive.neutral.500}" },
+        "disabled":  { "$value": "{primitive.neutral.700}" },
+        "accent":    { "$value": "{primitive.orange.400}" },
+        "on-accent": { "$value": "{primitive.neutral.950}" }
+      },
+      "accent": {
+        "$type": "color",
+        "default": { "$value": "{primitive.orange.500}" },
+        "hover":   { "$value": "{primitive.orange.400}" },
+        "pressed": { "$value": "{primitive.orange.600}" },
+        "subtle":  { "$value": "rgba(255,107,44,0.14)" }
+      },
+      "status": {
+        "$type": "color",
+        "success": { "$value": "{primitive.green.500}" },
+        "danger":  { "$value": "{primitive.red.500}" },
+        "warning": { "$value": "{primitive.yellow.500}" },
+        "info":    { "$value": "{primitive.blue.500}" }
+      }
+    },
+    "light": {
+      "bg": {
+        "canvas":  { "$type": "color", "$value": "{primitive.neutral.50}" },
+        "surface": { "$type": "color", "$value": "{primitive.neutral.0}" },
+        "raised":  { "$type": "color", "$value": "{primitive.neutral.0}" },
+        "inset":   { "$type": "color", "$value": "{primitive.neutral.100}" },
+        "overlay": { "$type": "color", "$value": "rgba(10,10,10,0.48)" },
+        "hover":   { "$type": "color", "$value": "rgba(10,10,10,0.04)" },
+        "active":  { "$type": "color", "$value": "rgba(10,10,10,0.07)" },
+        "selected":{ "$type": "color", "$value": "rgba(255,107,44,0.12)" }
+      },
+      "border": {
+        "$type": "color",
+        "subtle":  { "$value": "rgba(10,10,10,0.06)" },
+        "default": { "$value": "rgba(10,10,10,0.12)" },
+        "strong":  { "$value": "rgba(10,10,10,0.24)" },
+        "accent":  { "$value": "{primitive.orange.600}" }
+      },
+      "text": {
+        "$type": "color",
+        "primary":   { "$value": "{primitive.neutral.950}" },
+        "secondary": { "$value": "{primitive.neutral.700}" },
+        "tertiary":  { "$value": "{primitive.neutral.600}" },
+        "disabled":  { "$value": "{primitive.neutral.400}" },
+        "accent":    { "$value": "{primitive.orange.700}" },
+        "on-accent": { "$value": "{primitive.neutral.950}" }
+      },
+      "accent": {
+        "$type": "color",
+        "default": { "$value": "{primitive.orange.500}" },
+        "hover":   { "$value": "{primitive.orange.600}" },
+        "pressed": { "$value": "{primitive.orange.700}" },
+        "subtle":  { "$value": "rgba(255,107,44,0.12)" }
+      },
+      "status": {
+        "$type": "color",
+        "success": { "$value": "{primitive.green.700}" },
+        "danger":  { "$value": "{primitive.red.700}" },
+        "warning": { "$value": "{primitive.yellow.700}" },
+        "info":    { "$value": "{primitive.blue.700}" }
+      }
+    },
+    "glass": {
+      "$extends": "{theme.dark}",
+      "bg": {
+        "canvas":  { "$type": "color", "$value": "{primitive.neutral.950}" },
+        "surface": { "$type": "color", "$value": "{glass.fill.2}" },
+        "raised":  { "$type": "color", "$value": "{glass.fill.3}" },
+        "inset":   { "$type": "color", "$value": "rgba(0,0,0,0.28)" },
+        "hover":   { "$type": "color", "$value": "{glass.fill.3}" },
+        "active":  { "$type": "color", "$value": "{glass.fill.4}" },
+        "selected":{ "$type": "color", "$value": "rgba(255,107,44,0.22)" }
+      },
+      "border": {
+        "$type": "color",
+        "default": { "$value": "{glass.border.default}" },
+        "strong":  { "$value": "{glass.border.light}" }
+      },
+      "text": {
+        "$type": "color",
+        "primary":   { "$value": "{primitive.neutral.0}" },
+        "secondary": { "$value": "{primitive.neutral.200}" },
+        "tertiary":  { "$value": "{primitive.neutral.300}" }
+      },
+      "surface-effect": {
+        "backdropBlur": { "$type": "dimension", "$value": "{glass.blur.lg}" },
+        "backdropSaturate": { "$type": "number", "$value": "{glass.saturate}" }
+      }
+    }
+  }
+}

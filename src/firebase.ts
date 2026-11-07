@@ -1,21 +1,23 @@
 // src/firebase.ts
-import { initializeApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from 'firebase/firestore';
+import { getFirebaseConfig } from './config/firebaseConfig';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyAD69zAkMd0m_BKGFRGgjMTvEGBV20dYho",
-  authDomain: "foodiepos360.firebaseapp.com",
-  projectId: "foodiepos360",
-  storageBucket: "foodiepos360.firebasestorage.app",
-  messagingSenderId: "667508544399",
-  appId: "1:667508544399:web:c7d0135569380435bfb1fa"
-};
+const firebaseConfig = getFirebaseConfig();
 
-export const app = initializeApp(firebaseConfig);
+export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize Firestore with persistent cache for robust offline-first functionality
-export const firestore = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager(),
-  }),
-});
+let firestoreInstance;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  });
+} catch {
+  // If Firestore is already initialized in current tab, reuse existing instance
+  firestoreInstance = getFirestore(app);
+}
+
+export const firestore = firestoreInstance;
