@@ -859,3 +859,40 @@ export interface OperatingZone {
   orden: number;
   isDefault?: boolean;
 }
+
+/**
+ * [US-09] Alertas de Stock Crítico y Generación Automática de Órdenes de Compra Sugeridas
+ */
+export interface PurchaseOrderItem {
+  itemId: string;
+  name: string;
+  quantity: number; // suggestedQuantity
+  unit: string;
+  unitCost: number;
+  estimatedCost: number;
+  currentStock: number;
+  availableStock: number;
+  minStock: number;
+  maxStock: number;
+  priority: 1 | 2; // 1: Rojo / Agotado, 2: Ámbar / Mínimo
+}
+
+export interface PurchaseOrder {
+  id: string; // e.g. "po-draft-1718000000-xyz"
+  supplierId: string; // supplier ID or 'POR DEFINIR'
+  supplierName: string;
+  status: 'DRAFT' | 'PENDING' | 'ORDERED' | 'RECEIVED' | 'CANCELLED';
+  items: PurchaseOrderItem[];
+  totalEstimatedCost: number;
+  itemsCount: number;
+  createdAt: string;
+  updatedAt: string;
+  notes?: string;
+  branchId?: string;
+  createdBy?: string;
+  receivedAt?: string;
+  invoiceNumber?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+}
+

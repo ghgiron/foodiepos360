@@ -4,7 +4,7 @@
 El directorio `src/db` implementa la capa de persistencia *offline-first* sobre IndexedDB y el motor de dominio local para FoodiePOS mediante Dexie.js. Gestiona las versiones y esquemas de la base de datos (`localDb.ts`), los parámetros de configuración y equivalencias métricas (`settingsStore.ts`), la inicialización y sanitización de datos de prueba (`seedData.ts`), y el motor transaccional de reservas de stock, kardex e inventario multisede (`inventoryEngine.ts`).
 
 ## Interfaz
-- `[localDb.ts:FoodiePOSDatabase]`: Clase base de IndexedDB Dexie que define tablas (versiones 8 a 12) y métodos de acceso.
+- `[localDb.ts:FoodiePOSDatabase]`: Clase base de IndexedDB Dexie que define tablas (versiones 8 a 13, incluyendo `purchaseOrders`) y métodos de acceso.
 - `[localDb.ts:db]`: Instancia singleton exportada de `FoodiePOSDatabase`.
 - `[localDb.ts:enqueueOfflineEvent]`: Encola eventos de dominio en `domainOutbox` para replicación remota.
 - `[localDb.ts:getPendingOfflineEvents]`: Obtiene eventos pendientes del outbox ordenados por fecha (`FIFO`).

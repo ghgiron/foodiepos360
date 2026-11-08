@@ -1,10 +1,23 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { db } from '../db/localDb';
-import type { InventoryItem, Recipe } from '../types';
+import type { InventoryItem, Recipe, PurchaseOrder } from '../types';
 import { getAvailableStock } from '../types';
 import { useLiveQuery } from 'dexie-react-hooks';
 import toast from 'react-hot-toast';
 import CustomSelect from './ui/CustomSelect';
+import { useProductionZones } from '../hooks/useCatalogs';
+import {
+  getCriticalStockAlerts,
+  generateSuggestedPurchaseOrders,
+  deletePurchaseOrderDraft,
+  type CriticalStockAlert
+} from '../services/purchaseOrderService';
+import {
+  formatPurchaseOrderLabel,
+  getHumanizedPurchaseOrderSupplier
+} from '../utils/purchaseOrderUtils';
+import PurchaseNavHeader from './inventory/PurchaseNavHeader';
+import ManualPurchaseOrderModal from './inventory/ManualPurchaseOrderModal';
 
 interface InventoryAlertsProps {
   initialFilter?: {
@@ -12,7 +25,8 @@ interface InventoryAlertsProps {
     type?: 'Stock' | 'Vencimiento' | 'Mantenimiento' | 'ALL';
   } | null;
   onClearFilter?: () => void;
-  onNavigateToPurchaseOrder?: (draft: { supplierId: string; items: any[] }) => void;
+  onNavigateToPurchaseOrder?: (draft: { supplierId?: string; items?: any[]; purchaseOrderId?: string }) => void;
+  onNavigateSection?: (section: 'INVENTORY_RECEIPTS' | 'INVENTORY_ALERTS' | 'PURCHASE_ORDERS_HISTORY') => void;
 }
 
 interface AlertEntry {
@@ -21,17 +35,22 @@ interface AlertEntry {
   name: string;
   type: 'Stock' | 'Vencimiento' | 'Mantenimiento';
   level: 'Crítico' | 'Bajo';
-  priority?: 1 | 2; // 1: Urgente (availableStock <= 0), 2: Advertencia (0 < availableStock <= minStock)
+  priority: 1 | 2; // 1: Urgente / Agotado (availableStock <= 0), 2: Advertencia / Mínimo (availableStock <= minStock)
+  priorityLabel: string;
   zone: 'Cocina' | 'Bar' | 'General';
   detail: string;
   qtyNeeded?: number;
   availableStock?: number;
+  physicalStock?: number;
+  reservedStock?: number;
+  minStock?: number;
+  maxStock?: number;
   unit?: string;
   cost?: number;
+  estimatedCost?: number;
   supplierId?: string;
+  supplierName?: string;
 }
-
-import { useProductionZones } from '../hooks/useCatalogs';
 
 const alertLevelOptions = [
   { value: 'ALL', label: 'Todos los Niveles' },
@@ -41,22 +60,33 @@ const alertLevelOptions = [
 
 const alertTypeOptions = [
   { value: 'ALL', label: 'Todos los Tipos' },
-  { value: 'Stock', label: 'Stock Mínimo' },
-  { value: 'Vencimiento', label: 'Vencimiento' },
-  { value: 'Mantenimiento', label: 'Mantenimiento' },
+  { value: 'Stock', label: 'Stock Crítico y Mínimo' },
+  { value: 'Vencimiento', label: 'Vencimientos HACCP' },
+  { value: 'Mantenimiento', label: 'Mantenimiento de Activos' },
 ];
 
-export default function InventoryAlerts({ initialFilter, onClearFilter, onNavigateToPurchaseOrder }: InventoryAlertsProps) {
-  // Query inventory, assets, settings, suppliers, and production zones reactively
+export default function InventoryAlerts({
+  initialFilter,
+  onClearFilter,
+  onNavigateToPurchaseOrder,
+  onNavigateSection
+}: InventoryAlertsProps) {
+  // Query inventory, assets, settings, suppliers, and draft orders reactively
   const inventoryItems = useLiveQuery(() => db.inventoryItems.toArray()) || [];
   const fixedAssets = useLiveQuery(() => db.fixedAssets.toArray()) || [];
   const suppliers = useLiveQuery(() => db.suppliers.toArray()) || [];
   const productionZones = useProductionZones();
 
+  // Reactive draft purchase orders stored in Dexie
+  const savedDraftOrders = useLiveQuery(
+    () => db.purchaseOrders.where('status').equals('DRAFT').reverse().sortBy('createdAt')
+  ) || [];
+
   const alertZoneOptions = useMemo(() => [
     { value: 'ALL', label: 'Todas las Zonas' },
     ...productionZones.map(z => ({ value: z, label: z }))
   ], [productionZones]);
+
   const systemSettings = useLiveQuery(async () => {
     const list = await db.systemSettings.toArray();
     return list.reduce((acc, curr) => {
@@ -65,130 +95,127 @@ export default function InventoryAlerts({ initialFilter, onClearFilter, onNaviga
     }, {} as Record<string, any>);
   }) || {};
 
-  const globalMinStock = systemSettings['min_stock_alert_threshold'] !== undefined 
-    ? Number(systemSettings['min_stock_alert_threshold']) 
+  const globalMinStock = systemSettings['min_stock_alert_threshold'] !== undefined
+    ? Number(systemSettings['min_stock_alert_threshold'])
     : 10;
-
-  // Static expiration alert items matching the HACCP requirements
-  const expirationAlerts = [
-    { name: 'Queso Burrata Fresco', daysLeft: 2, date: '11 Jun 2026', qty: '8 unidades', unit: 'unidades' },
-    { name: 'Tomate Cherry', daysLeft: 4, date: '13 Jun 2026', qty: '5 Cajas', unit: 'Cajas' },
-    { name: 'Solomillo de Ternera', daysLeft: 1, date: '10 Jun 2026', qty: '4.5 Kg', unit: 'Kg' }
-  ];
 
   // Filters State
   const [selectedLevel, setSelectedLevel] = useState<'ALL' | 'Crítico' | 'Bajo'>('ALL');
   const [selectedType, setSelectedType] = useState<'ALL' | 'Stock' | 'Vencimiento' | 'Mantenimiento'>('ALL');
   const [selectedZone, setSelectedZone] = useState<'ALL' | 'Cocina' | 'Bar' | 'General'>('ALL');
-  
-  // Mobile accordion state for filters
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
 
-  // Bulk actions selection state
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Manual Purchase Order Modal State
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
-  // Draft Purchase Order Modal State
+  // Purchase Order Generation Modal State
   const [isDraftModalOpen, setIsDraftModalOpen] = useState(false);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [isGeneratingOrders, setIsGeneratingOrders] = useState(false);
+  const [viewingDraftOrder, setViewingDraftOrder] = useState<PurchaseOrder | null>(null);
 
   // Sync with initial filters passed from Dashboard
   useEffect(() => {
     if (initialFilter) {
       if (initialFilter.level && initialFilter.level !== 'ALL') setSelectedLevel(initialFilter.level);
       if (initialFilter.type && initialFilter.type !== 'ALL') setSelectedType(initialFilter.type);
-      setIsFiltersExpanded(true); // Auto expand if navigating from dashboard
+      setIsFiltersExpanded(true);
     }
     return () => {
-      // Clear parent filter state on unmount
       if (onClearFilter) onClearFilter();
     };
   }, [initialFilter, onClearFilter]);
 
-  // Consolidate all alert sources into a single alert list
+  // Consolidate alerts according to business rules & strict priority sorting
   const consolidatedAlerts = useMemo(() => {
     const alerts: AlertEntry[] = [];
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // 1. Stock alerts (using availableStock = (currentStock - reservedStock))
-    inventoryItems.forEach(item => {
-      const minLimit = item.stockMinLimit ?? item.minStock ?? globalMinStock;
-      const maxLimit = item.stockMaxLimit ?? item.maxStock ?? (minLimit * 3);
-      const avail = getAvailableStock(item);
-      const current = item.currentStock ?? item.realPhysicalStock ?? item.theoreticalStock ?? 0;
-      const reserved = item.reservedStock ?? 0;
+    // 1. Stock alerts computed via purchaseOrderService (EGM Invariant: availableStock = physicalStock - stagedStock)
+    const stockAlerts = getCriticalStockAlerts(inventoryItems, globalMinStock, suppliers);
 
-      const isPriority1 = avail <= 0; // Prioridad 1 (Urgente): desabastecimiento total que bloquea recetas
-      const isPriority2 = avail > 0 && avail <= minLimit; // Prioridad 2 (Advertencia): alcanzó o por debajo de stock mínimo
-
-      // Map operational zone
-      let zone: 'Cocina' | 'Bar' | 'General' = 'General';
-      if (item.operationZone === 'Cocina') zone = 'Cocina';
-      else if (item.operationZone === 'Bar' || item.operationZone === 'Barra' || item.category === 'Licores') zone = 'Bar';
-
-      if (isPriority1) {
-        alerts.push({
-          id: `stock-${item.id}`,
-          sourceId: item.id,
-          name: item.name,
-          type: 'Stock',
-          level: 'Crítico',
-          priority: 1,
-          zone,
-          detail: `¡DESABASTECIMIENTO! Disponible: ${avail} ${item.countUnit} (Físico: ${current}, Reservado: ${reserved}) / Mínimo: ${minLimit} ${item.countUnit}. Bloquea venta de recetas.`,
-          qtyNeeded: Math.max(1, maxLimit - avail),
-          availableStock: avail,
-          unit: item.countUnit,
-          cost: item.purchaseCost,
-          supplierId: item.supplierId
-        });
-      } else if (isPriority2) {
-        alerts.push({
-          id: `stock-${item.id}`,
-          sourceId: item.id,
-          name: item.name,
-          type: 'Stock',
-          level: 'Bajo',
-          priority: 2,
-          zone,
-          detail: `Stock mínimo alcanzado. Disponible: ${avail} ${item.countUnit} (Físico: ${current}, Reservado: ${reserved}) / Mínimo: ${minLimit} ${item.countUnit}`,
-          qtyNeeded: Math.max(1, maxLimit - avail),
-          availableStock: avail,
-          unit: item.countUnit,
-          cost: item.purchaseCost,
-          supplierId: item.supplierId
-        });
-      }
-    });
-
-    // 2. Expiration alerts (preventative HACCP alerts)
-    expirationAlerts.forEach((alert, idx) => {
-      const level = alert.daysLeft <= 2 ? 'Crítico' : 'Bajo';
-      // Attempt to match zone from db items by name
-      const matchedItem = inventoryItems.find(i => i.name.toLowerCase() === alert.name.toLowerCase());
-      let zone: 'Cocina' | 'Bar' | 'General' = 'Cocina';
-      if (matchedItem) {
-        if (matchedItem.operationZone === 'Bar' || matchedItem.operationZone === 'Barra' || matchedItem.category === 'Licores') zone = 'Bar';
-      }
-
+    stockAlerts.forEach(alert => {
       alerts.push({
-        id: `expiry-${idx}`,
+        id: alert.id,
+        sourceId: alert.itemId,
         name: alert.name,
-        type: 'Vencimiento',
-        level,
-        zone,
-        detail: `Vencimiento preventivo el ${alert.date} (${alert.daysLeft} días restantes) | Cant: ${alert.qty}`,
-        qtyNeeded: matchedItem ? Math.max(0, (matchedItem.stockMinLimit ?? globalMinStock) * 2) : 10,
-        unit: alert.unit,
-        cost: matchedItem ? matchedItem.purchaseCost : 25000
+        type: 'Stock',
+        level: alert.level,
+        priority: alert.priority,
+        priorityLabel: alert.priorityLabel,
+        zone: alert.zone,
+        detail: alert.detail,
+        qtyNeeded: alert.suggestedQuantity,
+        availableStock: alert.availableStock,
+        physicalStock: alert.physicalStock,
+        reservedStock: alert.reservedStock,
+        minStock: alert.minStock,
+        maxStock: alert.maxStock,
+        unit: alert.countUnit,
+        cost: alert.purchaseCost,
+        estimatedCost: alert.estimatedCost,
+        supplierId: alert.supplierId,
+        supplierName: alert.supplierName
       });
     });
 
-    // 3. Maintenance alerts (from fixedAssets)
+    // 2. HACCP expiration alerts (derivadas dinámicamente de inventoryItems reales en Dexie)
+    inventoryItems.forEach(item => {
+      const expDateStr = item.fechaVencimiento ||
+        (Array.isArray(item.sucursalStock) ? item.sucursalStock.find(s => s.fechaVencimiento)?.fechaVencimiento : undefined);
+
+      if (expDateStr) {
+        const expDate = new Date(expDateStr);
+        if (!isNaN(expDate.getTime())) {
+          const diffTime = expDate.getTime() - new Date(todayStr).getTime();
+          const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          // Alerta preventiva: insumos vencidos (daysLeft <= 0) o próximos a vencer en 7 días
+          if (daysLeft <= 7) {
+            const isUrgent = daysLeft <= 2;
+            const level: 'Crítico' | 'Bajo' = isUrgent ? 'Crítico' : 'Bajo';
+            const priority: 1 | 2 = isUrgent ? 1 : 2;
+
+            let zone: 'Cocina' | 'Bar' | 'General' = 'Cocina';
+            if (item.operationZone === 'Bar' || item.operationZone === 'Barra' || item.category === 'Licores') {
+              zone = 'Bar';
+            }
+
+            const currentStockVal = item.availableStock ?? item.realPhysicalStock ?? item.currentStock ?? 0;
+            const statusLabel = daysLeft <= 0
+              ? `¡Vencido hace ${Math.abs(daysLeft)} día(s)!`
+              : `Vence en ${daysLeft} día(s)`;
+
+            alerts.push({
+              id: `expiry-${item.id}`,
+              sourceId: item.id,
+              name: item.name,
+              type: 'Vencimiento',
+              level,
+              priority,
+              priorityLabel: isUrgent ? 'Prioridad 1 · Vencimiento Inminente' : 'Prioridad 2 · Vencimiento Preventivo',
+              zone,
+              detail: `${statusLabel} (${expDateStr}) | Existencia: ${currentStockVal} ${item.countUnit || 'und'}`,
+              qtyNeeded: Math.max(1, (item.stockMinLimit ?? globalMinStock) * 2),
+              availableStock: currentStockVal,
+              physicalStock: item.realPhysicalStock ?? currentStockVal,
+              reservedStock: item.reservedStock ?? 0,
+              minStock: item.stockMinLimit ?? globalMinStock,
+              unit: item.countUnit || 'und',
+              cost: item.purchaseCost || item.averagePrice || 0,
+              supplierId: item.supplierId || 'POR DEFINIR'
+            });
+          }
+        }
+      }
+    });
+
+    // 3. Asset Maintenance alerts
     fixedAssets.forEach(asset => {
       if (asset.nextMaintenanceDate && asset.nextMaintenanceDate <= todayStr) {
         const isPastDue = asset.nextMaintenanceDate < todayStr;
-        const level = (asset.status === 'Requiere Revisión Urgentemente' || isPastDue) ? 'Crítico' : 'Bajo';
-        
+        const level: 'Crítico' | 'Bajo' = (asset.status === 'Requiere Revisión Urgentemente' || isPastDue) ? 'Crítico' : 'Bajo';
+        const priority: 1 | 2 = level === 'Crítico' ? 1 : 2;
+
         let zone: 'Cocina' | 'Bar' | 'General' = 'General';
         if (asset.location === 'Cocina') zone = 'Cocina';
         else if (asset.location === 'Barra' || asset.location === 'Bar') zone = 'Bar';
@@ -199,23 +226,27 @@ export default function InventoryAlerts({ initialFilter, onClearFilter, onNaviga
           name: asset.name,
           type: 'Mantenimiento',
           level,
+          priority,
+          priorityLabel: level === 'Crítico' ? 'Prioridad 1 · Falla Crítica' : 'Prioridad 2 · Mantenimiento Preventivo',
           zone,
-          detail: `Mantenimiento requerido (${asset.nextMaintenanceDate}) | Estado: ${asset.status}`
+          detail: `Mantenimiento programado (${asset.nextMaintenanceDate}) | Estado: ${asset.status}`
         });
       }
     });
 
-    // Prioritize Priority 1 (Urgente) at the top, then Priority 2 (Advertencia), then others
+    // CRITERIO DE ACEPTACIÓN 1:
+    // Prioridad 1 (Rojo / Agotado) estrictamente en la parte superior, Prioridad 2 (Ámbar / Mínimo) a continuación.
     alerts.sort((a, b) => {
-      const pA = a.priority ?? (a.level === 'Crítico' ? 1.5 : 3);
-      const pB = b.priority ?? (b.level === 'Crítico' ? 1.5 : 3);
-      return pA - pB;
+      if (a.priority !== b.priority) {
+        return a.priority - b.priority;
+      }
+      return a.name.localeCompare(b.name);
     });
 
     return alerts;
-  }, [inventoryItems, fixedAssets, globalMinStock]);
+  }, [inventoryItems, fixedAssets, suppliers, globalMinStock]);
 
-  // Apply filters
+  // Apply visual filters
   const filteredAlerts = useMemo(() => {
     return consolidatedAlerts.filter(alert => {
       const matchesLevel = selectedLevel === 'ALL' || alert.level === selectedLevel;
@@ -225,37 +256,6 @@ export default function InventoryAlerts({ initialFilter, onClearFilter, onNaviga
     });
   }, [consolidatedAlerts, selectedLevel, selectedType, selectedZone]);
 
-  // Handle individual selection toggling
-  const handleToggleSelect = (id: string) => {
-    setSelectedIds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
-  // Handle select all currently filtered rows
-  const handleSelectAllFiltered = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) {
-      setSelectedIds(prev => {
-        const newSet = new Set(prev);
-        filteredAlerts.forEach(alert => newSet.add(alert.id));
-        return newSet;
-      });
-    } else {
-      setSelectedIds(prev => {
-        const newSet = new Set(prev);
-        filteredAlerts.forEach(alert => newSet.delete(alert.id));
-        return newSet;
-      });
-    }
-  };
-
-  // Reset filters
   const handleResetFilters = () => {
     setSelectedLevel('ALL');
     setSelectedType('ALL');
@@ -263,185 +263,312 @@ export default function InventoryAlerts({ initialFilter, onClearFilter, onNaviga
     if (onClearFilter) onClearFilter();
   };
 
-  // Items selected that can be purchased (excluding assets)
-  const purchasableSelectedAlerts = useMemo(() => {
-    return filteredAlerts.filter(alert => selectedIds.has(alert.id) && alert.type !== 'Mantenimiento');
-  }, [filteredAlerts, selectedIds]);
+  // Filter stock alerts eligible for purchase
+  const purchasableAlerts = useMemo(() => {
+    return filteredAlerts.filter(a => a.type === 'Stock');
+  }, [filteredAlerts]);
 
-  // Selected or active supplier group state for Assistant
-  const [activeSupplierId, setActiveSupplierId] = useState<string>('');
+  /**
+   * Generación de órdenes de compra sugeridas agrupadas por proveedor.
+   * Calcula suggestedQuantity = Math.max(1, (item.maxStock || item.minStock * 2) - item.availableStock)
+   * Agrupa y persiste en Dexie en 'purchaseOrders' por cada proveedor detectado.
+   * Asigna 'POR DEFINIR' si un insumo no tiene supplierId.
+   */
+  const handleGeneratePurchaseOrdersAction = async () => {
+    const itemsToOrder = purchasableAlerts;
 
-  // Group purchasable selected alerts by supplier with strict priority sorting
-  const supplierGroups = useMemo(() => {
-    const groups = new Map<string, { supplierId: string; supplierName: string; items: AlertEntry[] }>();
-    
-    // If no items selected, consider all purchasable alerts that are active
-    const sourceAlerts = purchasableSelectedAlerts.length > 0 
-      ? purchasableSelectedAlerts 
-      : filteredAlerts.filter(a => a.type === 'Stock');
+    if (itemsToOrder.length === 0) {
+      toast.error('No hay insumos con stock agotado o mínimo para reabastecer.');
+      return;
+    }
 
-    sourceAlerts.forEach(alert => {
-      const supId = alert.supplierId || 'default-supplier';
-      const foundSupplier = suppliers.find(s => s.id === alert.supplierId);
-      const supName = foundSupplier ? foundSupplier.name : (alert.supplierId ? `Proveedor (${alert.supplierId})` : 'Proveedor Principal / Local');
+    try {
+      setIsGeneratingOrders(true);
 
-      if (!groups.has(supId)) {
-        groups.set(supId, { supplierId: supId, supplierName: supName, items: [] });
+      // Convert alerts to CriticalStockAlert structure for the service
+      const criticalPayload: CriticalStockAlert[] = itemsToOrder.map(alert => ({
+        id: alert.id,
+        itemId: alert.sourceId || alert.id.replace('stock-', ''),
+        name: alert.name,
+        category: 'Insumos',
+        countUnit: alert.unit || 'und',
+        physicalStock: alert.physicalStock ?? 0,
+        reservedStock: alert.reservedStock ?? 0,
+        availableStock: alert.availableStock ?? 0,
+        minStock: alert.minStock ?? globalMinStock,
+        maxStock: alert.maxStock ?? (alert.minStock ? alert.minStock * 2 : 20),
+        priority: alert.priority,
+        level: alert.level,
+        priorityLabel: alert.priorityLabel,
+        zone: alert.zone,
+        detail: alert.detail,
+        suggestedQuantity: alert.qtyNeeded || 1,
+        purchaseCost: alert.cost || 0,
+        estimatedCost: alert.estimatedCost || ((alert.qtyNeeded || 1) * (alert.cost || 0)),
+        supplierId: alert.supplierId || 'POR DEFINIR',
+        supplierName: alert.supplierName || 'POR DEFINIR'
+      }));
+
+      const generatedDrafts = await generateSuggestedPurchaseOrders(criticalPayload, suppliers);
+
+      toast.success(
+        `¡Se generaron ${generatedDrafts.length} órdenes de compra en borrador agrupadas por proveedor!`,
+        { duration: 5000, icon: '📦' }
+      );
+
+      setIsDraftModalOpen(true);
+      if (generatedDrafts.length > 0) {
+        setViewingDraftOrder(generatedDrafts[0]);
       }
-      groups.get(supId)!.items.push(alert);
-    });
-
-    // Within each supplier group, sort Priority 1 (Urgente) first!
-    groups.forEach(group => {
-      group.items.sort((a, b) => (a.priority || 99) - (b.priority || 99));
-    });
-
-    return Array.from(groups.values());
-  }, [purchasableSelectedAlerts, filteredAlerts, suppliers]);
-
-  // Automatically select first supplier group when opened
-  useEffect(() => {
-    if (supplierGroups.length > 0 && (!activeSupplierId || !supplierGroups.some(g => g.supplierId === activeSupplierId))) {
-      setActiveSupplierId(supplierGroups[0].supplierId);
+    } catch (error) {
+      console.error('Error al generar órdenes de compra sugeridas:', error);
+      toast.error('Error al persistir las órdenes de compra en Dexie.');
+    } finally {
+      setIsGeneratingOrders(false);
     }
-  }, [supplierGroups, activeSupplierId]);
-
-  const currentSupplierGroup = useMemo(() => {
-    return supplierGroups.find(g => g.supplierId === activeSupplierId) || supplierGroups[0];
-  }, [supplierGroups, activeSupplierId]);
-
-  const totalEstimatedCost = useMemo(() => {
-    const list = currentSupplierGroup ? currentSupplierGroup.items : purchasableSelectedAlerts;
-    return list.reduce((sum, alert) => {
-      const qty = alert.qtyNeeded || 0;
-      const cost = alert.cost || 0;
-      return sum + (qty * cost);
-    }, 0);
-  }, [currentSupplierGroup, purchasableSelectedAlerts]);
-
-  // Simulate generating draft purchase order
-  const handleGeneratePurchaseOrder = () => {
-    const hasItems = purchasableSelectedAlerts.length > 0 || filteredAlerts.some(a => a.type === 'Stock');
-    if (!hasItems) {
-      toast.error('No hay insumos con alerta de stock para reordenar.');
-      return;
-    }
-    if (selectedIds.size === 0) {
-      // Auto-select all stock alerts
-      const stockIds = filteredAlerts.filter(a => a.type === 'Stock').map(a => a.id);
-      setSelectedIds(new Set(stockIds));
-    }
-    setIsDraftModalOpen(true);
   };
 
-  const confirmDraftOrder = () => {
-    setIsDraftModalOpen(false);
-    setSelectedIds(new Set()); // clear selections
-    setShowSuccessToast(true);
-    setTimeout(() => setShowSuccessToast(false), 3000);
-  };
-
-  const handleTransferToPurchaseOrder = () => {
-    if (!currentSupplierGroup || currentSupplierGroup.items.length === 0) {
-      toast.error('No hay insumos seleccionados para este proveedor.');
+  /**
+   * [US-09B] Navegación fluida y recepción directa de borrador hacia Compras
+   */
+  const handleReceiveOrViewOrder = (order: PurchaseOrder, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!order || !order.items || order.items.length === 0) {
+      toast.error('La orden de compra no contiene ítems.');
       return;
     }
-    setIsDraftModalOpen(false);
-    setSelectedIds(new Set());
+
+    // Navegación con URL query param y state hacia la vista de compras
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.pushState({ orderId: order.id }, '', `/inventario/compras?orderId=${order.id}`);
+      } catch (err) {
+        console.warn('[Navigation] Could not update URL state:', err);
+      }
+    }
+
     if (onNavigateToPurchaseOrder) {
       onNavigateToPurchaseOrder({
-        supplierId: currentSupplierGroup.supplierId === 'default-supplier' ? '' : currentSupplierGroup.supplierId,
-        items: currentSupplierGroup.items.map(item => ({
-          itemId: item.sourceId || item.id.replace('stock-', ''),
+        supplierId: order.supplierId === 'POR DEFINIR' ? '' : order.supplierId,
+        items: order.items.map(item => ({
+          itemId: item.itemId,
           name: item.name,
-          quantity: item.qtyNeeded || 1,
-          cost: item.cost || 0,
-          unitCost: item.cost || 0,
-          unit: item.unit || 'und'
-        }))
+          quantity: item.quantity,
+          unitCost: item.unitCost,
+          cost: item.unitCost,
+          historicalCost: item.unitCost,
+          unit: item.unit
+        })),
+        purchaseOrderId: order.id
       });
-      toast.success(`Orden transferida con ${currentSupplierGroup.items.length} ítems listos para facturar.`);
+      setIsDraftModalOpen(false);
+      toast.success(`Cargando orden en Compras...`, { icon: '⚡' });
     } else {
-      setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
+      toast.success('Borrador cargado.');
     }
   };
 
+  const handleDeleteDraft = async (orderId: string) => {
+    try {
+      await deletePurchaseOrderDraft(orderId);
+      toast.success('Borrador de orden de compra eliminado de Dexie.');
+      if (viewingDraftOrder?.id === orderId) {
+        setViewingDraftOrder(savedDraftOrders.find(o => o.id !== orderId) || null);
+      }
+    } catch (err) {
+      toast.error('No fue posible eliminar el borrador.');
+    }
+  };
+
+  // Quick stats
+  const urgentCount = consolidatedAlerts.filter(a => a.priority === 1).length;
+  const warningCount = consolidatedAlerts.filter(a => a.priority === 2).length;
+
   return (
-    <div className="p-8 space-y-8 transition-receitly overflow-y-auto flex-1 font-body text-content">
-      
-      {/* Header and Toast Notification */}
-      <div className="flex justify-between items-center">
+    <div className="p-6 md:p-8 space-y-6 overflow-y-auto flex-1 font-body text-content">
+
+      {/* Subnavigation Bar entre Módulos de Compras [US-09C] */}
+      <PurchaseNavHeader
+        activeSection="INVENTORY_ALERTS"
+        onNavigateSection={onNavigateSection}
+        draftCount={savedDraftOrders.length}
+        criticalAlertCount={urgentCount + warningCount}
+      />
+
+      {/* Header and Action Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-line">
         <div>
-          <h2 className="text-3xl font-headline font-black text-content flex items-center gap-2">
-            Consola de Alertas de Stock
+          <h2 className="text-2xl md:text-3xl font-headline font-black text-content tracking-tight">
+            Alertas de Stock
           </h2>
-          <p className="text-slate-500 font-semibold text-sm">Panel de diagnóstico unificado para control de existencias, vencimientos HACCP y mantenimiento de activos.</p>
         </div>
 
-        {showSuccessToast && (
-          <div className="bg-emerald-500 text-white px-5 py-3 rounded-xl text-xs font-bold animate-pulse shadow-md z-30">
-            ¡Orden de compra borrador generada y enviada a compras con éxito!
-          </div>
-        )}
+        {/* Action Buttons: [ + Nueva Orden Manual ] & [ 📦 Generar Órdenes de Compra Sugeridas ] */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setIsManualModalOpen(true)}
+            className="w-full sm:w-auto bg-action text-action-text font-black py-3 px-5 rounded-full flex items-center justify-center gap-2 shadow-md active:scale-[0.97] transition-all text-xs uppercase tracking-wider cursor-pointer"
+            title="Crear una orden de compra manual directa"
+          >
+            <span className="material-symbols-outlined text-sm font-bold">add</span>
+            <span>Orden de Compra (Manual)</span>
+          </button>
+
+          <button
+            onClick={handleGeneratePurchaseOrdersAction}
+            disabled={isGeneratingOrders || purchasableAlerts.length === 0}
+            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-3 px-6 rounded-full flex items-center justify-center gap-2.5 shadow-md shadow-emerald-600/20 active:scale-[0.97] transition-all text-xs uppercase tracking-wider cursor-pointer"
+            title="Genera órdenes de compra sugeridas agrupadas por proveedor"
+          >
+            <span className="text-base">📦</span>
+            <span>{isGeneratingOrders ? 'Generando...' : 'Generar Órdenes de Compra Sugeridas'}</span>
+          </button>
+        </div>
       </div>
 
-      {/* Responsive Accordion Filter Panel */}
-      <section className="bg-surface rounded-3xl border border-[rgba(143,99,244,0.15)] shadow-sm overflow-hidden">
-        {/* Mobile Accordion Header */}
-        <div 
-          onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
-          className="md:hidden flex items-center justify-between p-5 cursor-pointer bg-slate-50/50 dark:bg-[var(--card-color)]/30 border-b border-line-subtle"
-        >
-          <span className="text-xs font-black text-slate-700 dark:text-slate-350 uppercase tracking-wider flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm">filter_alt</span>
-            Filtros Avanzados
+      {/* KPI Diagnostic Cards (Tokens: cards a 16px rounded-lg) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-surface border border-line rounded-lg p-4 shadow-sm">
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+            Total Alertas Activas
           </span>
-          <span className="material-symbols-outlined">
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-mono font-black tabular-nums text-content">
+              {consolidatedAlerts.length}
+            </span>
+            <span className="text-[10px] text-slate-400 font-semibold">recursos</span>
+          </div>
+        </div>
+
+        <div className="bg-surface border border-rose-500/30 rounded-lg p-4 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-1.5 h-full bg-rose-500" />
+          <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 flex items-center gap-1.5 mb-1">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            Prioridad 1 · Agotado
+          </span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-mono font-black tabular-nums text-rose-500">
+              {urgentCount}
+            </span>
+            <span className="text-[10px] text-rose-400 font-semibold">desabastecimiento total</span>
+          </div>
+        </div>
+
+        <div className="bg-surface border border-amber-500/30 rounded-lg p-4 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-1.5 h-full bg-amber-500" />
+          <span className="text-[10px] font-black uppercase tracking-wider text-amber-500 flex items-center gap-1.5 mb-1">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            Prioridad 2 · Bajo Stock
+          </span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-mono font-black tabular-nums text-amber-500">
+              {warningCount}
+            </span>
+            <span className="text-[10px] text-amber-400 font-semibold">en o bajo mínimo</span>
+          </div>
+        </div>
+
+        <div
+          onClick={() => {
+            if (savedDraftOrders.length > 0) {
+              setViewingDraftOrder(savedDraftOrders[0]);
+              setIsDraftModalOpen(true);
+            }
+          }}
+          className={`bg-surface border border-line rounded-lg p-4 shadow-sm cursor-pointer transition-all hover:border-[var(--accent-purple)] flex flex-col justify-between ${savedDraftOrders.length > 0 ? 'bg-purple-500/[0.03]' : ''
+            }`}
+        >
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+              Borradores de Órdenes
+            </span>
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-mono font-black tabular-nums text-[var(--accent-purple)]">
+                {savedDraftOrders.length}
+              </span>
+              <span className="text-[10px] text-slate-400 font-semibold">órdenes</span>
+            </div>
+            {savedDraftOrders.length > 0 && (
+              <p className="text-[11px] font-semibold text-content-secondary truncate mt-1.5" title={formatPurchaseOrderLabel(savedDraftOrders[0], suppliers)}>
+                Última: {formatPurchaseOrderLabel(savedDraftOrders[0], suppliers)}
+              </p>
+            )}
+          </div>
+
+          {/* Botón directo: [ ⚡ Recibir Pedido / Ver Borrador ] */}
+          {savedDraftOrders.length > 0 && (
+            <div className="mt-3 pt-2 border-t border-line flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={(e) => handleReceiveOrViewOrder(savedDraftOrders[0], e)}
+                className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-[0.97]"
+                title="Recibir pedido y asentar al inventario en Compras"
+              >
+                <span>⚡</span>
+                <span>Recibir Pedido / Ver Borrador</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Filter Panel (Tokens: inputs a 8px rounded-sm, container rounded-lg) - relative z-30 para selectores flotantes */}
+      <section className="bg-surface rounded-lg border border-line shadow-sm relative z-30">
+        <div
+          onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+          className="md:hidden flex items-center justify-between p-4 cursor-pointer bg-slate-50/50 dark:bg-raised/20 border-b border-line"
+        >
+          <span className="text-xs font-black text-content uppercase tracking-wider flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">filter_alt</span>
+            Filtros y Segmentación
+          </span>
+          <span className="material-symbols-outlined text-sm">
             {isFiltersExpanded ? 'expand_less' : 'expand_more'}
           </span>
         </div>
 
-        {/* Filters Body */}
-        <div className={`p-6 space-y-6 md:space-y-0 md:grid md:grid-cols-4 md:gap-6 ${isFiltersExpanded ? 'block' : 'hidden md:grid'}`}>
-          {/* Level Filter */}
+        <div className={`p-5 space-y-4 md:space-y-0 md:grid md:grid-cols-4 md:gap-4 ${isFiltersExpanded ? 'block' : 'hidden md:grid'}`}>
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Nivel de Alerta</label>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+              Nivel de Prioridad
+            </label>
             <CustomSelect
               value={selectedLevel}
               onChange={(val) => setSelectedLevel(val as any)}
               options={alertLevelOptions}
-              className="w-full bg-slate-50 dark:bg-[var(--card-color)] border border-[rgba(143,99,244,0.15)] rounded-xl p-3.5 text-xs font-semibold focus:ring-1 focus:ring-[var(--accent-purple)] outline-none text-content"
+              className="w-full bg-slate-50 dark:bg-raised border border-line rounded-sm p-2.5 text-xs font-semibold focus:ring-1 focus:ring-[var(--accent-purple)] outline-none text-content"
             />
           </div>
 
-          {/* Type Filter */}
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Tipo de Alerta</label>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+              Tipo de Alerta
+            </label>
             <CustomSelect
               value={selectedType}
               onChange={(val) => setSelectedType(val as any)}
               options={alertTypeOptions}
-              className="w-full bg-slate-50 dark:bg-[var(--card-color)] border border-[rgba(143,99,244,0.15)] rounded-xl p-3.5 text-xs font-semibold focus:ring-1 focus:ring-[var(--accent-purple)] outline-none text-content"
+              className="w-full bg-slate-50 dark:bg-raised border border-line rounded-sm p-2.5 text-xs font-semibold focus:ring-1 focus:ring-[var(--accent-purple)] outline-none text-content"
             />
           </div>
 
-          {/* Zone Filter */}
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Zona Operativa</label>
+            <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+              Zona Operativa
+            </label>
             <CustomSelect
               value={selectedZone}
               onChange={(val) => setSelectedZone(val as any)}
               options={alertZoneOptions}
-              className="w-full bg-slate-50 dark:bg-[var(--card-color)] border border-[rgba(143,99,244,0.15)] rounded-xl p-3.5 text-xs font-semibold focus:ring-1 focus:ring-[var(--accent-purple)] outline-none text-content"
+              className="w-full bg-slate-50 dark:bg-raised border border-line rounded-sm p-2.5 text-xs font-semibold focus:ring-1 focus:ring-[var(--accent-purple)] outline-none text-content"
             />
           </div>
 
-          {/* Clean Filters button */}
           <div className="flex items-end">
             <button
               onClick={handleResetFilters}
-              className="w-full py-3.5 border border-line hover:bg-slate-50 dark:hover:bg-raised text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              className="w-full py-2.5 border border-line hover:bg-slate-50 dark:hover:bg-raised text-slate-500 hover:text-content font-bold rounded-sm text-xs uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98]"
             >
               <span className="material-symbols-outlined text-sm">filter_alt_off</span>
               Limpiar Filtros
@@ -450,127 +577,117 @@ export default function InventoryAlerts({ initialFilter, onClearFilter, onNaviga
         </div>
       </section>
 
-      {/* Main Console Grid */}
-      <section className="bg-surface rounded-[2rem] border border-[rgba(143,99,244,0.15)] shadow-sm overflow-hidden">
-        
-        {/* Bulk Action Header Panel */}
-        <div className="p-6 border-b border-line flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/20 dark:bg-surface/50">
+      {/* Main Console Table (Tokens: cards a 16px rounded-lg) */}
+      <section className="bg-surface rounded-lg border border-line shadow-sm overflow-hidden">
+
+        {/* Table Header Bar */}
+        <div className="p-4 md:p-5 border-b border-line flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/30 dark:bg-raised/10">
           <div>
             <h3 className="font-headline font-bold text-content text-base">
-              Alertas Detectadas ({filteredAlerts.length})
+              Alertas Priorizadas ({filteredAlerts.length})
             </h3>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-              {selectedIds.size} de {filteredAlerts.length} alertas seleccionadas
-            </p>
-          </div>
 
-          <div className="flex items-center gap-3">
-            {selectedIds.size > 0 && (
-              <span className="text-xs font-semibold text-slate-400 hidden sm:inline">
-                {purchasableSelectedAlerts.length} seleccionados
-              </span>
-            )}
-            <button
-              onClick={handleGeneratePurchaseOrder}
-              className="bg-[var(--accent-purple)] hover:bg-[var(--accent-purple)]/90 text-white font-black py-2.5 px-5 rounded-full flex items-center gap-2 shadow-md shadow-[var(--accent-purple)]/20 active:scale-95 transition-all text-xs uppercase tracking-wider cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-sm">shopping_cart_checkout</span>
-              Generar Orden de Compra
-            </button>
           </div>
         </div>
 
-        {/* Diagnostic High-contrast Responsive Data Table */}
+        {/* Data Table with Tabular Numbers & Strict WCAG Contrast */}
         <div className="overflow-x-auto w-full">
-          <table className="w-full text-left border-collapse min-w-[700px]">
-            <thead className="bg-slate-50 dark:bg-[var(--card-color)]/40 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-line">
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead className="bg-slate-50 dark:bg-raised/30 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-line">
               <tr>
-                <th className="py-4 px-6 w-12 text-center">
-                  <input
-                    type="checkbox"
-                    checked={filteredAlerts.length > 0 && filteredAlerts.every(a => selectedIds.has(a.id))}
-                    onChange={handleSelectAllFiltered}
-                    className="rounded text-[var(--accent-purple)] focus:ring-[var(--accent-purple)] border-[rgba(143,99,244,0.15)] bg-transparent cursor-pointer"
-                  />
-                </th>
-                <th className="py-4 px-4">Recurso / Item</th>
-                <th className="py-4 px-4 text-center">Tipo Alerta</th>
-                <th className="py-4 px-4 text-center">Nivel</th>
-                <th className="py-4 px-4 text-center">Zona Operativa</th>
-                <th className="py-4 px-6">Detalle de Diagnóstico</th>
+                <th className="py-3.5 px-4">Insumo</th>
+                <th className="py-3.5 px-4 text-center">Prioridad</th>
+                <th className="py-3.5 px-4 text-center">Zona</th>
+                <th className="py-3.5 px-4 text-right">Físico / Reservado</th>
+                <th className="py-3.5 px-4 text-right">Disponible</th>
+                <th className="py-3.5 px-4 text-right">Mín / Máx</th>
+                <th className="py-3.5 px-4 text-right">Cant. Sugerida</th>
+                <th className="py-3.5 px-4">Proveedor</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line/80 text-xs">
+            <tbody className="divide-y divide-line text-xs">
               {filteredAlerts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 px-6 text-center text-slate-400 italic">
-                    No hay alertas activas que coincidan con los filtros aplicados.
+                  <td colSpan={8} className="py-12 px-6 text-center text-slate-400 italic">
+                    No se detectan alertas activas con los filtros aplicados.
                   </td>
                 </tr>
               ) : (
                 filteredAlerts.map(alert => {
-                  const isChecked = selectedIds.has(alert.id);
+                  const isPriority1 = alert.priority === 1;
+
                   return (
-                    <tr 
+                    <tr
                       key={alert.id}
-                    className={`hover:bg-slate-50/30 dark:hover:bg-surface/40 transition-colors ${
-                      isChecked ? 'bg-[var(--accent-purple)]/5 dark:bg-[var(--accent-purple)]/10' : ''
-                    }`}
+                      className={`hover:bg-slate-50/50 dark:hover:bg-raised/20 transition-colors ${isPriority1 ? 'bg-rose-500/[0.02]' : ''
+                        }`}
                     >
-                      <td className="py-4 px-6 text-center">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleToggleSelect(alert.id)}
-                          className="rounded text-[var(--accent-purple)] focus:ring-[var(--accent-purple)] border-[rgba(143,99,244,0.15)] bg-transparent cursor-pointer"
-                        />
+                      {/* Name & ID */}
+                      <td className="py-3.5 px-4">
+                        <p className="font-bold text-content leading-tight">{alert.name}</p>
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">{alert.id}</p>
                       </td>
-                      <td className="py-4 px-4">
-                        <div>
-                          <p className="font-bold text-content leading-tight">{alert.name}</p>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{alert.id}</p>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                          alert.type === 'Stock' ? 'bg-[var(--text-muted)]/15 text-[var(--text-muted)] border-[rgba(143,99,244,0.15)]' :
-                          alert.type === 'Vencimiento' ? 'bg-purple-500/5 text-purple-500 border-purple-500/10' :
-                          'bg-blue-500/5 text-blue-500 border-blue-500/10'
-                        }`}>
-                          <span className="material-symbols-outlined text-xs">
-                            {alert.type === 'Stock' ? 'warning' : alert.type === 'Vencimiento' ? 'calendar_today' : 'engineering'}
-                          </span>
-                          {alert.type}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        {alert.priority === 1 ? (
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-500 border border-rose-500/25 shadow-xs">
-                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                            Prioridad 1 · Urgente
-                          </span>
-                        ) : alert.priority === 2 ? (
-                          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/25">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                            Prioridad 2 · Advertencia
+
+                      {/* CRITERIO 1: Prioridad 1 (Rojo / Agotado) vs Prioridad 2 (Ámbar / Mínimo) */}
+                      <td className="py-3.5 px-4 text-center">
+                        {isPriority1 ? (
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-500 border border-rose-500/30 shadow-xs">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                            Prioridad 1 · Agotado
                           </span>
                         ) : (
-                          <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                            alert.level === 'Crítico'
-                              ? 'bg-rose-500/15 text-rose-500 border border-rose-500/10'
-                              : 'bg-[var(--text-muted)]/15 text-[var(--text-muted)] border border-[rgba(143,99,244,0.15)]'
-                          }`}>
-                            {alert.level}
+                          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            Prioridad 2 · Bajo Stock
                           </span>
                         )}
                       </td>
-                      <td className="py-4 px-4 text-center">
-                        <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded bg-slate-100 dark:bg-[var(--card-color)] text-slate-500 dark:text-slate-450 border border-slate-200/40 dark:border-line">
+
+                      {/* Zone */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 dark:bg-raised text-slate-600 dark:text-slate-300 border border-line">
                           {alert.zone}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-slate-650 dark:text-slate-350 font-medium">
-                        {alert.detail}
+
+                      {/* Physical & Staged (Kardex Breakdown) */}
+                      <td className="py-3.5 px-4 text-right font-mono tabular-nums text-content-secondary">
+                        <span>{alert.physicalStock ?? '-'}</span>
+                        <span className="text-[10px] text-slate-400"> / {alert.reservedStock ?? 0}</span>
+                      </td>
+
+                      {/* Invariante de Stock: Available Stock */}
+                      <td className="py-3.5 px-4 text-right font-mono font-black tabular-nums">
+                        <span className={isPriority1 ? 'text-rose-500' : 'text-amber-500'}>
+                          {alert.availableStock !== undefined ? alert.availableStock.toFixed(1) : '-'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 ml-1 uppercase">{alert.unit || ''}</span>
+                      </td>
+
+                      {/* Min / Max Stock Limits */}
+                      <td className="py-3.5 px-4 text-right font-mono tabular-nums text-slate-400 text-[11px]">
+                        <span>{alert.minStock ?? '-'}</span>
+                        <span> / </span>
+                        <span>{alert.maxStock ?? '-'}</span>
+                      </td>
+
+                      {/* CRITERIO 2: suggestedQuantity = Math.max(1, (maxStock || minStock * 2) - availableStock) */}
+                      <td className="py-3.5 px-4 text-right font-mono font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+                        <span>+{alert.qtyNeeded ?? 1}</span>
+                        <span className="text-[10px] text-slate-400 font-semibold ml-1 uppercase">{alert.unit || 'und'}</span>
+                      </td>
+
+                      {/* Supplier (or 'POR DEFINIR') */}
+                      <td className="py-3.5 px-4">
+                        {alert.supplierId === 'POR DEFINIR' || !alert.supplierId ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-200/50 dark:bg-raised text-slate-500 dark:text-slate-400 border border-line">
+                            POR DEFINIR
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-content text-[11px]">
+                            {alert.supplierName || alert.supplierId}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -581,173 +698,210 @@ export default function InventoryAlerts({ initialFilter, onClearFilter, onNaviga
         </div>
       </section>
 
-      {/* Draft Purchase Order Premium Modal with Supplier Grouping & Priority Sorting */}
+      {/* Modal / Visualizador de Órdenes de Compra Sugeridas (Tokens: modal a 20px rounded-xl) */}
       {isDraftModalOpen && (
-        <div className="fixed inset-0 bg-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface border border-line rounded-3xl p-8 max-w-3xl w-full shadow-2xl animate-fade-in text-left flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-overlay backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-surface border border-line rounded-xl p-6 md:p-8 max-w-4xl w-full shadow-2xl text-left flex flex-col max-h-[90vh]">
+
+            {/* Modal Header */}
             <div className="flex items-center justify-between pb-4 border-b border-line">
-              <div>
-                <h3 className="font-headline font-black text-xl text-content flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[var(--accent-purple)]">auto_awesome</span>
-                  Asistente Inteligente de Órdenes de Compra
-                </h3>
-                <p className="text-xs text-slate-400 font-semibold mt-0.5">
-                  Insumos priorizados según criticidad de desabastecimiento (Prioridad 1 en cabecera) agrupados por proveedor.
-                </p>
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">📦</span>
+                <div>
+                  <h3 className="font-headline font-black text-xl text-content">
+                    Órdenes de Compra Sugeridas
+                  </h3>
+                  <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                    Generadas automáticamente agrupando insumos por proveedor con cantidades sugeridas.
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setIsDraftModalOpen(false)}
-                className="text-slate-400 hover:text-slate-650 dark:hover:text-white cursor-pointer"
+                className="text-slate-400 hover:text-content cursor-pointer p-1 rounded-sm"
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            {/* Supplier Tabs selector if more than 1 group */}
-            {supplierGroups.length > 1 && (
-              <div className="pt-4 flex items-center gap-2 overflow-x-auto pb-1 border-b border-line">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1">Proveedor:</span>
-                {supplierGroups.map(grp => {
-                  const isCurrent = (currentSupplierGroup?.supplierId === grp.supplierId);
-                  const urgentCount = grp.items.filter(i => i.priority === 1).length;
-                  return (
+            {/* Supplier Tabs Selector */}
+            {savedDraftOrders.length > 0 ? (
+              <>
+                <div className="pt-4 flex items-center gap-2 overflow-x-auto pb-2 border-b border-line">
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider mr-1">
+                    Borradores ({savedDraftOrders.length}):
+                  </span>
+                  {savedDraftOrders.map(order => {
+                    const isSelected = viewingDraftOrder?.id === order.id;
+                    const isPorDefinir = order.supplierId === 'POR DEFINIR';
+
+                    return (
+                      <button
+                        key={order.id}
+                        onClick={() => setViewingDraftOrder(order)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer active:scale-[0.98] ${isSelected
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-raised text-content hover:bg-slate-200 dark:hover:bg-slate-700'
+                          }`}
+                      >
+                        <span>{isPorDefinir ? 'POR DEFINIR' : order.supplierName}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-white/20' : 'bg-slate-300 dark:bg-slate-600'}`}>
+                          {order.items.length}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Active Draft Order Details */}
+                {viewingDraftOrder && (
+                  <div className="py-4 space-y-4 overflow-y-auto flex-1">
+
+                    {/* Order Metadata Box */}
+                    <div className="p-4 bg-slate-50/50 dark:bg-raised/20 rounded-lg border border-line flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black uppercase text-content">
+                            Proveedor: {getHumanizedPurchaseOrderSupplier(viewingDraftOrder, suppliers)}
+                          </span>
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                            {viewingDraftOrder.status}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                          {formatPurchaseOrderLabel(viewingDraftOrder, suppliers)} · Creado: {new Date(viewingDraftOrder.createdAt).toLocaleDateString('es-CO')}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 uppercase font-black tracking-wider block">
+                          Costo Estimado
+                        </span>
+                        <span className="text-xl font-mono font-black tabular-nums text-emerald-600 dark:text-emerald-400">
+                          ${viewingDraftOrder.totalEstimatedCost.toLocaleString('es-CO')}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Items Table */}
+                    <div className="overflow-x-auto border border-line rounded-lg">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 dark:bg-raised/30 text-[10px] font-black uppercase tracking-wider text-slate-400 border-b border-line">
+                          <tr>
+                            <th className="py-3 px-3">Insumo</th>
+                            <th className="py-3 px-3 text-center">Prioridad</th>
+                            <th className="py-3 px-3 text-right">Disponible</th>
+                            <th className="py-3 px-3 text-right">Cant. Sugerida</th>
+                            <th className="py-3 px-3 text-right">Costo Unit.</th>
+                            <th className="py-3 px-3 text-right">Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-line">
+                          {viewingDraftOrder.items.map(item => {
+                            const isUrgent = item.priority === 1;
+                            return (
+                              <tr
+                                key={item.itemId}
+                                className={`hover:bg-slate-50/50 dark:hover:bg-raised/10 ${isUrgent ? 'bg-rose-500/[0.03]' : ''
+                                  }`}
+                              >
+                                <td className="py-3 px-3">
+                                  <p className="font-bold text-content">{item.name}</p>
+                                  <p className="text-[10px] text-slate-400 font-mono">{item.itemId}</p>
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  {isUrgent ? (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-500 border border-rose-500/20">
+                                      Agotado
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/20">
+                                      Bajo Stock
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-3 text-right font-mono font-bold text-content-secondary tabular-nums">
+                                  {item.availableStock.toFixed(1)} {item.unit}
+                                </td>
+                                <td className="py-3 px-3 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                  +{item.quantity} <span className="text-[10px] text-slate-400 uppercase">{item.unit}</span>
+                                </td>
+                                <td className="py-3 px-3 text-right font-mono tabular-nums text-content-secondary">
+                                  ${item.unitCost.toLocaleString('es-CO')}
+                                </td>
+                                <td className="py-3 px-3 text-right font-mono font-black tabular-nums text-content">
+                                  ${item.estimatedCost.toLocaleString('es-CO')}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Modal Footer Controls */}
+                <div className="pt-4 border-t border-line flex flex-col sm:flex-row justify-between items-center gap-3">
+                  {viewingDraftOrder && (
                     <button
-                      key={grp.supplierId}
-                      onClick={() => setActiveSupplierId(grp.supplierId)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                        isCurrent 
-                          ? 'bg-[var(--accent-purple)] text-white shadow-sm'
-                          : 'bg-raised text-content-secondary hover:bg-slate-200 dark:hover:bg-slate-700'
-                      }`}
+                      type="button"
+                      onClick={() => handleDeleteDraft(viewingDraftOrder.id)}
+                      className="text-rose-500 hover:text-rose-400 font-bold text-xs uppercase tracking-wider cursor-pointer flex items-center gap-1"
                     >
-                      <span>{grp.supplierName}</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isCurrent ? 'bg-white/20' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                        {grp.items.length}
-                      </span>
-                      {urgentCount > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" title={`${urgentCount} ítems urgentes`} />
-                      )}
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                      Eliminar Este Borrador
                     </button>
-                  );
-                })}
+                  )}
+
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setIsDraftModalOpen(false)}
+                      className="px-5 py-2.5 bg-slate-100 dark:bg-raised text-slate-500 dark:text-slate-300 font-bold rounded-sm text-xs uppercase tracking-wider cursor-pointer active:scale-[0.98]"
+                    >
+                      Cerrar
+                    </button>
+                    {viewingDraftOrder && (
+                      <button
+                        type="button"
+                        onClick={() => handleReceiveOrViewOrder(viewingDraftOrder)}
+                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-full text-xs uppercase tracking-wider cursor-pointer shadow-md shadow-emerald-600/20 active:scale-[0.97] transition-all flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-sm">shopping_cart_checkout</span>
+                        Transferir a Recepción (Comprar)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="py-12 text-center text-slate-400 italic">
+                No hay borradores de órdenes de compra guardados en este momento.
               </div>
             )}
-
-            <div className="py-4 space-y-4 overflow-y-auto flex-1">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-850 text-slate-450 text-[10px] font-black uppercase tracking-wider border-b border-line">
-                      <th className="py-3 px-3">Item / Insumo</th>
-                      <th className="py-3 px-3 text-center">Prioridad</th>
-                      <th className="py-3 px-3 text-right">Stock Disp.</th>
-                      <th className="py-3 px-3 text-right">Cant. a Pedir</th>
-                      <th className="py-3 px-3 text-right">Costo Unit. (Est)</th>
-                      <th className="py-3 px-3 text-right">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line text-xs">
-                    {(currentSupplierGroup?.items || []).map(alert => {
-                      const qty = alert.qtyNeeded || 0;
-                      const cost = alert.cost || 0;
-                      const totalItemCost = qty * cost;
-                      const isUrgent = alert.priority === 1;
-
-                      return (
-                        <tr 
-                          key={alert.id} 
-                          className={`hover:bg-slate-50/50 dark:hover:bg-raised/20 ${
-                            isUrgent ? 'bg-rose-500/[0.04] dark:bg-rose-500/[0.06]' : ''
-                          }`}
-                        >
-                          <td className="py-3 px-3">
-                            <p className="font-bold text-content">{alert.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono">{alert.id}</p>
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            {isUrgent ? (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-500 border border-rose-500/25">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                                Urgente
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/25">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                Advertencia
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-right font-mono font-bold text-content-secondary">
-                            {alert.availableStock !== undefined ? alert.availableStock.toFixed(1) : '-'}
-                          </td>
-                          <td className="py-3 px-3 text-right font-mono font-bold text-content">
-                            {qty.toFixed(1)} <span className="text-[10px] text-slate-450 uppercase">{alert.unit || 'und'}</span>
-                          </td>
-                          <td className="py-3 px-3 text-right font-mono font-semibold text-content-secondary">
-                            ${cost.toLocaleString('es-CO')}
-                          </td>
-                          <td className="py-3 px-3 text-right font-mono font-black text-[var(--accent-purple)]">
-                            ${totalItemCost.toLocaleString('es-CO')}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Total valuation panel */}
-              <div className="p-4 bg-slate-500/5 dark:bg-slate-850/30 rounded-2xl border border-line flex justify-between items-center">
-                <div>
-                  <span className="text-[10px] text-slate-450 uppercase font-black tracking-wider block">
-                    Costo Estimado para {currentSupplierGroup?.supplierName || 'Proveedor'}
-                  </span>
-                  <span className="text-xs text-slate-400 italic">
-                    {currentSupplierGroup?.items?.length || 0} ítems priorizados
-                  </span>
-                </div>
-                <div className="text-right">
-                  <h4 className="text-2xl font-black font-mono text-content leading-none">
-                    ${totalEstimatedCost.toLocaleString('es-CO')}
-                  </h4>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-line flex flex-col sm:flex-row justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setIsDraftModalOpen(false)}
-                className="px-5 py-2.5 bg-slate-100 dark:bg-[var(--card-color)] text-slate-500 dark:text-slate-450 font-bold rounded-xl text-xs uppercase tracking-wider cursor-pointer"
-              >
-                Cerrar
-              </button>
-              <button
-                type="button"
-                onClick={confirmDraftOrder}
-                className="px-5 py-2.5 bg-raised hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs uppercase tracking-wider cursor-pointer transition-colors"
-              >
-                Guardar Borrador Directo
-              </button>
-              <button
-                type="button"
-                onClick={handleTransferToPurchaseOrder}
-                className="px-6 py-2.5 bg-[var(--accent-pink)] hover:bg-[var(--accent-pink)]/90 text-white font-black rounded-xl text-xs uppercase tracking-wider cursor-pointer shadow-md shadow-[var(--accent-pink)]/15 active:scale-95 transition-all flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-sm">shopping_cart_checkout</span>
-                Transferir a Orden de Compra
-              </button>
-            </div>
           </div>
         </div>
       )}
+
+      {/* Modal de Creación Manual de Órdenes de Compra */}
+      <ManualPurchaseOrderModal
+        isOpen={isManualModalOpen}
+        onClose={() => setIsManualModalOpen(false)}
+        suppliers={suppliers}
+        inventoryItems={inventoryItems}
+        onNavigateSection={onNavigateSection}
+        onOrderCreated={(_order) => {
+          onNavigateSection?.('PURCHASE_ORDERS_HISTORY');
+        }}
+      />
     </div>
   );
 }
 
 /**
  * Returns a set of recipe/dish IDs that are out of stock (depleted raw items).
- * Evaluates real-time available stock (currentStock - reservedStock).
+ * Evaluates real-time available stock (physicalStock - stagedStock).
  * Used by OrderFlow and OrderTaking to disable buttons or show warnings for unavailable dishes.
  */
 export function getOutofStockRecipeIds(recipes: Recipe[], inventoryItems: InventoryItem[]): Set<string> {
@@ -765,14 +919,14 @@ export function getOutofStockRecipeIds(recipes: Recipe[], inventoryItems: Invent
     } else {
       const subRecipe = recipes.find(r => r.id === ingredientId);
       if (!subRecipe) return true;
-      return subRecipe.ingredients.some(subIng => 
+      return subRecipe.ingredients.some(subIng =>
         isIngredientUnavailable(subIng.inventoryItemId, subIng.quantity * quantityNeeded, subIng.type)
       );
     }
   };
 
   recipes.forEach(recipe => {
-    const isOut = recipe.ingredients.some(ing => 
+    const isOut = recipe.ingredients.some(ing =>
       isIngredientUnavailable(ing.inventoryItemId, ing.quantity, ing.type)
     );
     if (isOut) {

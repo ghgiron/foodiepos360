@@ -96,14 +96,21 @@ export default function CustomSelect({
   // Render search filter input if options list exceeds 5 choices
   const showSearch = options.length > 5;
 
+  const hasCustomHeight = className.includes('h-');
+  const heightCls = hasCustomHeight ? '' : 'h-11';
+  const hasCustomPy = className.includes('py-');
+  const pyCls = hasCustomPy ? '' : 'py-2.5';
+  const hasCustomPx = className.includes('px-');
+  const pxCls = hasCustomPx ? '' : 'px-3.5';
+
   return (
-    <div ref={containerRef} className="relative w-full text-left font-body">
+    <div ref={containerRef} className={`relative w-full text-left font-body ${isOpen ? 'z-30' : ''}`}>
       {/* Trigger Button */}
       <button
         type="button"
         disabled={disabled}
         onClick={toggleDropdown}
-        className={`h-11 w-full flex items-center justify-between px-3.5 py-2.5 rounded-sm border border-line bg-inset text-content text-sm outline-none focus:ring-2 focus:ring-action/25 focus:border-action transition-colors cursor-pointer select-none ${className}`}
+        className={`${heightCls} w-full flex items-center justify-between ${pxCls} ${pyCls} rounded-sm border border-line bg-inset text-content text-sm outline-none focus:ring-2 focus:ring-action/25 focus:border-action transition-colors cursor-pointer select-none ${className}`}
       >
         <div className="flex items-center gap-2 truncate">
           {selectedOption?.icon && <span className="shrink-0 flex items-center">{selectedOption.icon}</span>}
@@ -129,8 +136,8 @@ export default function CustomSelect({
             </span>
           )}
 
-          <span className="material-symbols-outlined text-content-secondary select-none text-lg leading-none">
-            {isOpen ? 'keyboard_arrow_up' : 'keyboard_arrow_down'}
+          <span className={`material-symbols-outlined text-content-secondary select-none text-lg leading-none transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+            keyboard_arrow_down
           </span>
         </div>
       </button>
@@ -138,7 +145,7 @@ export default function CustomSelect({
       {/* Dropdown Menu */}
       {isOpen && (
         <div
-          className="absolute left-0 right-0 mt-1.5 z-[9999] min-w-full w-full rounded-sm border border-line bg-surface shadow-lg flex flex-col overflow-hidden text-content glass"
+          className="absolute left-0 right-0 mt-1.5 z-50 shadow-2xl min-w-full w-full rounded-sm border border-line bg-surface flex flex-col overflow-hidden text-content glass"
           style={{ maxHeight: '300px' }}
         >
           {/* Search Input Box */}

@@ -6,6 +6,7 @@ import KdsDisplay from './components/kdsDisplay';
 import OrderTaking from './components/orderTaking';
 import InventoryAlerts from './components/inventoryAlerts';
 import PurchaseOrderForm from './components/purchaseOrderForm';
+import HistoricoOrdenesCompra from './pages/inventory/HistoricoOrdenesCompra';
 import BarInventory from './components/barInventory';
 import FinancialDashboard from './components/financialDashboard';
 import RecipeBook from './components/recipeBook';
@@ -41,6 +42,7 @@ type ActiveTab =
   | 'INVENTORY_ITEM_DETAIL'
   | 'INVENTORY_ALERTS'
   | 'INVENTORY_RECEIPTS'
+  | 'PURCHASE_ORDERS_HISTORY'
   | 'BAR_INVENTORY'
   | 'PRICE_LIST'
   | 'FINANCIAL_DASHBOARD'
@@ -132,15 +134,60 @@ function AppContent() {
   // Alerts filtering state passed between Dashboard and Alerts Console
   const [alertsInitialFilter, setAlertsInitialFilter] = useState<{ level?: 'Crítico' | 'Bajo' | 'ALL'; type?: 'Stock' | 'Vencimiento' | 'Mantenimiento' | 'ALL' } | null>(null);
 
-  // Purchase Order Draft state for transferring suggested items from alerts to receipt form
+  // Purchase Order Draft state for transferring suggested items from alerts to receipt form [US-09B]
   const [purchaseOrderDraft, setPurchaseOrderDraft] = useState<{
     supplierId?: string;
     items?: any[];
+    purchaseOrderId?: string;
   } | null>(null);
+
+  // Deep-link & query param support for purchase order preload (?orderId=... / /inventario/compras / /inventario/historico) [US-09B / US-09C]
+  useEffect(() => {
+    const handleUrlRouting = () => {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const orderId = params.get('orderId');
+      const path = window.location.pathname;
+
+      if (orderId || path.includes('/inventario/compras')) {
+        setSelectedTable(null);
+        setActiveTab('INVENTORY_RECEIPTS');
+        setIsInventoryMenuExpanded(true);
+        if (orderId) {
+          setPurchaseOrderDraft(prev => ({
+            ...prev,
+            purchaseOrderId: orderId
+          }));
+        }
+      } else if (path.includes('/inventario/historico')) {
+        setSelectedTable(null);
+        setActiveTab('PURCHASE_ORDERS_HISTORY');
+        setIsInventoryMenuExpanded(true);
+      }
+    };
+
+    handleUrlRouting();
+    window.addEventListener('popstate', handleUrlRouting);
+    return () => window.removeEventListener('popstate', handleUrlRouting);
+  }, []);
+
+  // Listener for instant switching between purchases sections [US-09C]
+  useEffect(() => {
+    const handleInventoryTabNav = (e: any) => {
+      const target = e?.detail?.target;
+      if (target) {
+        setSelectedTable(null);
+        setActiveTab(target);
+        setIsInventoryMenuExpanded(true);
+      }
+    };
+    window.addEventListener('foodiepos:navigate-inventory-tab', handleInventoryTabNav);
+    return () => window.removeEventListener('foodiepos:navigate-inventory-tab', handleInventoryTabNav);
+  }, []);
 
   // Sync accordion expansion with active tab
   useEffect(() => {
-    if (['INVENTORY_DASHBOARD', 'INVENTORY_ONBOARDING', 'INVENTORY_ALERTS', 'INVENTORY_RECEIPTS', 'ASSET_MANAGEMENT', 'SUPPLIER_MANAGEMENT'].includes(activeTab)) {
+    if (['INVENTORY_DASHBOARD', 'INVENTORY_ONBOARDING', 'INVENTORY_ALERTS', 'INVENTORY_RECEIPTS', 'PURCHASE_ORDERS_HISTORY', 'ASSET_MANAGEMENT', 'SUPPLIER_MANAGEMENT'].includes(activeTab)) {
       setIsInventoryMenuExpanded(true);
     }
   }, [activeTab]);
@@ -399,13 +446,13 @@ function AppContent() {
               aria-expanded={isInventoryMenuExpanded}
               onClick={() => {
                 setIsInventoryMenuExpanded(!isInventoryMenuExpanded);
-                const isInventoryTab = ['INVENTORY_DASHBOARD', 'INVENTORY_ONBOARDING', 'INVENTORY_ALERTS', 'INVENTORY_RECEIPTS', 'ASSET_MANAGEMENT'].includes(activeTab);
+                const isInventoryTab = ['INVENTORY_DASHBOARD', 'INVENTORY_ONBOARDING', 'INVENTORY_ALERTS', 'INVENTORY_RECEIPTS', 'PURCHASE_ORDERS_HISTORY', 'ASSET_MANAGEMENT', 'SUPPLIER_MANAGEMENT', 'PRICE_LIST', 'BAR_INVENTORY'].includes(activeTab);
                 if (!isInventoryTab) {
                   setActiveTab('INVENTORY_DASHBOARD');
                 }
               }}
               className={`w-full text-left rounded-lg px-4 py-3 flex items-center justify-between transition-all cursor-pointer relative btn-press ${
-                ['INVENTORY_DASHBOARD', 'INVENTORY_ONBOARDING', 'INVENTORY_ALERTS', 'INVENTORY_RECEIPTS', 'ASSET_MANAGEMENT'].includes(activeTab)
+                ['INVENTORY_DASHBOARD', 'INVENTORY_ONBOARDING', 'INVENTORY_ALERTS', 'INVENTORY_RECEIPTS', 'PURCHASE_ORDERS_HISTORY', 'ASSET_MANAGEMENT', 'SUPPLIER_MANAGEMENT', 'PRICE_LIST', 'BAR_INVENTORY'].includes(activeTab)
                   ? 'bg-action text-action-text font-bold shadow-sm'
                   : 'text-content-secondary hover:bg-raised hover:text-content font-semibold'
               }`}
@@ -452,32 +499,19 @@ function AppContent() {
                   Nuevo elemento
                 </button>
 
+                {/* Módulo de Compras Unificado (Subnavegación gestionada por PurchaseNavHeader) */}
                 <button
                   onClick={() => {
                     setActiveTab('INVENTORY_RECEIPTS');
                     setIsMobileMenuOpen(false);
                   }}
                   className={`w-full text-left rounded-sm py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
-                    activeTab === 'INVENTORY_RECEIPTS'
+                    ['INVENTORY_RECEIPTS', 'INVENTORY_ALERTS', 'PURCHASE_ORDERS_HISTORY'].includes(activeTab)
                       ? 'text-content font-black bg-[var(--bg-selected)] border-line shadow-sm'
                       : 'text-content-secondary hover:text-content hover:bg-raised border-transparent'
                   }`}
                 >
-                  Entradas (Compras)
-                </button>
-
-                <button
-                  onClick={() => {
-                    setActiveTab('INVENTORY_ALERTS');
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left rounded-sm py-2 px-3 text-[11px] font-bold transition-all cursor-pointer flex items-center border ${
-                    activeTab === 'INVENTORY_ALERTS'
-                      ? 'text-content font-black bg-[var(--bg-selected)] border-line shadow-sm'
-                      : 'text-content-secondary hover:text-content hover:bg-raised border-transparent'
-                  }`}
-                >
-                  Alertas de Stock
+                  Compras
                 </button>
 
                 <button
@@ -702,7 +736,7 @@ function AppContent() {
             />
           )}
 
-          {['INVENTORY_DASHBOARD', 'INVENTORY_ITEM_DETAIL', 'INVENTORY_ONBOARDING', 'INVENTORY_ALERTS', 'INVENTORY_RECEIPTS', 'BAR_INVENTORY', 'PRICE_LIST'].includes(activeTab) && (
+          {['INVENTORY_DASHBOARD', 'INVENTORY_ITEM_DETAIL', 'INVENTORY_ONBOARDING', 'INVENTORY_ALERTS', 'INVENTORY_RECEIPTS', 'PURCHASE_ORDERS_HISTORY', 'BAR_INVENTORY', 'PRICE_LIST'].includes(activeTab) && (
             <InventoryLayout activeContext={activeTab === 'INVENTORY_ONBOARDING' ? 'ONBOARDING' : 'DASHBOARD'}>
               {activeTab === 'INVENTORY_DASHBOARD' && (
                 <InventoryDashboard 
@@ -780,6 +814,7 @@ function AppContent() {
                     setPurchaseOrderDraft(draft);
                     setActiveTab('INVENTORY_RECEIPTS');
                   }}
+                  onNavigateSection={(sec) => setActiveTab(sec)}
                 />
               )}
 
@@ -787,7 +822,29 @@ function AppContent() {
                 <PurchaseOrderForm 
                   initialSupplierId={purchaseOrderDraft?.supplierId}
                   initialItems={purchaseOrderDraft?.items}
+                  initialPurchaseOrderId={purchaseOrderDraft?.purchaseOrderId}
                   onComplete={() => setPurchaseOrderDraft(null)}
+                  onNavigateSection={(sec) => setActiveTab(sec)}
+                />
+              )}
+
+              {activeTab === 'PURCHASE_ORDERS_HISTORY' && (
+                <HistoricoOrdenesCompra 
+                  onNavigateSection={(sec) => setActiveTab(sec)}
+                  onNavigateToReceiptWithOrder={(order) => {
+                    setPurchaseOrderDraft({
+                      supplierId: order.supplierId === 'POR DEFINIR' ? '' : order.supplierId,
+                      items: order.items?.map(i => ({
+                        itemId: i.itemId,
+                        name: i.name,
+                        quantity: i.quantity,
+                        unitCost: i.unitCost,
+                        unit: i.unit
+                      })),
+                      purchaseOrderId: order.id
+                    });
+                    setActiveTab('INVENTORY_RECEIPTS');
+                  }}
                 />
               )}
 

@@ -23,7 +23,8 @@ import type {
   NotificationTrigger,
   KdsProductPrepHistory,
   KdsLowStockAlertsHistory,
-  StockReservation
+  StockReservation,
+  PurchaseOrder
 } from '../types';
 
 /**
@@ -56,6 +57,11 @@ export class FoodiePOSDatabase extends Dexie {
   kdsProductPrepHistory!: Table<KdsProductPrepHistory, string>;
   kdsLowStockAlertsHistory!: Table<KdsLowStockAlertsHistory, string>;
   stockReservations!: Table<StockReservation, string>;
+  purchaseOrders!: Table<PurchaseOrder, string>;
+
+  get purchase_orders(): Table<PurchaseOrder, string> {
+    return this.purchaseOrders;
+  }
 
   get reservations(): Table<Reservation, string> {
     return this.reservas;
@@ -253,6 +259,35 @@ export class FoodiePOSDatabase extends Dexie {
       } catch (err) {
         console.error('Error during Dexie version 12 upgrade:', err);
       }
+    });
+
+    this.version(13).stores({
+      inventoryItems: 'id, category, abcClassification, supplierId, updatedAt, operationZone, operationalZone',
+      recipes: 'id, category, bcgClassification, isSubRecipe, updatedAt',
+      dailyBriefings: 'id, date, briefingLeaderId, completedAt',
+      kdsOrderTickets: 'id, orderId, tableId, waiterId, overallStatus, comandaTime',
+      domainOutbox: 'eventId, eventType, status, createdAt, syncedAt',
+      loyaltyPlans: 'id, createdAt',
+      promotionBooks: 'id, sucursalId, isActive, updatedAt',
+      globalConfigs: 'key',
+      allergens: 'name',
+      systemSettings: 'key',
+      fixedAssets: 'id, name, category, location, status, nextMaintenanceDate',
+      assetDamageReports: 'id, assetId, severity, createdAt',
+      suppliers: 'id, name, email',
+      menuCategories: 'id, name',
+      ingredientCategories: 'id, name',
+      supplyCategories: 'id, name',
+      operationalLosses: 'id, ticketId, recipeId, reason, cancelledAt',
+      supplierIncidents: 'id, supplierId, itemId, quality, recordedAt',
+      inventoryLogs: 'id, itemId, type, reason, timestamp',
+      clients: 'id, name, phone, taxId, createdAt',
+      reservas: 'id, tableId, clientId, date, status',
+      notifications: 'id, type, targetId, scheduledAt, status',
+      kdsProductPrepHistory: 'id, ticketId, recipeId, station, comandaTime, prepCompletedAt, wasEfficient',
+      kdsLowStockAlertsHistory: 'id, timestamp, productId, station',
+      stockReservations: 'id, orderId, ticketId, itemId, status, timestamp',
+      purchaseOrders: 'id, supplierId, status, createdAt'
     });
 
     console.log('[localDb] Tables configured in constructor:', this.tables.map(t => t.name));

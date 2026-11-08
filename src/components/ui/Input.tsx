@@ -6,7 +6,14 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className = '', error, disabled, readOnly, ...props }, ref) => {
-    const baseStyles = 'h-11 w-full rounded-sm border border-line bg-inset text-content px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-action/25 focus:border-action transition-colors shadow-sm';
+    const hasCustomHeight = className.includes('h-');
+    const heightCls = hasCustomHeight ? '' : 'h-11';
+    const hasCustomPy = className.includes('py-');
+    const pyCls = hasCustomPy ? '' : 'py-2.5';
+    const hasCustomPx = className.includes('px-');
+    const pxCls = hasCustomPx ? '' : 'px-3.5';
+
+    const baseStyles = `${heightCls} w-full rounded-sm border border-line bg-inset text-content ${pxCls} ${pyCls} text-sm outline-none focus:ring-2 focus:ring-action/25 focus:border-action transition-colors shadow-sm`;
     const colorStyles = 'placeholder:text-content-tertiary';
     const disabledStyles = disabled || readOnly ? 'opacity-70 bg-surface text-content-tertiary border-line-subtle cursor-not-allowed' : '';
     const errorStyles = error ? 'border-danger focus:border-danger focus:ring-danger/25' : '';

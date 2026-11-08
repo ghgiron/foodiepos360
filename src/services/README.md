@@ -14,6 +14,12 @@ El directorio `src/services` contiene la lógica central de negocio, sincronizac
 - `[inventoryBomService.ts:checkRecipeAvailability]`: Calcula el número máximo de porciones preparables en una sucursal específica.
 - `[reservationService.ts:saveReservationWithValidation]`: Valida conflictos de asignación de mesa antes de guardar una reserva.
 - `[reservationService.ts:startReservationService]`: Convierte una reserva en una comanda activa en salón.
+- `[purchaseOrderService.ts:getCriticalStockAlerts]`: Clasifica y prioriza alertas en Prioridad 1 (Agotado) y Prioridad 2 (Bajo stock) [US-09].
+- `[purchaseOrderService.ts:calculateSuggestedQuantity]`: Calcula la cantidad sugerida de compra aplicando la fórmula de abastecimiento [US-09].
+- `[purchaseOrderService.ts:generateSuggestedPurchaseOrders]`: Agrupa insumos críticos por proveedor, asigna `'POR DEFINIR'` a insumos huérfanos y persiste borradores en Dexie (`status: 'DRAFT'`) [US-09].
+- `[purchaseOrderService.ts:cancelPurchaseOrder]`: [US-09C] Cancela una orden de compra en estado `'DRAFT'` u `'ORDERED'` y asienta evento en el outbox.
+- `[purchaseOrderService.ts:updatePurchaseOrderStatus]`: [US-09C] Modifica el estado del ciclo de vida de una orden (`'DRAFT' | 'ORDERED' | 'RECEIVED' | 'CANCELLED'`).
+- `[purchaseOrderService.ts:getAllPurchaseOrders]`: [US-09C] Consulta todas las órdenes históricas ordenadas cronológicamente descendente.
 - `[subRecipeProductionService.ts:checkSubRecipeFeasibility]`: Evalúa si existe stock suficiente de ingredientes antes de iniciar un lote de subreceta.
 - `[subRecipeProductionService.ts:executeSubRecipeBatch]`: Deduce atómicamente los insumos base e incrementa el stock de la subreceta en Dexie.
 - `[syncService.ts:startSyncService]`: Inicia escuchas en tiempo real con Firestore y temporizadores de sincronización en segundo plano.
@@ -29,6 +35,8 @@ El directorio `src/services` contiene la lógica central de negocio, sincronizac
 - `[inventoryBomService.ts:explodeItemRequirements]`: Detecta dependencias circulares mediante un conjunto `depthVisited` y detiene la recursión con advertencia en consola.
 - `[inventoryBomService.ts:checkRecipeAvailability]`: La disponibilidad base es 999 si no hay requerimientos; evalúa a `isAvailable = false` si algún insumo tiene existencia `<= 0`.
 - `[reservationService.ts:validateReservationAvailability]`: Impide reservar mesas que ya tienen comandas abiertas o reservas confirmadas en el mismo horario.
+- `[purchaseOrderService.ts:generateSuggestedPurchaseOrders]`: No altera `physicalStock` en ningún escenario; solo asienta borradores `status: 'DRAFT'` en `purchaseOrders`.
+- `[purchaseOrderService.ts:cancelPurchaseOrder]`: Invariante de ciclo de vida: Arroja error si el estado es `'RECEIVED'` o `'CANCELLED'`. Solo se permite cancelar órdenes en estado `'DRAFT'` u `'ORDERED'`.
 - `[subRecipeProductionService.ts:executeSubRecipeBatch]`: Exige `batchesCount > 0` y se detiene si la prueba de factibilidad resulta negativa.
 - `[syncService.ts:pullDataFromFirestore]`: Ignora documentos en Firestore que coincidan con identificadores tombstone activos o cuya fecha sea anterior a la última purga.
 - `[syncService.ts:deleteRecordFromFirestore]`: Siempre persiste una marca `'RecordDeleted'` en `domainOutbox` antes de intentar el borrado remoto en Firestore.

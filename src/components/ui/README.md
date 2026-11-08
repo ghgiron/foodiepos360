@@ -10,7 +10,8 @@ El directorio `src/components/ui` contiene 17 componentes de interfaz reutilizab
 - `[ConfirmDialog.tsx:ConfirmDialog]`: Modal de confirmación para acciones destructivas o críticas.
 - `[CreateCategoryModal.tsx:CreateCategoryModal]`: Modal para crear y almacenar nuevas categorías en IndexedDB.
 - `[CreateSupplierModal.tsx:CreateSupplierModal]`: Modal para registrar nuevos proveedores.
-- `[CustomSelect.tsx:CustomSelect]`: Selector estilizado con soporte de temas visuales.
+- `[CustomSelect.tsx:CustomSelect]`: Selector estilizado con soporte de temas visuales, chevron animado y búsqueda difusa.
+- `[CustomDatePicker.tsx:CustomDatePicker]`: [US-09D] Selector de fechas tipo popover sin invocar widgets nativos del SO, con soporte dark/glass y accesos 'Hoy' y 'Limpiar'.
 - `[DatePicker.tsx:DatePicker]`: Control de selección de fechas.
 - `[DiscardChangesModal.tsx:DiscardChangesModal]`: Modal de advertencia ante cambios sin guardar.
 - `[FormActionsBar.tsx:FormActionsBar]`: Barra inferior estándar para guardar o cancelar en formularios.

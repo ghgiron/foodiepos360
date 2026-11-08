@@ -8,6 +8,10 @@ El directorio `src/components/inventory` contiene componentes de diseño y modal
 - `[ListaDePrecios.tsx:default]`: Exportación por defecto `ListaDePrecios(props: ListaDePreciosProps)`.
 - `[ImportInventoryExcelModal.tsx:default]`: Exportación por defecto `ImportInventoryExcelModal(props: ImportInventoryExcelModalProps)`.
 - `[ProduceSubRecipeModal.tsx:default]`: Exportación por defecto `ProduceSubRecipeModal(props: ProduceSubRecipeModalProps)`.
+- `[CompleteNewItemModal.tsx:default]`: Exportación por defecto `CompleteNewItemModal(props: CompleteNewItemModalProps)` para la configuración y alta inmediata de insumos nuevos detectados en recepción [US-10A].
+- `[PurchaseOrderDetailModal.tsx:default]`: Exportación por defecto `PurchaseOrderDetailModal` para visualización completa de insumos, proveedor, fechas y flujo de cancelación [US-09C].
+- `[ManualPurchaseOrderModal.tsx:default]`: Exportación por defecto `ManualPurchaseOrderModal` para creación manual de órdenes de compra (borrador o pedida) con selección de insumos y cálculo de totales [US-09D].
+- `[PurchaseNavHeader.tsx:default]`: Exportación por defecto `PurchaseNavHeader` para navegación fluida tipo píldora entre Entradas, Alertas e Histórico [US-09C].
 
 ## Invariantes
 - `[InventoryLayout.tsx:useEffect]`: Si `activeContext` tiene valor y `copilot.setMode` está definido, se invoca `copilot.setMode(activeContext)` al montar y ante cambios.
@@ -19,6 +23,7 @@ El directorio `src/components/inventory` contiene componentes de diseño y modal
 - `[ProduceSubRecipeModal.tsx:isOpen]`: Retorna `null` si `isOpen` es falso.
 - `[ProduceSubRecipeModal.tsx:batchesCount]`: La cantidad de lotes está acotada a un valor mínimo de 1.
 - `[ProduceSubRecipeModal.tsx:handleProduce]`: Bloquea la producción si no hay subreceta seleccionada, los lotes son `<= 0` o `feasibility.canProduce` es falso.
+- `[PurchaseOrderDetailModal.tsx:isCancellable]`: Solo permite cancelar órdenes cuyo estado sea estrictamente `'DRAFT'` o `'ORDERED'`. Retorna `null` si `isOpen` es falso o no hay orden.
 
 ## Efectos Secundarios
 - `[InventoryLayout.tsx:useEffect]`: Sincroniza el modo del copilot llamando a `copilot.setMode(activeContext)`.

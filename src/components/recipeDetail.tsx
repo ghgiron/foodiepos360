@@ -98,10 +98,8 @@ export default function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailP
           nameStr = sr.name;
           unitCost = sr.costPrice || sr.costPerUnit || 0;
         } else {
-          if (ing.inventoryItemId === 'subrec-salsa-picara') {
-            nameStr = 'Salsa Picara (Subreceta)';
-            unitCost = 15.00;
-          }
+          nameStr = (ing as any).name || 'Subreceta no encontrada';
+          unitCost = (ing as any).cost || 0;
         }
       } else {
         const item = inventoryItems.find(i => i.id === ing.inventoryItemId);
@@ -116,20 +114,8 @@ export default function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailP
             }
           }
         } else {
-          // Mockup fallbacks
-          if (ing.inventoryItemId === 'ins-pan-brioche') {
-            nameStr = 'Pan Brioche Artesanal';
-            unitCost = 1200;
-          } else if (ing.inventoryItemId === 'ins-beef-angus') {
-            nameStr = 'Carne de Res (Certified Angus)';
-            unitCost = 30000 / 1000;
-          } else if (ing.inventoryItemId === 'ins-cheddar-madurado') {
-            nameStr = 'Queso Cheddar Madurado';
-            unitCost = 45;
-          } else if (ing.inventoryItemId === 'ins-tocineta-ahumada') {
-            nameStr = 'Tocineta Ahumada';
-            unitCost = 50;
-          }
+          nameStr = (ing as any).name || 'Insumo no encontrado';
+          unitCost = (ing as any).cost || 0;
         }
       }
 
@@ -142,22 +128,6 @@ export default function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailP
         cost: totalCost
       };
     });
-
-    // Handle extra fallback ingredients to match mockup exactly
-    if (recipe.id === 'rec-hamburguesa-picara' || recipe.id.includes('picara') || recipe.name.toLowerCase().includes('pícara')) {
-      const hasRedCebolla = list.some(i => i.name.toLowerCase().includes('cebolla'));
-      if (!hasRedCebolla) {
-        list.push({
-          inventoryItemId: 'ins-cebolla-roja',
-          type: 'item',
-          quantity: 0,
-          unit: '--',
-          name: 'Cebolla Roja & Salsas',
-          cost: 390
-        });
-        totalPortionCost += 390;
-      }
-    }
 
     // Subrecipe specific checks
     const isSub = Boolean(recipe.isSubRecipe);

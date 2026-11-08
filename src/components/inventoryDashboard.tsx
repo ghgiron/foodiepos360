@@ -23,11 +23,19 @@ import BulkActionBar from './ui/BulkActionBar';
 import { flexibleMultiMatch } from '../utils/searchEngine';
 import { autoMigrateBranchStock } from '../db/inventoryEngine';
 
-const dateOptions = [
-  { value: '2026-10', label: 'Octubre 2026' },
-  { value: '2026-09', label: 'Septiembre 2026' },
-  { value: '2026-08', label: 'Agosto 2026' },
-];
+const generateDynamicDateOptions = () => {
+  const options = [];
+  const now = new Date();
+  for (let i = 0; i < 4; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+    options.push({ value: val, label: label.charAt(0).toUpperCase() + label.slice(1) });
+  }
+  return options;
+};
+
+const dateOptions = generateDynamicDateOptions();
 
 const inventoryTypeOptions = [
   { value: 'ALL', label: 'Categoría: Todos' },
@@ -167,10 +175,21 @@ export default function InventoryDashboard({ onIngreso, onEditItem, onViewItem, 
   const [selectedSubcategory, setSelectedSubcategory] = useState('ALL');
   const [selectedProductionZone, setSelectedProductionZone] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
-  const [selectedDate, setSelectedDate] = useState('2026-10');
+  const [selectedDate, setSelectedDate] = useState(dateOptions[0]?.value || '');
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<'GRID' | 'TABLE'>('GRID');
   const itemsPerPage = 18;
+
+  // Fecha real del último control de inventario según registros del Kardex
+  const latestControlDate = useMemo(() => {
+    if (inventoryLogs.length > 0) {
+      const sortedLogs = [...inventoryLogs].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+      if (sortedLogs[0]?.timestamp) {
+        return new Date(sortedLogs[0].timestamp).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+    }
+    return new Date().toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+  }, [inventoryLogs]);
 
   // Manual Adjustment & Action states
   const [adjustingItemId, setAdjustingItemId] = useState<string | null>(null);
@@ -484,7 +503,7 @@ export default function InventoryDashboard({ onIngreso, onEditItem, onViewItem, 
           <div className="flex items-center gap-2 mt-1">
             <span className="material-symbols-outlined text-xs text-slate-400">calendar_today</span>
             <p className="text-slate-400 font-bold text-xs uppercase tracking-wider">
-              Última fecha de control: <span className="text-slate-500 font-extrabold">24 Oct 2026</span>
+              Última fecha de control: <span className="text-slate-500 font-extrabold">{latestControlDate}</span>
             </p>
           </div>
         </div>

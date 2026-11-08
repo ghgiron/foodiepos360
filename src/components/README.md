@@ -16,7 +16,7 @@ El directorio `src/components` alberga los componentes de presentación, formula
 - `[kdsDisplay.tsx:KdsDisplay]`: Pantalla de cocina (KDS) con seguimiento de estados por estación de preparación.
 - `[orderFlow.tsx:OrderFlow]`: Flujo de comanda y pedidos para salón y domicilio con validación de reservas.
 - `[orderTaking.tsx:OrderTaking]`: Terminal de toma de comandas y despacho para meseros.
-- `[purchaseOrderForm.tsx:PurchaseOrderForm]`: Elaboración de órdenes de compra con control de calidad y alertas por variación de costo.
+- `[purchaseOrderForm.tsx:PurchaseOrderForm]`: Recepción formal de mercancía y facturas con precarga reactiva de órdenes de compra, resolución automática de unidades, alta ágil de insumos nuevos y asentamiento al Kardex [US-10A].
 - `[recipeBook.tsx:RecipeBook]`: Catálogo navegable de recetas clasificadas por categoría.
 - `[recipeDetail.tsx:RecipeDetail]`: Ficha técnica de receta con desglose de ingredientes y cálculo de margen.
 - `[recipeForm.tsx:RecipeForm]`: Formulario de alta y edición de recetas estándar.

@@ -18,6 +18,8 @@ El directorio `src/utils` proporciona las utilidades centrales para FoodiePOS, i
 - `[finance.ts:classifyProfitability]`: Clasifica el margen en rangos de rentabilidad del negocio.
 - `[formatters.ts:formatCurrency]`: Da formato a importes monetarios en pesos colombianos (`$ #.###`).
 - `[formatters.ts:formatDecimals]`: Da formato a cantidades numéricas respetando la localización `es-CO`.
+- `[purchaseOrderUtils.ts:formatPurchaseOrderLabel]`: [US-09B] Formatea órdenes de compra para la UI comercial (`Proveedor · X ítems · $ Total`), eliminando IDs técnicos crudos.
+- `[purchaseOrderUtils.ts:getHumanizedPurchaseOrderSupplier]`: [US-09B] Obtiene el nombre comercial del proveedor de una orden sin exponer identificadores de base de datos.
 - `[geminiconfig.ts:getGeminiApiKey]`: Lee la clave de API de Gemini en `localStorage`.
 - `[geminiconfig.ts:getGroqApiKey]`: Lee la clave de API de Groq en `localStorage`.
 - `[geminiconfig.ts:getActiveAIProvider]`: Obtiene el proveedor de IA preferido (`'gemini' | 'groq' | 'auto'`).
@@ -41,6 +43,7 @@ El directorio `src/utils` proporciona las utilidades centrales para FoodiePOS, i
 - `[databasereset.ts:resetOperationalStorageAndCursors]`: Protege estrictamente claves de autenticación y tokens en `localStorage` de cualquier borrado.
 - `[finance.ts:calculateGrossMargin]`: Retorna `0` si el precio de venta es menor o igual a cero.
 - `[inventorymatching.ts:hasVariantModifierMismatch]`: Detecta diferencias en modificadores de variantes (ej. *'zero'*, *'light'*) para evitar emparejamientos erróneos.
+- `[purchaseOrderUtils.ts:formatPurchaseOrderLabel]`: Invariante de humanización: NUNCA expone identificadores técnicos crudos (ej. `po-draft-...`) en la interfaz de usuario; asigna `'Proveedor por Definir'` si no existe proveedor asociado.
 - `[navigation.ts:pushNavigationState]`: Fija `state.from` en el origen actual o fallback `'/inventory'` e inyecta la marca temporal.
 - `[operationalzones.tsx:normalizeOperationalZone]`: Asigna `'general_operaciones'` si la zona especificada no existe en el catálogo.
 - `[searchengine.ts:flexibleMultiMatch]`: Todos los términos de la consulta deben estar presentes en el destino evaluado (operación AND lógica).

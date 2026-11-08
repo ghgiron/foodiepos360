@@ -16,6 +16,8 @@ El directorio `src/types` define las interfaces centrales del dominio, los contr
 - `[settings.ts:getEffectiveImpoconsumoRate]`: Resuelve la tasa activa de Impoconsumo aplicable.
 - `[voiceCopilot.ts:VoiceIngredientExtraction]`: Esquema de datos extraídos por el asistente de voz a partir de lenguaje natural.
 - `[voiceCopilot.ts:CopilotContextData]`: Carga de contexto que se provee a los modelos de lenguaje multimodales.
+- `[index.ts:PurchaseOrderItem]`: Contrato de ítem sugerido para reabastecimiento automático en órdenes de compra [US-09].
+- `[index.ts:PurchaseOrder]`: Contrato de orden de compra en borrador (`status: 'DRAFT'`) agrupada por proveedor [US-09].
 
 ## Invariantes
 - `[index.ts:getAvailableStock]`: El stock disponible nunca es inferior a cero: `Math.max(0, físico - reservado)`.
